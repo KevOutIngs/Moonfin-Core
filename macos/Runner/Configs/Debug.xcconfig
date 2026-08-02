@@ -1,2 +1,8 @@
 #include "../../Flutter/Flutter-Debug.xcconfig"
 #include "Warnings.xcconfig"
+
+// AetherEngine (static, FFmpeg 8 / Libav*) and media_kit (FFmpeg 6 / Av*) export the
+// same symbol names. The Lib* frameworks must precede the Pods -framework flags so
+// AetherEngine's calls bind to the FFmpeg ABI it was compiled against; otherwise
+// load() segfaults in av_dict_get (FFmpeg 6 resolving FFmpeg 8 struct layouts).
+OTHER_LDFLAGS = -framework Libavutil -framework Libavcodec -framework Libavformat -framework Libswresample -framework Libswscale -framework Libavfilter -framework Libdav1d $(inherited)

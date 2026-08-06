@@ -36,6 +36,8 @@ Color get _jellyfinBlue => AppColorScheme.accent;
 const _horizontalPadding = 60.0;
 const _kCompactBreakpoint = 600.0;
 
+const _loadMoreExtent = 400.0;
+
 /// Grouped rows run tighter than the flat grid so a row of posters and its
 /// category heading both fit.
 const _kGroupedRowCardScale = 0.88;
@@ -152,6 +154,9 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     if (length != _lastGridItemsLength || firstId != _lastGridFirstItemId) {
       _lastGridItemsLength = length;
       _lastGridFirstItemId = firstId;
+      // A reload can land on the count the fill stopped at, which would read
+      // as a page that added nothing.
+      _lastFillItemCount = -1;
       gridContentVersion++;
       cleanupGridFocusNodes(length);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -179,12 +184,47 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     _hasSubtitlesCache = null;
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
+  /// Whether the scroll view has settled metrics and is within
+  /// [_loadMoreExtent] of its end.
+  bool get _nearGridEnd {
+    // Two grids briefly share the controller while one is swapped out.
+    if (_scrollController.positions.length != 1) return false;
     final pos = _scrollController.position;
-    if (pos.pixels > pos.maxScrollExtent - 400) {
-      _vm.loadMore();
-    }
+    // The dimensions extentAfter reads.
+    if (!pos.hasPixels || !pos.hasContentDimensions) return false;
+    return pos.extentAfter < _loadMoreExtent;
+  }
+
+  void _onScroll() {
+    if (_nearGridEnd) _vm.loadMore();
+  }
+
+  bool _fillCheckScheduled = false;
+  int _lastFillItemCount = -1;
+
+  /// A wide window lays out more columns, so a whole page of cards can fit
+  /// without overflowing the viewport. Nothing scrolls then, [_onScroll] never
+  /// fires, and paging stalls until the window is made smaller again. Top the
+  /// grid up after layout instead, until it overflows or the library runs out.
+  void _scheduleViewportFillCheck() {
+    // Every path that can page again notifies and rebuilds, which re-runs the
+    // builder, so skipping here never latches the fill off for good.
+    if (_fillCheckScheduled || _vm.loadingMore || !_vm.hasMore) return;
+    _fillCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fillCheckScheduled = false;
+      _maybeFillViewport();
+    });
+  }
+
+  void _maybeFillViewport() {
+    if (!mounted || !_nearGridEnd) return;
+    // Top up once per delivered page. A page still in flight, or one that
+    // rendered nothing new, leaves the count where it was and ends the fill.
+    final count = _vm.items.length;
+    if (count == _lastFillItemCount) return;
+    _lastFillItemCount = count;
+    _vm.loadMore();
   }
 
   void _scrollToGridRow({
@@ -898,6 +938,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        _scheduleViewportFillCheck();
         final l10n = AppLocalizations.of(context);
         final isMobile = _isCompact(context);
         final gridPadding = isMobile ? 16.0 : _horizontalPadding;

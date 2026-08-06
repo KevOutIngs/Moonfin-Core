@@ -36,7 +36,7 @@ Color get _jellyfinBlue => AppColorScheme.accent;
 const _horizontalPadding = 60.0;
 const _kCompactBreakpoint = 600.0;
 
-const _loadMoreExtent = 400.0;
+const _kLoadMoreExtent = 400.0;
 
 /// Grouped rows run tighter than the flat grid so a row of posters and its
 /// category heading both fit.
@@ -185,14 +185,14 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
   }
 
   /// Whether the scroll view has settled metrics and is within
-  /// [_loadMoreExtent] of its end.
+  /// [_kLoadMoreExtent] of its end.
   bool get _nearGridEnd {
     // Two grids briefly share the controller while one is swapped out.
     if (_scrollController.positions.length != 1) return false;
     final pos = _scrollController.position;
-    // The dimensions extentAfter reads.
+    // extentAfter reads both of these, and throws before they are set.
     if (!pos.hasPixels || !pos.hasContentDimensions) return false;
-    return pos.extentAfter < _loadMoreExtent;
+    return pos.extentAfter < _kLoadMoreExtent;
   }
 
   void _onScroll() {
@@ -1327,6 +1327,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        _scheduleViewportFillCheck();
         final isMobile = _isCompact(context);
         final horizPadding = isMobile ? 16.0 : _horizontalPadding;
         final vertPadding = isMobile ? 12.0 : 20.0;

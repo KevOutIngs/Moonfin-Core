@@ -95,6 +95,22 @@ class ItemDetailViewModel extends ChangeNotifier {
 
   final String itemId;
 
+  /// The season the viewer was browsing when they opened this item. Only set
+  /// when it differs from the item's own season, which happens for a special
+  /// that DisplaySpecialsWithinSeasons lists inside a regular season.
+  final String? contextSeasonId;
+
+  String? _resolvedEpisodesSeasonId;
+
+  /// The season [episodes] was actually loaded from, so callers queue playback
+  /// and build links against the list that is on screen.
+  String? get effectiveSeasonId {
+    final item = _item;
+    if (item == null) return _resolvedEpisodesSeasonId ?? contextSeasonId;
+    if (item.type == 'Season') return itemId;
+    return _resolvedEpisodesSeasonId ?? contextSeasonId ?? item.seasonId;
+  }
+
   ItemDetailState _state = ItemDetailState.loading;
   ItemDetailState get state => _state;
 
@@ -349,6 +365,7 @@ class ItemDetailViewModel extends ChangeNotifier {
   ItemDetailViewModel({
     required this.itemId,
     String? serverId,
+    this.contextSeasonId,
     required MediaServerClient client,
     required ItemMutationRepository mutations,
     required MdbListRepository mdbListRepository,
@@ -632,14 +649,38 @@ class ItemDetailViewModel extends ChangeNotifier {
     final item = _item;
     if (item == null) return;
     final seriesId = item.seriesId ?? itemId;
+    final ownSeasonId = item.type == 'Season' ? itemId : item.seasonId;
+    final requestedSeasonId = item.type == 'Season'
+        ? itemId
+        : (contextSeasonId ?? item.seasonId);
     try {
-      final data = await _client.itemsApi.getEpisodes(
-        seriesId,
-        seasonId: item.type == 'Season' ? itemId : item.seasonId,
-        fields: _episodeOverviewFields,
-      );
-      final items = (data['Items'] as List?) ?? [];
-      _episodes = _mapItems(items);
+      Future<List<AggregatedItem>> episodesOf(String? seasonId) async {
+        final data = await _client.itemsApi.getEpisodes(
+          seriesId,
+          seasonId: seasonId,
+          fields: _episodeOverviewFields,
+        );
+        return _mapItems((data['Items'] as List?) ?? []);
+      }
+
+      var seasonId = requestedSeasonId;
+      var episodes = await episodesOf(seasonId);
+
+      // The browsed season only holds this item while the server inlines
+      // specials. A stale link, or an offline catalogue that files specials
+      // strictly under season 0, leaves it out — fall back to its own season
+      // rather than stranding the page on a list it does not appear in.
+      // Without a season to fall back to there is nothing better to ask for:
+      // a null season id would fetch every episode of the series.
+      if (ownSeasonId != null &&
+          seasonId != ownSeasonId &&
+          !episodes.any((e) => e.id == itemId)) {
+        seasonId = ownSeasonId;
+        episodes = await episodesOf(ownSeasonId);
+      }
+
+      _resolvedEpisodesSeasonId = seasonId;
+      _episodes = episodes;
       notifyListeners();
     } catch (_) {}
   }

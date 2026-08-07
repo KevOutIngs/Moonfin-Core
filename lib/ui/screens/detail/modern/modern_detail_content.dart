@@ -18,6 +18,7 @@ import '../../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../preference/user_preferences.dart';
 import '../../../../preference/preference_constants.dart';
+import '../../../../util/episode_playability.dart';
 import '../../../../util/overview_text.dart';
 import '../../../../util/platform_detection.dart';
 import '../../../../util/focus/dpad_keys.dart';
@@ -1300,6 +1301,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
                 imageApi: _vm.imageApi,
                 onChanged: () => _vm.load(),
                 isActive: _vm.episodes[i].id == nextUpId,
+                contextSeasonId: _vm.effectiveSeasonId,
                 focusNode: i == 0 ? _episodesFirstFocusNode : null,
                 onKeyEvent: i == 0
                     ? (node, event) {
@@ -4322,8 +4324,23 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         final manager = GetIt.instance<PlaybackManager>();
         final hasProgress = (episode!.playbackPosition?.inMilliseconds ?? 0) > 0 ||
                             (episode.playedPercentage ?? 0) > 0;
+        // On a season, follow the list as displayed so playback carries on
+        // through the season instead of stopping after this one item.
+        var queue = <AggregatedItem>[episode];
+        var startIndex = 0;
+        if (item.type == 'Season') {
+          final playable = _vm.episodes
+              .where((e) => e.id == episode!.id || isEligibleNextEpisodeCandidate(e))
+              .toList();
+          final at = playable.indexWhere((e) => e.id == episode!.id);
+          if (at >= 0) {
+            queue = playable;
+            startIndex = at;
+          }
+        }
         await manager.playItems(
-          [episode],
+          queue,
+          startIndex: startIndex,
           startPosition: hasProgress
               ? (episode.playbackPosition ?? Duration.zero)
               : Duration.zero,

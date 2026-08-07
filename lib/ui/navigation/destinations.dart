@@ -177,11 +177,23 @@ class Destinations {
       '/library/$libraryId/letters';
   static String librarySuggestionsOf(String libraryId) =>
       '/library/$libraryId/suggestions';
-  static String item(String itemId, {String? serverId, bool autoPlay = false}) {
+  /// [seasonContext] names the season the viewer was browsing, which is not
+  /// always the item's own season: a special inlined by
+  /// DisplaySpecialsWithinSeasons is listed under a regular season while still
+  /// living in Specials. Carrying it keeps the episode list and the play queue
+  /// on the season that was on screen.
+  static String item(
+    String itemId, {
+    String? serverId,
+    bool autoPlay = false,
+    String? seasonContext,
+  }) {
     final base = '/item/$itemId';
     final params = <String>[
       if (serverId != null) 'serverId=$serverId',
       if (autoPlay) 'autoPlay=true',
+      if (seasonContext != null && seasonContext.isNotEmpty)
+        'seasonContext=${Uri.encodeQueryComponent(seasonContext)}',
     ];
     return params.isEmpty ? base : '$base?${params.join('&')}';
   }

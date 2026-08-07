@@ -84,6 +84,7 @@ import '../../../syncplay/syncplay_manager.dart';
 import '../../../util/audio_labels.dart';
 import '../../../util/download_utils.dart';
 import '../../../util/episode_playability.dart';
+import '../../../util/season_queue_context.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/language_matching.dart';
 import '../../../util/subtitle_track_logic.dart';
@@ -217,12 +218,17 @@ class ItemDetailScreen extends StatefulWidget {
   /// Only used to resolve an IMDb-keyed Seerr id by searching for it.
   final String? seerrTitle;
 
+  /// The season the viewer came from, when it is not this item's own season —
+  /// see [ItemDetailViewModel.contextSeasonId].
+  final String? contextSeasonId;
+
   const ItemDetailScreen({
     super.key,
     required this.itemId,
     this.serverId,
     this.autoPlay = false,
     this.seerrTitle,
+    this.contextSeasonId,
   });
 
   @override
@@ -268,6 +274,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     _viewModel = ItemDetailViewModel(
       itemId: widget.itemId,
       serverId: widget.serverId,
+      contextSeasonId: widget.contextSeasonId,
       client: client,
       mutations: GetIt.instance<ItemMutationRepository>(),
       mdbListRepository: GetIt.instance<MdbListRepository>(),
@@ -2073,6 +2080,7 @@ class _DetailContentState extends State<_DetailContent> {
         DetailNextUpCard(
           episode: viewModel.nextUp!,
           imageApi: viewModel.imageApi,
+          contextSeasonId: viewModel.effectiveSeasonId,
           focusNode: seriesNextUpFocusNode,
           onKeyEvent: (event) {
             if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -2253,6 +2261,7 @@ class _DetailContentState extends State<_DetailContent> {
               imageApi: viewModel.imageApi,
               onChanged: () => viewModel.load(),
               isActive: viewModel.nextUp?.id == ep.id,
+              contextSeasonId: item.id,
             ),
           ),
         ),
@@ -2374,6 +2383,7 @@ class _DetailContentState extends State<_DetailContent> {
               DetailNextUpCard(
                 episode: nextEpisode,
                 imageApi: viewModel.imageApi,
+                contextSeasonId: viewModel.effectiveSeasonId,
                 focusNode: nextEpisodeFocusNode,
                 onKeyEvent: (event) {
                   if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -2417,6 +2427,7 @@ class _DetailContentState extends State<_DetailContent> {
             currentEpisodeId: item.id,
             imageApi: viewModel.imageApi,
             onChanged: () => viewModel.load(),
+            contextSeasonId: viewModel.effectiveSeasonId,
             scrollController: _trackSectionScrollController(
               episodesFocusNode,
               ctrl,
@@ -5838,8 +5849,15 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       if (!mounted) return;
 
       // Consume autoPlay from the current detail route so back navigation
-      // doesn't re-trigger playback.
-      context.replace(Destinations.item(item.id, serverId: item.serverId));
+      // doesn't re-trigger playback. The browsed season has to survive the
+      // rewrite, or the screen reloads against the item's own season.
+      context.replace(
+        Destinations.item(
+          item.id,
+          serverId: item.serverId,
+          seasonContext: viewModel.contextSeasonId,
+        ),
+      );
 
       final isPhoto = item.type == 'Photo';
       final ws = _computeWatchState(item);
@@ -7735,6 +7753,68 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         .toList();
   }
 
+  /// The playable season list that actually holds [target], as the season pages
+  /// display it.
+  ///
+  /// A special is filed under Specials but shown inside a regular season once
+  /// the library inlines it, and nothing on the item says which season claimed
+  /// it. So for a special, ask about the seasons of its neighbours in aired
+  /// order — the one that lists it is the one to queue. Regular episodes take
+  /// the first candidate, their own season, on the first request.
+  Future<List<AggregatedItem>> _seasonQueueContaining(
+    MediaServerClient client, {
+    required String seriesId,
+    required String serverId,
+    required AggregatedItem target,
+    required List<AggregatedItem> airedEpisodes,
+    required String fields,
+  }) async {
+    final candidates = <String>[];
+    void addCandidate(String? seasonId) {
+      if (seasonId == null || seasonId.isEmpty) return;
+      if (candidates.contains(seasonId)) return;
+      candidates.add(seasonId);
+    }
+
+    if (isSpecialEpisode(target)) {
+      final at = airedEpisodes.indexWhere((e) => e.id == target.id);
+      if (at >= 0) {
+        // Airs-before is the common case, so the season that follows leads.
+        for (var i = at + 1; i < airedEpisodes.length; i++) {
+          if (isSpecialEpisode(airedEpisodes[i])) continue;
+          addCandidate(airedEpisodes[i].seasonId);
+          break;
+        }
+        for (var i = at - 1; i >= 0; i--) {
+          if (isSpecialEpisode(airedEpisodes[i])) continue;
+          addCandidate(airedEpisodes[i].seasonId);
+          break;
+        }
+      }
+    }
+    addCandidate(target.seasonId);
+
+    for (final seasonId in candidates) {
+      try {
+        final seasonData = await client.itemsApi.getEpisodes(
+          seriesId,
+          seasonId: seasonId,
+          fields: fields,
+        );
+        final seasonEpisodes = _mapRawItemsForServer(
+          seasonData['Items'],
+          serverId,
+        );
+        if (!seasonEpisodes.any((e) => e.id == target.id)) continue;
+        final playable = seasonEpisodes
+            .where(isEligibleNextEpisodeCandidate)
+            .toList();
+        if (playable.isNotEmpty) return playable;
+      } catch (_) {}
+    }
+    return const <AggregatedItem>[];
+  }
+
   Future<List<AggregatedItem>> _truncateQueueIfImmediateNextUnplayable(
     List<AggregatedItem> queue, {
     required int startIndex,
@@ -7827,10 +7907,20 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           lastPlayedType == 'episode' &&
           lastPlayed.id != widget.itemId) {
         if (context.mounted) {
-          final currentSeasonId = viewModel.item?.seasonId;
-          if (lastPlayed.seasonId != null &&
-              lastPlayed.seasonId!.isNotEmpty &&
-              lastPlayed.seasonId != currentSeasonId) {
+          // An inlined special owns the Specials season while being listed in
+          // the one on screen, so membership of the loaded list — not the
+          // season id — decides whether playback left the season.
+          final browsedSeasonId = viewModel.effectiveSeasonId;
+          final stayedInSeason =
+              viewModel.episodes.any((e) => e.id == lastPlayed.id) ||
+              lastPlayed.seasonId == browsedSeasonId;
+          // A special's own season is Specials, which is never the season the
+          // viewer was moved into — rebuilding the stack under it would land
+          // them exactly where this whole change keeps them out of.
+          if (!stayedInSeason &&
+              !isSpecialEpisode(lastPlayed) &&
+              lastPlayed.seasonId != null &&
+              lastPlayed.seasonId!.isNotEmpty) {
             final router = GoRouter.of(context);
             router.pushReplacement(
               Destinations.item(
@@ -7845,7 +7935,14 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             });
           } else {
             context.pushReplacement(
-              Destinations.item(lastPlayed.id, serverId: lastPlayed.serverId),
+              Destinations.item(
+                lastPlayed.id,
+                serverId: lastPlayed.serverId,
+                seasonContext: seasonContextParam(
+                  contextSeasonId: browsedSeasonId,
+                  episodeSeasonId: lastPlayed.seasonId,
+                ),
+              ),
             );
           }
         }
@@ -7854,7 +7951,10 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           lastPlayedType == 'episode' &&
           lastPlayed.seasonId != null &&
           lastPlayed.seasonId!.isNotEmpty &&
-          lastPlayed.seasonId != widget.itemId) {
+          lastPlayed.seasonId != widget.itemId &&
+          // A special inlined into this season is displayed here, so finishing
+          // on one must not bounce the viewer over to the Specials season.
+          !viewModel.episodes.any((e) => e.id == lastPlayed.id)) {
         if (context.mounted) {
           context.pushReplacement(
             Destinations.item(
@@ -8021,27 +8121,17 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                   );
             }
 
-            final targetSeasonId = targetEpisode.seasonId;
-            var queueEpisodes = <AggregatedItem>[targetEpisode];
-            if (targetSeasonId != null && targetSeasonId.isNotEmpty) {
-              try {
-                final seasonData = await client.itemsApi.getEpisodes(
-                  item.id,
-                  seasonId: targetSeasonId,
-                  fields: episodeQueueFields,
-                );
-                final seasonEpisodes = _mapRawItemsForServer(
-                  seasonData['Items'],
-                  item.serverId,
-                );
-                final playableSeasonEpisodes = seasonEpisodes
-                    .where(isEligibleNextEpisodeCandidate)
-                    .toList();
-                if (playableSeasonEpisodes.isNotEmpty) {
-                  queueEpisodes = playableSeasonEpisodes;
-                }
-              } catch (_) {}
-            }
+            final playableSeasonEpisodes = await _seasonQueueContaining(
+              client,
+              seriesId: item.id,
+              serverId: item.serverId,
+              target: targetEpisode,
+              airedEpisodes: allEpisodes,
+              fields: episodeQueueFields,
+            );
+            final queueEpisodes = playableSeasonEpisodes.isNotEmpty
+                ? playableSeasonEpisodes
+                : <AggregatedItem>[targetEpisode];
 
             final startIndex = queueEpisodes.indexWhere(
               (e) => e.id == targetEpisode.id,
@@ -8156,7 +8246,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             var episodes = viewModel.episodes;
             if (episodes.isEmpty || !episodes.any((e) => e.id == item.id)) {
               final seriesId = item.seriesId;
-              final seasonId = item.seasonId;
+              // Matches the list on screen, which for an inlined special is the
+              // season being browsed rather than Specials.
+              final seasonId = viewModel.effectiveSeasonId ?? item.seasonId;
               if (seriesId != null && seriesId.isNotEmpty) {
                 try {
                   const episodeQueueFields = 'Overview,RunTimeTicks,UserData';
@@ -12387,6 +12479,10 @@ class _EpisodesRow extends StatelessWidget {
   final KeyEventResult Function(int index, KeyEvent event)? onItemKeyEvent;
   final VoidCallback? onChanged;
 
+  /// The season these episodes are listed under — see
+  /// [DetailEpisodeCard.contextSeasonId].
+  final String? contextSeasonId;
+
   const _EpisodesRow({
     required this.episodes,
     required this.currentEpisodeId,
@@ -12395,6 +12491,7 @@ class _EpisodesRow extends StatelessWidget {
     this.firstItemFocusNode,
     this.onItemKeyEvent,
     this.onChanged,
+    this.contextSeasonId,
   });
 
   @override
@@ -12434,6 +12531,7 @@ class _EpisodesRow extends StatelessWidget {
                 ? null
                 : (event) => onItemKeyEvent!(index, event),
             onChanged: onChanged,
+            contextSeasonId: contextSeasonId,
           );
         },
       ),
@@ -12450,6 +12548,10 @@ class _EpisodeListCard extends StatefulWidget {
   final KeyEventResult Function(KeyEvent event)? onKeyEvent;
   final VoidCallback? onChanged;
 
+  /// The season this card is listed under — see
+  /// [DetailEpisodeCard.contextSeasonId].
+  final String? contextSeasonId;
+
   const _EpisodeListCard({
     required this.episode,
     required this.isCurrent,
@@ -12458,6 +12560,7 @@ class _EpisodeListCard extends StatefulWidget {
     this.focusNode,
     this.onKeyEvent,
     this.onChanged,
+    this.contextSeasonId,
   });
 
   @override
@@ -12476,6 +12579,19 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
 
   void _handleLongPress() {
     showContextMenu(context, widget.episode, onChanged: widget.onChanged);
+  }
+
+  void _open() {
+    context.push(
+      Destinations.item(
+        widget.episode.id,
+        serverId: widget.episode.serverId,
+        seasonContext: seasonContextParam(
+          contextSeasonId: widget.contextSeasonId,
+          episodeSeasonId: widget.episode.seasonId,
+        ),
+      ),
+    );
   }
 
   @override
@@ -12510,8 +12626,7 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
           }
           final handlerResult = _selectKeyHandler.handleKeyEvent(
             event,
-            onTap: () =>
-                context.push(Destinations.item(ep.id, serverId: ep.serverId)),
+            onTap: _open,
             onLongPress: _handleLongPress,
           );
           if (handlerResult != KeyEventResult.ignored) {
@@ -12520,8 +12635,7 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
           return KeyEventResult.ignored;
         },
         child: GestureDetector(
-          onTap: () =>
-              context.push(Destinations.item(ep.id, serverId: ep.serverId)),
+          onTap: _open,
           onLongPress: _handleLongPress,
           onSecondaryTap: _handleLongPress,
           child: Container(
@@ -12673,11 +12787,16 @@ class DetailNextUpCard extends StatefulWidget {
   final FocusNode? focusNode;
   final KeyEventResult Function(KeyEvent event)? onKeyEvent;
 
+  /// The season this card is listed under — see
+  /// [DetailEpisodeCard.contextSeasonId].
+  final String? contextSeasonId;
+
   const DetailNextUpCard({
     required this.episode,
     required this.imageApi,
     this.focusNode,
     this.onKeyEvent,
+    this.contextSeasonId,
   });
 
   @override
@@ -12686,6 +12805,19 @@ class DetailNextUpCard extends StatefulWidget {
 
 class DetailNextUpCardState extends State<DetailNextUpCard>
     with FocusStateMixin {
+  void _open() {
+    context.push(
+      Destinations.item(
+        widget.episode.id,
+        serverId: widget.episode.serverId,
+        seasonContext: seasonContextParam(
+          contextSeasonId: widget.contextSeasonId,
+          episodeSeasonId: widget.episode.seasonId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final episode = widget.episode;
@@ -12719,17 +12851,13 @@ class DetailNextUpCardState extends State<DetailNextUpCard>
             return customResult;
           }
           if (isActivateKey(event)) {
-            context.push(
-              Destinations.item(episode.id, serverId: episode.serverId),
-            );
+            _open();
             return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },
         child: GestureDetector(
-          onTap: () => context.push(
-            Destinations.item(episode.id, serverId: episode.serverId),
-          ),
+          onTap: _open,
           child: AnimatedScale(
             scale: cardExpansion && showFocusBorder ? 1.02 : 1.0,
             duration: const Duration(milliseconds: 120),
@@ -12848,6 +12976,10 @@ class DetailEpisodeCard extends StatefulWidget {
   final FocusNode? focusNode;
   final FocusOnKeyEventCallback? onKeyEvent;
 
+  /// The season this card is listed under, forwarded so an inlined special
+  /// opens in the season the viewer is browsing instead of Specials.
+  final String? contextSeasonId;
+
   final bool isActive;
 
   const DetailEpisodeCard({
@@ -12856,6 +12988,7 @@ class DetailEpisodeCard extends StatefulWidget {
     this.onChanged,
     this.focusNode,
     this.onKeyEvent,
+    this.contextSeasonId,
     this.isActive = false,
   });
 
@@ -12875,6 +13008,19 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
 
   void _handleLongPress() {
     showContextMenu(context, widget.episode, onChanged: widget.onChanged);
+  }
+
+  void _open() {
+    context.push(
+      Destinations.item(
+        widget.episode.id,
+        serverId: widget.episode.serverId,
+        seasonContext: seasonContextParam(
+          contextSeasonId: widget.contextSeasonId,
+          episodeSeasonId: widget.episode.seasonId,
+        ),
+      ),
+    );
   }
 
   @override
@@ -12914,9 +13060,7 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
           }
           final handlerResult = _selectKeyHandler.handleKeyEvent(
             event,
-            onTap: () => context.push(
-              Destinations.item(episode.id, serverId: episode.serverId),
-            ),
+            onTap: _open,
             onLongPress: _handleLongPress,
           );
           if (handlerResult != KeyEventResult.ignored) {
@@ -12925,9 +13069,7 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
           return KeyEventResult.ignored;
         },
         child: GestureDetector(
-          onTap: () => context.push(
-            Destinations.item(episode.id, serverId: episode.serverId),
-          ),
+          onTap: _open,
           onLongPress: _handleLongPress,
           onSecondaryTap: _handleLongPress,
           child: AnimatedScale(

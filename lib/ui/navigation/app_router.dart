@@ -380,11 +380,15 @@ final appRouter = GoRouter(
         final itemId = state.pathParameters['itemId']!;
         final serverId = state.uri.queryParameters['serverId'];
         final autoPlay = state.uri.queryParameters['autoPlay'] == 'true';
+        final contextSeasonId = state.uri.queryParameters['seasonContext'];
         return ItemDetailScreen(
-          key: ValueKey(itemId),
+          // The browsed season decides which episode list this screen loads, so
+          // a change of context has to remount rather than reuse the view model.
+          key: ValueKey('$itemId|${contextSeasonId ?? ''}'),
           itemId: itemId,
           serverId: serverId,
           autoPlay: autoPlay,
+          contextSeasonId: contextSeasonId,
         );
       },
       routes: [

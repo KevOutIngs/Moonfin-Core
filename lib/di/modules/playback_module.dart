@@ -38,6 +38,7 @@ import '../../preference/user_preferences.dart';
 import '../../syncplay/syncplay_manager.dart';
 import '../../util/platform_detection.dart';
 import '../../util/episode_playability.dart';
+import '../../util/season_queue_context.dart';
 import '../../util/audio_track_logic.dart';
 import '../../util/subtitle_track_logic.dart';
 
@@ -116,31 +117,6 @@ int? _asInt(dynamic value) {
   return null;
 }
 
-bool _isSingleSeasonEpisodeQueue(
-  List<dynamic> queueItems, {
-  required String seriesId,
-  required String seasonId,
-  required int seasonNumber,
-}) {
-  if (queueItems.isEmpty) return false;
-
-  for (final item in queueItems) {
-    if (item is! AggregatedItem) return false;
-    if (!_isEpisodeQueueItem(item)) return false;
-    if (item.seriesId != seriesId) return false;
-
-    final itemSeasonId = item.seasonId;
-    if (itemSeasonId != null && itemSeasonId.isNotEmpty) {
-      if (itemSeasonId != seasonId) return false;
-      continue;
-    }
-
-    if (item.parentIndexNumber != seasonNumber) return false;
-  }
-
-  return true;
-}
-
 List<AggregatedItem> _mapServerItemsToAggregated(
   List<dynamic> items,
   String serverId,
@@ -158,48 +134,6 @@ List<AggregatedItem> _mapServerItemsToAggregated(
       .toList(growable: false);
 }
 
-List<AggregatedItem> _sortEpisodesForPlayback(List<AggregatedItem> episodes) {
-  final sorted = List<AggregatedItem>.from(episodes);
-  sorted.sort((a, b) {
-    final seasonCmp = (a.parentIndexNumber ?? 0).compareTo(
-      b.parentIndexNumber ?? 0,
-    );
-    if (seasonCmp != 0) return seasonCmp;
-    final episodeCmp = (a.indexNumber ?? 0).compareTo(b.indexNumber ?? 0);
-    if (episodeCmp != 0) return episodeCmp;
-    return a.id.compareTo(b.id);
-  });
-  return sorted;
-}
-
-bool _isSeasonFinale(
-  AggregatedItem completedItem,
-  List<AggregatedItem> seasonEpisodes,
-) {
-  if (seasonEpisodes.isEmpty) return false;
-
-  final completedId = completedItem.id;
-  if (seasonEpisodes.last.id == completedId) return true;
-
-  if (seasonEpisodes.any((episode) => episode.id == completedId)) {
-    return false;
-  }
-
-  final completedIndex = completedItem.indexNumber;
-  if (completedIndex == null) return false;
-
-  int? maxEpisodeIndex;
-  for (final episode in seasonEpisodes) {
-    final idx = episode.indexNumber;
-    if (idx == null) continue;
-    if (maxEpisodeIndex == null || idx > maxEpisodeIndex) {
-      maxEpisodeIndex = idx;
-    }
-  }
-
-  return maxEpisodeIndex != null && completedIndex >= maxEpisodeIndex;
-}
-
 Future<List<AggregatedItem>> _fetchSeasonEpisodes({
   required MediaServerClient client,
   required String serverId,
@@ -213,7 +147,7 @@ Future<List<AggregatedItem>> _fetchSeasonEpisodes({
   );
   final rawItems = (data['Items'] as List?) ?? const [];
   final episodes = _mapServerItemsToAggregated(rawItems, serverId);
-  return _sortEpisodesForPlayback(episodes);
+  return orderSeasonEpisodes(episodes);
 }
 
 Future<String?> _resolveNextSeasonId({
@@ -255,14 +189,24 @@ Future<List<dynamic>> _nextSeasonItemsProvider(
   if (!_isEpisodeQueueItem(completedItem)) return const <dynamic>[];
 
   final seriesId = completedItem.seriesId;
-  final seasonId = completedItem.seasonId;
-  final seasonNumber = completedItem.parentIndexNumber;
   if (seriesId == null || seriesId.isEmpty) return const <dynamic>[];
+
+  if (queueItems.any((item) => item is! AggregatedItem)) {
+    return const <dynamic>[];
+  }
+  final episodeQueue = queueItems.cast<AggregatedItem>();
+
+  // An inlined special carries the Specials season on itself, so the season to
+  // continue from is the one the rest of the queue is made of.
+  final queueSeason = resolveQueueSeason(episodeQueue);
+  final seasonId = queueSeason?.seasonId ?? completedItem.seasonId;
+  final seasonNumber =
+      queueSeason?.seasonNumber ?? completedItem.parentIndexNumber;
   if (seasonId == null || seasonId.isEmpty) return const <dynamic>[];
   if (seasonNumber == null) return const <dynamic>[];
 
-  if (!_isSingleSeasonEpisodeQueue(
-    queueItems,
+  if (!isSeasonScopedEpisodeQueue(
+    episodeQueue,
     seriesId: seriesId,
     seasonId: seasonId,
     seasonNumber: seasonNumber,
@@ -285,7 +229,7 @@ Future<List<dynamic>> _nextSeasonItemsProvider(
     return const <dynamic>[];
   }
 
-  if (!_isSeasonFinale(completedItem, currentSeasonEpisodes)) {
+  if (!isSeasonFinale(completedItem, currentSeasonEpisodes)) {
     return const <dynamic>[];
   }
 

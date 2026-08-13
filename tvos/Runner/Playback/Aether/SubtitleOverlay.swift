@@ -26,9 +26,17 @@ final class SubtitleOverlay: PlatformView {
     private let assImageView = NSImageView()
     #endif
     private var eventQueue: [SubtitleEvent] = []
-    private var activeEvent: SubtitleEvent?
+    /// Every text cue covering the playhead, not just one: cues sharing a window
+    /// are distinct simultaneous speakers and the engine keeps them all.
+    private var activeTextEvents: [SubtitleEvent] = []
+    private var activeBitmapEvent: SubtitleEvent?
     private var lastUpdateTime: TimeInterval = 0
     var delaySeconds: TimeInterval = 0
+
+    /// What the label is showing: the covering cues joined in start order.
+    var activeText: String {
+        activeTextEvents.compactMap(\.text).joined(separator: "\n")
+    }
 
     /// Where the picture sits inside the overlay. A TV gives the video the
     /// whole surface, but a phone letterboxes anything shaped differently, and
@@ -144,8 +152,8 @@ final class SubtitleOverlay: PlatformView {
     private func layoutOverlay() {
         // The point size follows the height, so it changes on resize and on
         // the first real layout after a style was applied against zero bounds.
-        if subtitleFontSize != appliedFontSize, let text = activeEvent?.text {
-            setLabelText(styledText(text))
+        if subtitleFontSize != appliedFontSize, !activeTextEvents.isEmpty {
+            setLabelText(styledText(activeText))
         }
         layoutTextLabel()
         layoutBitmapView()
@@ -189,34 +197,59 @@ final class SubtitleOverlay: PlatformView {
 
     /// The engine republishes the full active-cue set, so replace the queue
     /// wholesale and re-evaluate at the last known clock so a cue swap shows
-    /// without waiting for the next tick.
+    /// without waiting for the next tick. The only writer of `eventQueue`: the
+    /// overlay never drops a cue itself, because for a sidecar track this queue
+    /// is the only copy there is. The engine publishes such a file once and
+    /// clears its drain target, so a cue discarded here never comes back and the
+    /// rest of the session plays with holes in it. Retention belongs to the
+    /// engine, which prunes the tracks it actually drains.
     func setEvents(_ events: [SubtitleEvent]) {
         eventQueue = events.sorted { $0.startTime < $1.startTime }
         if lastUpdateTime > 0 {
-            evaluate(at: lastUpdateTime, evict: false)
-        } else if events.isEmpty, activeEvent != nil {
+            evaluate(at: lastUpdateTime)
+        } else if events.isEmpty {
             hideAll()
         }
     }
 
     func update(currentTime: TimeInterval) {
         lastUpdateTime = currentTime
-        evaluate(at: currentTime, evict: true)
+        evaluate(at: currentTime)
     }
 
-    private func evaluate(at currentTime: TimeInterval, evict: Bool) {
-        let adjusted = currentTime - delaySeconds
-        if evict {
-            eventQueue.removeAll { $0.endTime < adjusted - 0.5 }
-        }
-        let current = eventQueue.first { adjusted >= $0.startTime && adjusted < $0.endTime }
+    /// Every cue whose window covers `adjustedTime`. Static and pure for unit
+    /// tests: a clock that jumps forward and back, and two speakers sharing a
+    /// window, are both decided here.
+    static func activeEvents(
+        in events: [SubtitleEvent], at adjustedTime: TimeInterval
+    ) -> [SubtitleEvent] {
+        events.filter { adjustedTime >= $0.startTime && adjustedTime < $0.endTime }
+    }
 
-        if let current {
-            if activeEvent == nil || activeEvent!.startTime != current.startTime {
-                showEvent(current)
+    /// Whether two cue sets would draw the same block. Keyed on the window as
+    /// well as the text, since the engine rewrites a cue's end time in place to
+    /// close an open-ended line (a teletext page replacement, a PGS trim), and a
+    /// start-only comparison leaves the retired line on screen.
+    private static func drawsTheSame(_ lhs: [SubtitleEvent], _ rhs: [SubtitleEvent]) -> Bool {
+        lhs.count == rhs.count
+            && zip(lhs, rhs).allSatisfy {
+                $0.startTime == $1.startTime && $0.endTime == $1.endTime && $0.text == $1.text
             }
-        } else if activeEvent != nil {
-            hideAll()
+    }
+
+    private func evaluate(at currentTime: TimeInterval) {
+        let adjusted = currentTime - delaySeconds
+        let covering = Self.activeEvents(in: eventQueue, at: adjusted)
+
+        // Text and bitmap are tracked apart so neither hides the other.
+        let texts = covering.filter { $0.text != nil }
+        if !Self.drawsTheSame(texts, activeTextEvents) {
+            showText(texts)
+        }
+
+        let bitmap = covering.first { $0.bitmap != nil }
+        if bitmap?.startTime != activeBitmapEvent?.startTime {
+            showBitmap(bitmap)
         }
     }
 
@@ -255,8 +288,8 @@ final class SubtitleOverlay: PlatformView {
         if let verticalOffset {
             setSubtitlePosition(basePosition: 100 - Int((verticalOffset * 60).rounded()))
         }
-        if let event = activeEvent, event.text != nil {
-            showEvent(event)
+        if !activeTextEvents.isEmpty {
+            showText(activeTextEvents)
         }
     }
 
@@ -270,29 +303,36 @@ final class SubtitleOverlay: PlatformView {
 
     // MARK: - Display
 
-    private func showEvent(_ event: SubtitleEvent) {
-        activeEvent = event
-        if let text = event.text {
-            bitmapView.isHidden = true
-            bitmapView.image = nil
-            setLabelText(styledText(text))
-            textLabel.isHidden = false
-            layoutTextLabel()
-        } else if let bitmap = event.bitmap {
+    /// Draws the cues covering the playhead as one block, joined in start order,
+    /// so the label keeps a single centred frame and the styling stays exactly
+    /// as it was for the common one-cue case.
+    private func showText(_ events: [SubtitleEvent]) {
+        activeTextEvents = events
+        guard !events.isEmpty else {
             textLabel.isHidden = true
             setLabelText(nil)
-            bitmapView.image = Self.platformImage(bitmap)
-            bitmapView.isHidden = false
-            layoutBitmapView()
+            return
         }
+        setLabelText(styledText(activeText))
+        textLabel.isHidden = false
+        layoutTextLabel()
+    }
+
+    private func showBitmap(_ event: SubtitleEvent?) {
+        activeBitmapEvent = event
+        guard let bitmap = event?.bitmap else {
+            bitmapView.isHidden = true
+            bitmapView.image = nil
+            return
+        }
+        bitmapView.image = Self.platformImage(bitmap)
+        bitmapView.isHidden = false
+        layoutBitmapView()
     }
 
     private func hideAll() {
-        activeEvent = nil
-        textLabel.isHidden = true
-        setLabelText(nil)
-        bitmapView.isHidden = true
-        bitmapView.image = nil
+        showText([])
+        showBitmap(nil)
     }
 
     private func layoutTextLabel() {
@@ -308,7 +348,7 @@ final class SubtitleOverlay: PlatformView {
     }
 
     private func layoutBitmapView() {
-        guard !bitmapView.isHidden, let event = activeEvent else { return }
+        guard !bitmapView.isHidden, let event = activeBitmapEvent else { return }
         let box = videoBox
         if let rect = event.normalizedRect, let canvas = event.canvasSize,
             canvas.width > 0, canvas.height > 0

@@ -691,7 +691,7 @@ class SyncPlayManager extends ChangeNotifier {
     _lastSyncPositionMs = positionMs;
     _lastSyncTimeMs = targetMs;
     // A fresh sync point, so don't inherit a skip streak from before the pause.
-    _syncCorrection.onResumed();
+    _syncCorrection.onSyncPointChanged(DateTime.now().millisecondsSinceEpoch);
 
     if (!advancedCorrectionEnabled) {
       if (delayMs > 0) {
@@ -736,6 +736,7 @@ class SyncPlayManager extends ChangeNotifier {
     final positionMs = _clampedPositionMs(adjusted);
     _lastSyncPositionMs = positionMs;
     _lastSyncTimeMs = serverNow;
+    _syncCorrection.onSyncPointChanged(DateTime.now().millisecondsSinceEpoch);
     _performSeek(positionMs);
     // Seek only ever arrives from the waiting state, which has just flagged
     // every session as buffering. A seek that lands inside the buffer never
@@ -909,6 +910,10 @@ class SyncPlayManager extends ChangeNotifier {
     switch (decision.action) {
       // Leaves the rate alone: the pipeline is stalled or paused here.
       case SyncCorrectionAction.defer:
+        _scheduleDriftCorrection();
+      // Absorbs the seek's own cost so it is never mistaken for drift.
+      case SyncCorrectionAction.rebaseline:
+        _lastSyncPositionMs += decision.measuredDelayMs;
         _scheduleDriftCorrection();
       case SyncCorrectionAction.hold:
         _restorePlaybackRate();

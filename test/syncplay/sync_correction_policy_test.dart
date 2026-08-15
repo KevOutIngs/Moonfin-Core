@@ -18,6 +18,7 @@ class _FakeClient {
   int nowMs = 0;
   int positionMs = 0;
   int stalledUntilMs = 0;
+  int baselineMs = 0;
 
   _FakeClient({required this.seekLatencyMs});
 
@@ -58,7 +59,7 @@ List<SyncCorrectionDecision> _run(
       nowMs: client.nowMs,
       serverNowMs: client.nowMs,
       currentPositionMs: client.positionMs,
-      lastSyncPositionMs: 0,
+      lastSyncPositionMs: client.baselineMs,
       lastSyncTimeMs: 0,
       isBuffering: client.isBuffering,
       isPlaying: client.isPlaying,
@@ -68,6 +69,8 @@ List<SyncCorrectionDecision> _run(
     decisions.add(decision);
     if (decision.action == SyncCorrectionAction.skip) {
       client.seekTo(decision.targetPositionMs);
+    } else if (decision.action == SyncCorrectionAction.rebaseline) {
+      client.baselineMs += decision.measuredDelayMs;
     }
   }
   return decisions;
@@ -262,7 +265,7 @@ void main() {
   });
 
   group('lifecycle', () {
-    test('resume clears the skip streak but keeps the learned latency', () {
+    test('a new sync point clears the skip streak but keeps the latency', () {
       final client = _FakeClient(seekLatencyMs: 3000)..stall(4000);
       final policy = SyncCorrectionPolicy();
       _run(policy, client, ticks: 10);
@@ -270,13 +273,66 @@ void main() {
       expect(policy.seekLatencyAllowanceMs, greaterThan(0));
       final learned = policy.seekLatencyAllowanceMs;
 
-      policy.onResumed();
+      policy.onSyncPointChanged(client.nowMs);
 
       expect(policy.consecutiveSkips, 0);
       expect(
         policy.seekLatencyAllowanceMs,
         learned,
         reason: 'seek latency is a property of the device and stream',
+      );
+    });
+
+    test('a group seek is given time to land before anything is measured', () {
+      final policy = SyncCorrectionPolicy();
+      final client = _FakeClient(seekLatencyMs: 1200);
+      client.seekTo(0);
+      policy.onSyncPointChanged(client.nowMs);
+
+      expect(_run(policy, client, ticks: 1).single.action,
+          SyncCorrectionAction.defer);
+    });
+
+    test('a group seek re-anchors instead of nudging the rate', () {
+      // The seek's own latency is not drift. Answering it with a rate nudge
+      // inserts an mpv tempo filter mid-playback and audibly glitches.
+      final policy = SyncCorrectionPolicy();
+      final client = _FakeClient(seekLatencyMs: 1200);
+      client.seekTo(0);
+      policy.onSyncPointChanged(client.nowMs);
+
+      final decisions = _run(policy, client, ticks: 30);
+
+      expect(_countOf(decisions, SyncCorrectionAction.rebaseline), 1);
+      expect(
+        _countOf(decisions, SyncCorrectionAction.speed),
+        0,
+        reason: 'no rate nudge, so no tempo filter churn after a seek',
+      );
+      expect(_countOf(decisions, SyncCorrectionAction.skip), 0);
+      expect(
+        policy.seekLatencyAllowanceMs,
+        1200,
+        reason: 'the residual is the seek latency, worth learning',
+      );
+    });
+
+    test('real drift after a re-anchored seek is still corrected', () {
+      final policy = SyncCorrectionPolicy();
+      final client = _FakeClient(seekLatencyMs: 1200);
+      client.seekTo(0);
+      policy.onSyncPointChanged(client.nowMs);
+      _run(policy, client, ticks: 4);
+
+      // A stall well after the seek is genuine drift, not seek cost.
+      client.stall(5000);
+      final decisions = _run(policy, client, ticks: 12);
+
+      expect(
+        _countOf(decisions, SyncCorrectionAction.skip) +
+            _countOf(decisions, SyncCorrectionAction.speed),
+        greaterThan(0),
+        reason: 're-anchoring must not blind the policy to later drift',
       );
     });
 

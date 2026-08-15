@@ -3,7 +3,7 @@
 /// on their own.
 library;
 
-enum SyncCorrectionAction { hold, defer, skip, speed, giveUp }
+enum SyncCorrectionAction { hold, defer, rebaseline, skip, speed, giveUp }
 
 class SyncCorrectionSettings {
   final bool useSkipToSync;
@@ -51,6 +51,8 @@ class SyncCorrectionPolicy {
   // the rate every couple of seconds.
   static const int noiseFloorMs = 400;
   static const int skipSettleMs = 6000;
+  // A seek the group asked for lands just as slowly as one we chose.
+  static const int seekSettleMs = 3000;
   static const int maxSeekLatencyAllowanceMs = 8000;
   static const int maxConsecutiveSkips = 4;
 
@@ -61,6 +63,7 @@ class SyncCorrectionPolicy {
   int _seekLatencyAllowanceMs = 0;
   int _blockedUntilMs = 0;
   bool _awaitingSkipSettle = false;
+  bool _awaitingSyncPointSettle = false;
   bool _gaveUp = false;
 
   int get seekLatencyAllowanceMs => _seekLatencyAllowanceMs;
@@ -95,21 +98,24 @@ class SyncCorrectionPolicy {
     final delay = currentPositionMs - expectedMs;
     final absDelay = delay.abs();
 
+    if (_awaitingSyncPointSettle) {
+      _awaitingSyncPointSettle = false;
+      // The group extrapolates from the seek as though it were instant. It
+      // never is, so this residual is the seek's own cost, not drift, and
+      // correcting it would nudge the rate for nothing: on mpv that inserts a
+      // tempo filter mid-playback and pulls it back out a second later.
+      _learnSeekLatency(delay);
+      return SyncCorrectionDecision._(
+        SyncCorrectionAction.rebaseline,
+        measuredDelayMs: delay,
+      );
+    }
+
     if (_awaitingSkipSettle) {
       _awaitingSkipSettle = false;
-      // A skip lands at a position computed before the seek began, so whatever
-      // it is still short by once it settles is this client's own seek latency.
-      // Without folding that back in, every skip loses the same amount again
-      // and the correction never converges.
-      if (delay < 0) {
-        final grown = _seekLatencyAllowanceMs + absDelay;
-        _seekLatencyAllowanceMs = grown > maxSeekLatencyAllowanceMs
-            ? maxSeekLatencyAllowanceMs
-            : grown;
-      } else {
-        final shrunk = _seekLatencyAllowanceMs - delay;
-        _seekLatencyAllowanceMs = shrunk < 0 ? 0 : shrunk;
-      }
+      // Without folding that cost back in, every skip loses the same amount
+      // again and the correction never converges.
+      _learnSeekLatency(delay);
     }
 
     final floor = noiseFloorMs + (clockJitterMs ~/ 2);
@@ -158,12 +164,25 @@ class SyncCorrectionPolicy {
     );
   }
 
-  /// A fresh sync point. The learned seek latency belongs to the device and
-  /// stream, so it survives a pause where the skip streak does not.
-  void onResumed() {
+  void _learnSeekLatency(int delay) {
+    if (delay < 0) {
+      final grown = _seekLatencyAllowanceMs + delay.abs();
+      _seekLatencyAllowanceMs =
+          grown > maxSeekLatencyAllowanceMs ? maxSeekLatencyAllowanceMs : grown;
+    } else {
+      final shrunk = _seekLatencyAllowanceMs - delay;
+      _seekLatencyAllowanceMs = shrunk < 0 ? 0 : shrunk;
+    }
+  }
+
+  /// The group moved the playhead, so the old baseline and any convergence
+  /// attempt against it are void. The learned seek latency belongs to the
+  /// device and stream, so it survives.
+  void onSyncPointChanged(int nowMs) {
     _consecutiveSkips = 0;
     _awaitingSkipSettle = false;
-    _blockedUntilMs = 0;
+    _awaitingSyncPointSettle = true;
+    _blockedUntilMs = nowMs + seekSettleMs;
   }
 
   void reset() {
@@ -171,6 +190,7 @@ class SyncCorrectionPolicy {
     _seekLatencyAllowanceMs = 0;
     _blockedUntilMs = 0;
     _awaitingSkipSettle = false;
+    _awaitingSyncPointSettle = false;
     _gaveUp = false;
   }
 }

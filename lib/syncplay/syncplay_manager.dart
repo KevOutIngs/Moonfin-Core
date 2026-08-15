@@ -35,6 +35,10 @@ class SyncPlayManager extends ChangeNotifier {
   static const int _maxHandshakeRetries = 3;
   static const double _defaultSpeed = 1.0;
   static const int _maxReadyStabilityRetries = 4;
+  // A Ready that never lands leaves the group waiting on this client, so the
+  // report is repeated for a while rather than sent once and forgotten.
+  static const int _readyWatchdogIntervalMs = 2500;
+  static const int _maxReadyWatchdogReports = 5;
 
   final PlaybackManager _playbackManager;
   final UserPreferences _preferences;
@@ -56,7 +60,9 @@ class SyncPlayManager extends ChangeNotifier {
   Timer? _seekDebounceTimer;
   Timer? _queueSyncDebounceTimer;
   Timer? _speedToSyncTimer;
+  Timer? _readyWatchdogTimer;
   Duration? _pendingSeekTarget;
+  int _readyWatchdogReports = 0;
 
   final SyncCorrectionPolicy _syncCorrection = SyncCorrectionPolicy();
   /// Whether the rate currently on the player is one SyncPlay put there. The
@@ -488,6 +494,13 @@ class SyncPlayManager extends ChangeNotifier {
       case SyncPlayGroupUpdateType.stateUpdate:
         final payload = update.payload as SyncPlayStateUpdatePayload;
         _state.groupState = payload.update.state;
+        if (_state.groupState == SyncPlayGroupState.waiting) {
+          // Waiting can also be entered on someone else's buffering or an item
+          // switch, and the group stays there until we confirm we are ready.
+          _startReadyHandshake();
+        } else {
+          _stopReadyHandshake();
+        }
         notifyListeners();
         break;
       case SyncPlayGroupUpdateType.playQueue:
@@ -666,6 +679,7 @@ class SyncPlayManager extends ChangeNotifier {
   }
 
   void _handleUnpause(SyncPlayCommand command) {
+    _stopReadyHandshake();
     final tsm = _timeSync;
     if (tsm == null) return;
     final serverNow = tsm.getServerTimeNow();
@@ -701,6 +715,7 @@ class SyncPlayManager extends ChangeNotifier {
   }
 
   void _handlePause(SyncPlayCommand command) {
+    _stopReadyHandshake();
     final positionMs =
         _clampedPositionMs(SyncPlayUtils.ticksToMs(command.positionTicks));
     _performPause(positionMs);
@@ -722,9 +737,15 @@ class SyncPlayManager extends ChangeNotifier {
     _lastSyncPositionMs = positionMs;
     _lastSyncTimeMs = serverNow;
     _performSeek(positionMs);
+    // Seek only ever arrives from the waiting state, which has just flagged
+    // every session as buffering. A seek that lands inside the buffer never
+    // stalls the pipeline, so waiting on a buffering edge to report Ready
+    // would leave the group waiting on a stall that is never coming.
+    _startReadyHandshake(restart: true);
   }
 
   void _handleStop() {
+    _stopReadyHandshake();
     _applyingRemoteCommand = true;
     try {
       _playbackManager.stop(userInitiated: false);
@@ -770,6 +791,18 @@ class SyncPlayManager extends ChangeNotifier {
         _armBufferingSuppression();
         _playbackManager.seekTo(Duration(milliseconds: positionMs));
       }
+    } finally {
+      _applyingRemoteCommand = false;
+    }
+  }
+
+  /// Pauses the player without routing back through the interceptor, for the
+  /// cases where the group has no command to send us.
+  void _applyLocalPause() {
+    _restorePlaybackRate();
+    _applyingRemoteCommand = true;
+    try {
+      _playbackManager.pause();
     } finally {
       _applyingRemoteCommand = false;
     }
@@ -924,6 +957,7 @@ class SyncPlayManager extends ChangeNotifier {
     _bufferingTimer = null;
     _readyTimer?.cancel();
     _readyTimer = null;
+    _stopReadyHandshake();
     _seekDebounceTimer?.cancel();
     _seekDebounceTimer = null;
     _pendingSeekTarget = null;
@@ -949,6 +983,13 @@ class SyncPlayManager extends ChangeNotifier {
         await requestUnpause();
         return true;
       case TransportAction.pause:
+        // Handing the press to the group swallows the local pause, and a
+        // waiting group has no Pause command to send back, so the press would
+        // land nowhere. Pausing here is safe because the command that does
+        // arrive once everyone is ready carries the group's own position.
+        if (_state.groupState == SyncPlayGroupState.waiting) {
+          _applyLocalPause();
+        }
         await requestPause();
         return true;
       case TransportAction.seek:
@@ -1047,6 +1088,51 @@ class SyncPlayManager extends ChangeNotifier {
     );
   }
 
+  /// Answers the Waiting handshake the server holds the whole group in. It
+  /// leaves that state only once every session has reported Ready, and while it
+  /// waits it replies to a pause request with a state update and no command at
+  /// all, so a group left waiting on this client has no working transport.
+  void _startReadyHandshake({bool restart = false}) {
+    if (!_state.enabled || !syncPlayEnabled) return;
+    if (_readyWatchdogTimer != null && !restart) return;
+    _readyWatchdogTimer?.cancel();
+    _readyWatchdogReports = 0;
+    _reportReadyIfSettled();
+    _readyWatchdogTimer = Timer.periodic(
+      const Duration(milliseconds: _readyWatchdogIntervalMs),
+      (_) {
+        if (!_state.enabled ||
+            !syncPlayEnabled ||
+            _state.groupState != SyncPlayGroupState.waiting ||
+            _readyWatchdogReports >= _maxReadyWatchdogReports) {
+          _stopReadyHandshake();
+          return;
+        }
+        _readyWatchdogReports++;
+        // A buffering flag that never clears would hold the group forever, and
+        // rejoining late beats leaving everyone without controls.
+        _reportReadyIfSettled(
+          force: _readyWatchdogReports >= _maxReadyWatchdogReports,
+        );
+      },
+    );
+  }
+
+  /// Reports Ready only when the player really is. A real stall already has a
+  /// Buffering report out that the server is right to wait on, and the recovery
+  /// that ends it queues a Ready of its own.
+  void _reportReadyIfSettled({bool force = false}) {
+    if (_playbackManager.currentResolution == null) return;
+    if (!force && (_playbackManager.state.isBuffering || _isBuffering)) return;
+    _queueReadyReport();
+  }
+
+  void _stopReadyHandshake() {
+    _readyWatchdogTimer?.cancel();
+    _readyWatchdogTimer = null;
+    _readyWatchdogReports = 0;
+  }
+
   Future<bool> _isPlaybackPositionStable() async {
     final pm = _playbackManager;
     if (pm.state.isBuffering) return false;
@@ -1127,7 +1213,14 @@ class SyncPlayManager extends ChangeNotifier {
       if (!_state.enabled || !syncPlayEnabled) return;
       final api = _api;
       final playlistItemId = _currentPlaylistItemId();
-      if (api == null || playlistItemId == null) return;
+      if (api == null) return;
+      if (playlistItemId == null) {
+        _logger.w(
+          'SyncPlay: no playlist item to report Ready for, group '
+          '${_state.groupState.name} is left waiting on this client',
+        );
+        return;
+      }
       final pm = _playbackManager;
       final positionTicks =
           SyncPlayUtils.msToTicks(pm.state.position.inMilliseconds);

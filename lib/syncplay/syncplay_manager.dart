@@ -11,6 +11,7 @@ import '../data/services/media_server_client_factory.dart';
 import '../preference/user_preferences.dart';
 import '../ui/navigation/app_router.dart';
 import '../ui/navigation/destinations.dart';
+import 'sync_correction_policy.dart';
 import 'syncplay_state.dart';
 import 'time_sync_manager.dart';
 
@@ -33,6 +34,7 @@ class SyncPlayManager extends ChangeNotifier {
   static const int _handshakeRetryDelayMs = 1200;
   static const int _maxHandshakeRetries = 3;
   static const double _defaultSpeed = 1.0;
+  static const int _maxReadyStabilityRetries = 4;
 
   final PlaybackManager _playbackManager;
   final UserPreferences _preferences;
@@ -53,7 +55,14 @@ class SyncPlayManager extends ChangeNotifier {
   Timer? _driftTimer;
   Timer? _seekDebounceTimer;
   Timer? _queueSyncDebounceTimer;
+  Timer? _speedToSyncTimer;
   Duration? _pendingSeekTarget;
+
+  final SyncCorrectionPolicy _syncCorrection = SyncCorrectionPolicy();
+  /// Whether the rate currently on the player is one SyncPlay put there. The
+  /// player's own speed control writes straight to the backend on some
+  /// platforms, so shared speed state cannot be trusted for this.
+  bool _speedToSyncApplied = false;
 
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<void>? _queueChangedSub;
@@ -287,6 +296,7 @@ class SyncPlayManager extends ChangeNotifier {
     _lastCommandKey = null;
     _lastSyncPositionMs = 0;
     _lastSyncTimeMs = 0;
+    _syncCorrection.reset();
     _restorePlaybackRate();
     notifyListeners();
   }
@@ -530,6 +540,10 @@ class SyncPlayManager extends ChangeNotifier {
         previousPlaylistItemId != _state.currentPlaylistItemId;
     if (!isItemSwitch) return;
 
+    // Seek latency and convergence are per-stream, and a give-up must not
+    // outlive the item that caused it.
+    _syncCorrection.reset();
+
     final targetPlaylistItemId = _state.currentPlaylistItemId;
     final targetItemId = (idx >= 0 && idx < update.playlist.length)
         ? update.playlist[idx].itemId
@@ -662,6 +676,8 @@ class SyncPlayManager extends ChangeNotifier {
         _clampedPositionMs(SyncPlayUtils.ticksToMs(command.positionTicks));
     _lastSyncPositionMs = positionMs;
     _lastSyncTimeMs = targetMs;
+    // A fresh sync point, so don't inherit a skip streak from before the pause.
+    _syncCorrection.onResumed();
 
     if (!advancedCorrectionEnabled) {
       if (delayMs > 0) {
@@ -723,6 +739,7 @@ class SyncPlayManager extends ChangeNotifier {
     _state.groupState = SyncPlayGroupState.idle;
     _lastSyncPositionMs = 0;
     _lastSyncTimeMs = 0;
+    _syncCorrection.reset();
     notifyListeners();
   }
 
@@ -794,8 +811,21 @@ class SyncPlayManager extends ChangeNotifier {
     return v > durationMs ? durationMs : v;
   }
 
+  /// Undoes a speed-to-sync nudge, and only that. Writing the rate when
+  /// SyncPlay never changed it is not free: on the Apple TV path a rate write
+  /// is play intent (`avPlayer.rate = value`), so an unconditional
+  /// restore-to-1.0 resumes a player the group wants paused.
   void _restorePlaybackRate() {
+    _speedToSyncTimer?.cancel();
+    _speedToSyncTimer = null;
+    if (!_speedToSyncApplied) return;
+    _speedToSyncApplied = false;
     _playbackManager.setPlaybackSpeed(_defaultSpeed);
+  }
+
+  void _applyPlaybackRate(double speed) {
+    _speedToSyncApplied = true;
+    _playbackManager.setPlaybackSpeed(speed);
   }
 
   void _scheduleAction(int delayMs, void Function() action) {
@@ -812,41 +842,67 @@ class SyncPlayManager extends ChangeNotifier {
     _driftTimer = Timer(const Duration(seconds: 2), _performDriftCorrection);
   }
 
+  SyncCorrectionSettings get _syncCorrectionSettings => SyncCorrectionSettings(
+        useSkipToSync: useSkipToSync,
+        useSpeedToSync: useSpeedToSync,
+        minDelaySkipToSyncMs: minDelaySkipToSync,
+        minDelaySpeedToSyncMs: minDelaySpeedToSync,
+        maxDelaySpeedToSyncMs: maxDelaySpeedToSync,
+        speedToSyncDurationMs: speedToSyncDuration,
+        extraTimeOffsetMs: extraTimeOffset,
+      );
+
   void _performDriftCorrection() {
     final tsm = _timeSync;
     if (tsm == null ||
         _state.groupState != SyncPlayGroupState.playing ||
-        _lastSyncTimeMs == 0) {
+        _lastSyncTimeMs == 0 ||
+        _syncCorrection.hasGivenUp) {
       return;
     }
     final pm = _playbackManager;
-    final currentMs = pm.state.position.inMilliseconds;
-    final serverNow = tsm.getServerTimeNow();
-    final expectedMs =
-        _lastSyncPositionMs + (serverNow - _lastSyncTimeMs) + extraTimeOffset;
+    final decision = _syncCorrection.evaluate(
+      nowMs: DateTime.now().millisecondsSinceEpoch,
+      serverNowMs: tsm.getServerTimeNow(),
+      currentPositionMs: pm.state.position.inMilliseconds,
+      lastSyncPositionMs: _lastSyncPositionMs,
+      lastSyncTimeMs: _lastSyncTimeMs,
+      isBuffering: pm.state.isBuffering || _isBuffering,
+      isPlaying: pm.state.isPlaying,
+      clockJitterMs: tsm.offsetJitterMs,
+      settings: _syncCorrectionSettings,
+    );
 
-    final delay = currentMs - expectedMs;
-    final absDelay = delay.abs();
-
-    if (useSkipToSync && absDelay > minDelaySkipToSync) {
-      _performSeek(expectedMs);
-      _scheduleDriftCorrection();
-      return;
-    }
-
-    if (useSpeedToSync &&
-        absDelay > minDelaySpeedToSync &&
-        absDelay < maxDelaySpeedToSync) {
-      final speed = delay > 0 ? 0.95 : 1.05;
-      pm.setPlaybackSpeed(speed);
-      Timer(Duration(milliseconds: speedToSyncDuration), () {
+    switch (decision.action) {
+      // Leaves the rate alone: the pipeline is stalled or paused here.
+      case SyncCorrectionAction.defer:
+        _scheduleDriftCorrection();
+      case SyncCorrectionAction.hold:
         _restorePlaybackRate();
         _scheduleDriftCorrection();
-      });
-      return;
+      case SyncCorrectionAction.skip:
+        _restorePlaybackRate();
+        _performSeek(_clampedPositionMs(decision.targetPositionMs));
+        _scheduleDriftCorrection();
+      case SyncCorrectionAction.speed:
+        _applyPlaybackRate(decision.speed);
+        _speedToSyncTimer?.cancel();
+        _speedToSyncTimer = Timer(
+          Duration(milliseconds: decision.speedDurationMs),
+          () {
+            _restorePlaybackRate();
+            _scheduleDriftCorrection();
+          },
+        );
+      case SyncCorrectionAction.giveUp:
+        _restorePlaybackRate();
+        _logger.w(
+          'SyncPlay: sync correction disabled for this item after '
+          '${_syncCorrection.consecutiveSkips} skips failed to converge '
+          '(residual ${decision.measuredDelayMs}ms, latency allowance '
+          '${_syncCorrection.seekLatencyAllowanceMs}ms)',
+        );
     }
-
-    _scheduleDriftCorrection();
   }
 
   void _attachPlaybackObservers() {
@@ -873,6 +929,8 @@ class SyncPlayManager extends ChangeNotifier {
     _pendingSeekTarget = null;
     _queueSyncDebounceTimer?.cancel();
     _queueSyncDebounceTimer = null;
+    _speedToSyncTimer?.cancel();
+    _speedToSyncTimer = null;
     _suppressedBufferingRecheckTimer?.cancel();
     _suppressedBufferingRecheckTimer = null;
     _suppressBufferingUntilMs = 0;
@@ -970,12 +1028,20 @@ class SyncPlayManager extends ChangeNotifier {
     );
   }
 
-  void _queueReadyReport() {
+  void _queueReadyReport({int attempt = 0}) {
     _readyTimer?.cancel();
     _readyTimer = Timer(
       const Duration(milliseconds: _readyDebounceMs),
       () async {
-        if (!await _isPlaybackPositionStable()) return;
+        if (!_state.enabled || !syncPlayEnabled) return;
+        if (!await _isPlaybackPositionStable()) {
+          // Dropping this report strands the whole group in Waiting, so retry
+          // and report anyway once the attempts run out.
+          if (attempt < _maxReadyStabilityRetries) {
+            _queueReadyReport(attempt: attempt + 1);
+            return;
+          }
+        }
         _sendReadyWithRetry();
       },
     );

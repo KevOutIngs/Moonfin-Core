@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:moonfin_design/moonfin_design.dart' show LiquidGlassWidgets;
 import 'package:path_provider/path_provider.dart';
 import 'package:playback_core/playback_core.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
@@ -41,6 +42,7 @@ import 'platform/web_runtime_config.dart';
 import 'preference/preference_constants.dart';
 import 'preference/user_preferences.dart';
 import 'util/fullscreen_helper.dart';
+import 'util/window_geometry.dart';
 import 'util/http_overrides_stub.dart'
     if (dart.library.io) 'util/http_overrides_io.dart';
 import 'util/game_core_licenses.dart';
@@ -123,17 +125,20 @@ Future<void> _restoreWindowGeometry() async {
   const minW = 800.0;
   const minH = 500.0;
   final hasSavedGeometry = w >= minW && h >= minH;
+  final bounds = hasSavedGeometry
+      ? fitBoundsToWorkAreas(Rect.fromLTWH(x, y, w, h), await _workAreas())
+      : null;
 
   final options = WindowOptions(
-    size: hasSavedGeometry ? Size(w, h) : const Size(1280, 720),
+    size: bounds?.size ?? const Size(1280, 720),
     minimumSize: const Size(minW, minH),
     center: !hasSavedGeometry && !startMaximized,
     skipTaskbar: false,
   );
 
   await windowManager.waitUntilReadyToShow(options, () async {
-    if (hasSavedGeometry) {
-      await windowManager.setPosition(Offset(x, y));
+    if (bounds != null) {
+      await windowManager.setPosition(bounds.topLeft);
     }
     // Before show, so platforms that apply it right away never draw the
     // windowed size first.
@@ -150,6 +155,20 @@ Future<void> _restoreWindowGeometry() async {
       }));
     }
   });
+}
+
+/// Usable areas of the attached displays, or an empty list when they cannot be
+/// read, which leaves saved bounds alone rather than guessing at a screen.
+Future<List<Rect>> _workAreas() async {
+  try {
+    return [
+      for (final display in await screenRetriever.getAllDisplays())
+        (display.visiblePosition ?? Offset.zero) &
+            (display.visibleSize ?? display.size),
+    ];
+  } catch (_) {
+    return const [];
+  }
 }
 
 /// Resolves whether this Android device is a TV, which decides the leanback UI

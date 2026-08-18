@@ -388,6 +388,10 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
   final List<String> _routeHistory = [];
   late final KeyEventCallback _hardwareKeyHandler;
   Timer? _geometrySaveTimer;
+  // Windows answers isMaximized() from an uninitialized WINDOWPLACEMENT and
+  // returns whatever was on the stack, so the state is tracked from the window
+  // events instead, seeded with the state the window was restored into.
+  bool _isMaximized = false;
   int _routeHistoryIndex = -1;
   DateTime? _lastMouseThumbNavAt;
   String? _pendingRouteHistoryLocation;
@@ -409,6 +413,8 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
     }
     WidgetsBinding.instance.addObserver(this);
     if (PlatformDetection.isDesktop) {
+      final prefs = GetIt.instance<UserPreferences>();
+      _isMaximized = prefs.get(UserPreferences.windowMaximized);
       windowManager.addListener(this);
       unawaited(windowManager.setPreventClose(true));
     }
@@ -799,12 +805,11 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
     try {
       final prefs = GetIt.instance<UserPreferences>();
       final isFullScreen = await windowManager.isFullScreen();
-      final isMaximized = await windowManager.isMaximized();
       await prefs.set(UserPreferences.windowFullscreen, isFullScreen);
-      await prefs.set(UserPreferences.windowMaximized, isMaximized);
+      await prefs.set(UserPreferences.windowMaximized, _isMaximized);
       // Keep the last windowed bounds. Neither state reports the size the
       // window would return to, so saving either would lose the real one.
-      if (isFullScreen || isMaximized) return;
+      if (isFullScreen || _isMaximized) return;
       final size = await windowManager.getSize();
       final pos = await windowManager.getPosition();
       await prefs.set(UserPreferences.windowWidth, size.width);
@@ -823,6 +828,11 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
 
   @override
   void onWindowEvent(String eventName) {
+    if (eventName == 'maximize') {
+      _isMaximized = true;
+    } else if (eventName == 'unmaximize') {
+      _isMaximized = false;
+    }
     if (eventName == 'move' ||
         eventName == 'resize' ||
         eventName == 'moved' ||

@@ -349,7 +349,7 @@ void main() {
       expect(policy.consecutiveSkips, 0);
     });
 
-    test('a give-up stays given up until reset', () {
+    test('a give-up survives an ordinary measurement', () {
       final client = _FakeClient(seekLatencyMs: 14000)..stall(4000);
       final policy = SyncCorrectionPolicy();
       _run(policy, client, ticks: 400);
@@ -367,6 +367,39 @@ void main() {
         settings: _defaultSettings,
       );
       expect(decision.action, SyncCorrectionAction.giveUp);
+    });
+
+    test('a group seek lifts a give-up', () {
+      final client = _FakeClient(seekLatencyMs: 14000)..stall(4000);
+      final policy = SyncCorrectionPolicy();
+      _run(policy, client, ticks: 400);
+      expect(policy.hasGivenUp, isTrue);
+
+      policy.onSyncPointChanged(client.nowMs);
+
+      expect(policy.hasGivenUp, isFalse);
+      expect(policy.consecutiveSkips, 0);
+      expect(
+        policy.seekLatencyAllowanceMs,
+        greaterThan(0),
+        reason: 'the learned latency belongs to the device, not the stretch',
+      );
+    });
+
+    test('a residual too large to be seek cost is corrected, not absorbed', () {
+      final policy = SyncCorrectionPolicy();
+      final client = _FakeClient(seekLatencyMs: 0);
+      client.seekTo(0);
+      policy.onSyncPointChanged(client.nowMs);
+      client.stall(SyncCorrectionPolicy.maxSeekLatencyAllowanceMs + 6000);
+
+      final decisions = _run(policy, client, ticks: 20);
+
+      expect(_countOf(decisions, SyncCorrectionAction.rebaseline), 0);
+      expect(
+        _countOf(decisions, SyncCorrectionAction.skip),
+        greaterThan(0),
+      );
     });
   });
 }

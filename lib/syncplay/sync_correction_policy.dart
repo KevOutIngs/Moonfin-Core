@@ -104,11 +104,17 @@ class SyncCorrectionPolicy {
       // never is, so this residual is the seek's own cost, not drift, and
       // correcting it would nudge the rate for nothing: on mpv that inserts a
       // tempo filter mid-playback and pulls it back out a second later.
-      _learnSeekLatency(delay);
-      return SyncCorrectionDecision._(
-        SyncCorrectionAction.rebaseline,
-        measuredDelayMs: delay,
-      );
+      //
+      // Past the ceiling a seek can plausibly cost this is real drift, and
+      // absorbing it would park the baseline where the group never reaches
+      // and then report the gap as zero.
+      if (absDelay <= maxSeekLatencyAllowanceMs) {
+        _learnSeekLatency(delay);
+        return SyncCorrectionDecision._(
+          SyncCorrectionAction.rebaseline,
+          measuredDelayMs: delay,
+        );
+      }
     }
 
     if (_awaitingSkipSettle) {
@@ -178,10 +184,14 @@ class SyncCorrectionPolicy {
   /// The group moved the playhead, so the old baseline and any convergence
   /// attempt against it are void. The learned seek latency belongs to the
   /// device and stream, so it survives.
+  ///
+  /// A give-up is lifted here too. It belongs to the stretch the group just
+  /// left, and the new one may transcode or buffer differently.
   void onSyncPointChanged(int nowMs) {
     _consecutiveSkips = 0;
     _awaitingSkipSettle = false;
     _awaitingSyncPointSettle = true;
+    _gaveUp = false;
     _blockedUntilMs = nowMs + seekSettleMs;
   }
 

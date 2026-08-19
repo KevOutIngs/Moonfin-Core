@@ -414,7 +414,9 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
     WidgetsBinding.instance.addObserver(this);
     if (PlatformDetection.isDesktop) {
       final prefs = GetIt.instance<UserPreferences>();
-      _isMaximized = prefs.get(UserPreferences.windowMaximized);
+      _isMaximized =
+          prefs.get(UserPreferences.windowMaximized) &&
+          !prefs.get(UserPreferences.windowFullscreen);
       windowManager.addListener(this);
       unawaited(windowManager.setPreventClose(true));
     }

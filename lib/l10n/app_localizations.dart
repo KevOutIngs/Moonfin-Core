@@ -12412,6 +12412,24 @@ abstract class AppLocalizations {
   /// **'Alternate DVD'**
   String get adminMetadataDisplayOrderAlternateDvd;
 
+  /// No description provided for @adminMetadataDisplayOrderDateModified.
+  ///
+  /// In en, this message translates to:
+  /// **'Date modified'**
+  String get adminMetadataDisplayOrderDateModified;
+
+  /// No description provided for @adminMetadataDisplayOrderSortName.
+  ///
+  /// In en, this message translates to:
+  /// **'Sort name'**
+  String get adminMetadataDisplayOrderSortName;
+
+  /// No description provided for @adminMetadataDisplayOrderReleaseDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Release date'**
+  String get adminMetadataDisplayOrderReleaseDate;
+
   /// No description provided for @adminMetadataGenres.
   ///
   /// In en, this message translates to:

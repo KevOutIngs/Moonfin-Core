@@ -366,6 +366,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
 
   bool get _isSeries => (_raw['Type'] ?? '').toString() == 'Series';
 
+  bool get _isBoxSet => (_raw['Type'] ?? '').toString() == 'BoxSet';
+
   /// Episode ordering schemes the server understands for a series. The empty
   /// value means "aired order", which is what Jellyfin falls back to when the
   /// field is unset.
@@ -381,6 +383,41 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     ('regional', l10n.adminMetadataDisplayOrderRegional),
     ('altdvd', l10n.adminMetadataDisplayOrderAlternateDvd),
   ];
+
+  /// How a collection sorts its children. Unrelated to the series scheme above
+  /// despite sharing the `DisplayOrder` field name, so it keeps its own list.
+  /// The server treats an unset value as `Default`.
+  List<(String, String)> _boxSetDisplayOrderOptions(AppLocalizations l10n) => [
+    ('Default', l10n.adminMetadataDisplayOrderDateModified),
+    ('SortName', l10n.adminMetadataDisplayOrderSortName),
+    ('PremiereDate', l10n.adminMetadataDisplayOrderReleaseDate),
+  ];
+
+  Widget _displayOrderField(AppLocalizations l10n) {
+    if (_isBoxSet) {
+      final options = _boxSetDisplayOrderOptions(l10n);
+      final value = options.any((o) => o.$1 == _displayOrder)
+          ? _displayOrder
+          : options.first.$1;
+      return DropdownButtonFormField<String>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: adminInputDecoration(label: l10n.adminMetadataFieldDisplayOrder),
+        items: options
+            .map((o) => DropdownMenuItem(value: o.$1, child: Text(o.$2)))
+            .toList(),
+        onChanged: (v) => setState(() => _displayOrder = v ?? options.first.$1),
+      );
+    }
+
+    return adminCodeDropdown(
+      label: l10n.adminMetadataFieldDisplayOrder,
+      defaultLabel: l10n.adminMetadataDisplayOrderAired,
+      current: _displayOrder,
+      rawItems: _displayOrderOptions(l10n),
+      onChanged: (v) => setState(() => _displayOrder = v ?? ''),
+    );
+  }
 
   static const _preservedItemFields = <String>[
     'Id',
@@ -432,7 +469,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
       'CriticRating':
           double.tryParse(_criticRatingController.text.trim()) ??
           _raw['CriticRating'],
-      if (_isSeries) 'DisplayOrder': _displayOrder,
+      if (_isSeries || _isBoxSet) 'DisplayOrder': _displayOrder,
       'Taglines': tagline.isEmpty ? <String>[] : [tagline],
       'Overview': _overviewController.text.trim(),
       'Genres': _genres,
@@ -952,15 +989,9 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
             ),
           ],
         ),
-        if (_isSeries) ...[
+        if (_isSeries || _isBoxSet) ...[
           const SizedBox(height: 12),
-          adminCodeDropdown(
-            label: l10n.adminMetadataFieldDisplayOrder,
-            defaultLabel: l10n.adminMetadataDisplayOrderAired,
-            current: _displayOrder,
-            rawItems: _displayOrderOptions(l10n),
-            onChanged: (v) => setState(() => _displayOrder = v ?? ''),
-          ),
+          _displayOrderField(l10n),
         ],
         const SizedBox(height: 12),
         _field(_taglineController, l10n.adminMetadataFieldTagline),

@@ -6927,6 +6927,15 @@ class AppLocalizationsNb extends AppLocalizations {
   String get adminMetadataDisplayOrderAlternateDvd => 'Alternate DVD';
 
   @override
+  String get adminMetadataDisplayOrderDateModified => 'Date modified';
+
+  @override
+  String get adminMetadataDisplayOrderSortName => 'Sort name';
+
+  @override
+  String get adminMetadataDisplayOrderReleaseDate => 'Release date';
+
+  @override
   String get adminMetadataGenres => 'Sjangere';
 
   @override

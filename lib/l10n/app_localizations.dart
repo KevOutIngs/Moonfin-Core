@@ -12328,6 +12328,12 @@ abstract class AppLocalizations {
   /// **'Critic rating'**
   String get adminMetadataFieldCriticRating;
 
+  /// No description provided for @adminMetadataFieldCustomRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom rating'**
+  String get adminMetadataFieldCustomRating;
+
   /// No description provided for @adminMetadataFieldTagline.
   ///
   /// In en, this message translates to:
@@ -12429,6 +12435,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Release date'**
   String get adminMetadataDisplayOrderReleaseDate;
+
+  /// No description provided for @adminMetadataSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Metadata Settings'**
+  String get adminMetadataSettings;
+
+  /// No description provided for @adminMetadataDownloadLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferred download language'**
+  String get adminMetadataDownloadLanguage;
+
+  /// No description provided for @adminMetadataCountryRegion.
+  ///
+  /// In en, this message translates to:
+  /// **'Country/Region'**
+  String get adminMetadataCountryRegion;
+
+  /// No description provided for @adminMetadataInheritHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this on Default to inherit the setting from a parent item, or from the server default.'**
+  String get adminMetadataInheritHelp;
 
   /// No description provided for @adminMetadataGenres.
   ///

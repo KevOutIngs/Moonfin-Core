@@ -6884,6 +6884,9 @@ class AppLocalizationsDa extends AppLocalizations {
   String get adminMetadataFieldCriticRating => 'Kritiker vurdering';
 
   @override
+  String get adminMetadataFieldCustomRating => 'Custom rating';
+
+  @override
   String get adminMetadataFieldTagline => 'Tagline';
 
   @override
@@ -6933,6 +6936,19 @@ class AppLocalizationsDa extends AppLocalizations {
 
   @override
   String get adminMetadataDisplayOrderReleaseDate => 'Release date';
+
+  @override
+  String get adminMetadataSettings => 'Metadata Settings';
+
+  @override
+  String get adminMetadataDownloadLanguage => 'Preferred download language';
+
+  @override
+  String get adminMetadataCountryRegion => 'Country/Region';
+
+  @override
+  String get adminMetadataInheritHelp =>
+      'Leave this on Default to inherit the setting from a parent item, or from the server default.';
 
   @override
   String get adminMetadataGenres => 'Genrer';

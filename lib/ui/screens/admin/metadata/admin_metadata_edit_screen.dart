@@ -46,7 +46,6 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
   final _premiereDateController = TextEditingController();
   final _endDateController = TextEditingController();
   final _productionYearController = TextEditingController();
-  final _officialRatingController = TextEditingController();
   final _communityRatingController = TextEditingController();
   final _criticRatingController = TextEditingController();
   final _taglineController = TextEditingController();
@@ -57,6 +56,10 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
   List<String> _studios = [];
   List<Map<String, String>> _people = const [];
   String _displayOrder = '';
+  String _officialRating = '';
+  String _customRating = '';
+  String _metadataLanguage = '';
+  String _metadataCountry = '';
 
   final Map<String, TextEditingController> _externalControllers = {};
 
@@ -83,7 +86,6 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     _premiereDateController.dispose();
     _endDateController.dispose();
     _productionYearController.dispose();
-    _officialRatingController.dispose();
     _communityRatingController.dispose();
     _criticRatingController.dispose();
     _taglineController.dispose();
@@ -134,13 +136,16 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     _premiereDateController.text = _dateOnly(raw['PremiereDate']);
     _endDateController.text = _dateOnly(raw['EndDate']);
     _productionYearController.text = (raw['ProductionYear'] ?? '').toString();
-    _officialRatingController.text = (raw['OfficialRating'] ?? '').toString();
     _communityRatingController.text = (raw['CommunityRating'] ?? '').toString();
     _criticRatingController.text = (raw['CriticRating'] ?? '').toString();
     _taglineController.text =
         _firstString(raw['Taglines']) ?? (raw['Tagline'] ?? '').toString();
     _overviewController.text = (raw['Overview'] ?? '').toString();
     _displayOrder = (raw['DisplayOrder'] ?? '').toString();
+    _officialRating = (raw['OfficialRating'] ?? '').toString();
+    _customRating = (raw['CustomRating'] ?? '').toString();
+    _metadataLanguage = (raw['PreferredMetadataLanguage'] ?? '').toString();
+    _metadataCountry = (raw['PreferredMetadataCountryCode'] ?? '').toString();
 
     _genres = _stringList(raw['Genres']);
     _tags = _stringList(raw['Tags']);
@@ -252,6 +257,22 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
 
   List<Map<String, dynamic>> _contentTypeOptions() {
     return _asMapList(_editorInfo['ContentTypeOptions']);
+  }
+
+  /// The metadata editor payload already carries the lists the server expects
+  /// these fields to be picked from, so none of them costs an extra request.
+  /// An older server that omits a list leaves the dropdown empty, and
+  /// [adminCodeDropdown] falls back to a free-text field in that case.
+  List<Map<String, dynamic>> _parentalRatingOptions() {
+    return _asMapList(_editorInfo['ParentalRatingOptions']);
+  }
+
+  List<Map<String, dynamic>> _cultureOptions() {
+    return _asMapList(_editorInfo['Cultures']);
+  }
+
+  List<Map<String, dynamic>> _countryOptions() {
+    return _asMapList(_editorInfo['Countries']);
   }
 
   List<Map<String, String>> _fallbackContentTypeOptions() {
@@ -393,6 +414,39 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     ('PremiereDate', l10n.adminMetadataDisplayOrderReleaseDate),
   ];
 
+  /// Ratings are stored by their display name, which is what the server sends
+  /// back as each option's `Name`.
+  Widget _ratingField(
+    String label,
+    String current,
+    ValueChanged<String?> onChanged,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    return adminCodeDropdown(
+      label: label,
+      defaultLabel: l10n.none,
+      current: current,
+      rawItems: _parentalRatingOptions().map((r) {
+        final name = r['Name']?.toString();
+        return (name, name);
+      }),
+      onChanged: onChanged,
+    );
+  }
+
+  /// Sits under the two provider dropdowns. [adminCodeDropdown] builds its own
+  /// decoration and has no slot for helper text, so the hint is a plain line
+  /// under the field rather than a reason to widen the shared helper.
+  Widget _inheritHint(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: AppSpacing.spaceXs),
+      child: Text(
+        l10n.adminMetadataInheritHelp,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+
   Widget _displayOrderField(AppLocalizations l10n) {
     if (_isBoxSet) {
       final options = _boxSetDisplayOrderOptions(l10n);
@@ -436,11 +490,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     'Height',
     'AspectRatio',
     'Video3DFormat',
-    'CustomRating',
     'LockData',
     'LockedFields',
-    'PreferredMetadataLanguage',
-    'PreferredMetadataCountryCode',
     'RunTimeTicks',
     'ProductionLocations',
     'DisplayOrder',
@@ -462,7 +513,10 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
       'ProductionYear':
           int.tryParse(_productionYearController.text.trim()) ??
           _raw['ProductionYear'],
-      'OfficialRating': _officialRatingController.text.trim(),
+      'OfficialRating': _officialRating,
+      'CustomRating': _customRating,
+      'PreferredMetadataLanguage': _metadataLanguage,
+      'PreferredMetadataCountryCode': _metadataCountry,
       'CommunityRating':
           double.tryParse(_communityRatingController.text.trim()) ??
           _raw['CommunityRating'],
@@ -950,18 +1004,28 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
           ],
         ),
         const SizedBox(height: 12),
+        _field(
+          _productionYearController,
+          l10n.adminMetadataFieldProductionYear,
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: _field(
-                _productionYearController,
-                l10n.adminMetadataFieldProductionYear,
-                keyboardType: TextInputType.number,
+              child: _ratingField(
+                l10n.adminMetadataFieldOfficialRating,
+                _officialRating,
+                (v) => setState(() => _officialRating = v ?? ''),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _field(_officialRatingController, l10n.adminMetadataFieldOfficialRating),
+              child: _ratingField(
+                l10n.adminMetadataFieldCustomRating,
+                _customRating,
+                (v) => setState(() => _customRating = v ?? ''),
+              ),
             ),
           ],
         ),
@@ -1066,6 +1130,36 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
               ),
             );
           }),
+        const SizedBox(height: 8),
+        adminSectionLabel(
+          context,
+          l10n.adminMetadataSettings,
+          icon: Icons.travel_explore_outlined,
+        ),
+        adminCodeDropdown(
+          label: l10n.adminMetadataDownloadLanguage,
+          defaultLabel: l10n.adminLibDefault,
+          current: _metadataLanguage,
+          rawItems: _cultureOptions().map((c) => (
+                (c['TwoLetterISOLanguageName'] ?? c['ThreeLetterISOLanguageName'])
+                    ?.toString(),
+                (c['DisplayName'] ?? c['Name'])?.toString(),
+              )),
+          onChanged: (v) => setState(() => _metadataLanguage = v ?? ''),
+        ),
+        _inheritHint(l10n),
+        const SizedBox(height: 12),
+        adminCodeDropdown(
+          label: l10n.adminMetadataCountryRegion,
+          defaultLabel: l10n.adminLibDefault,
+          current: _metadataCountry,
+          rawItems: _countryOptions().map((c) => (
+                (c['TwoLetterISORegionName'] ?? c['Name'])?.toString(),
+                (c['DisplayName'] ?? c['Name'])?.toString(),
+              )),
+          onChanged: (v) => setState(() => _metadataCountry = v ?? ''),
+        ),
+        _inheritHint(l10n),
       ],
     );
   }

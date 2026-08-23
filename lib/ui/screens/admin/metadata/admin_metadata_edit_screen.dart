@@ -786,11 +786,16 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
+      final mode = replaceAllMetadata || replaceAllImages
+          ? MetadataRefreshMode.fullRefresh
+          : MetadataRefreshMode.defaultRefresh;
       await _api.refreshItem(
         widget.itemId,
         recursive: recursive,
         replaceAllMetadata: replaceAllMetadata,
         replaceAllImages: replaceAllImages,
+        metadataRefreshMode: mode,
+        imageRefreshMode: mode,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

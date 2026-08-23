@@ -56,6 +56,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
   List<String> _tags = [];
   List<String> _studios = [];
   List<Map<String, String>> _people = const [];
+  String _displayOrder = '';
 
   final Map<String, TextEditingController> _externalControllers = {};
 
@@ -139,6 +140,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     _taglineController.text =
         _firstString(raw['Taglines']) ?? (raw['Tagline'] ?? '').toString();
     _overviewController.text = (raw['Overview'] ?? '').toString();
+    _displayOrder = (raw['DisplayOrder'] ?? '').toString();
 
     _genres = _stringList(raw['Genres']);
     _tags = _stringList(raw['Tags']);
@@ -362,6 +364,24 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     }
   }
 
+  bool get _isSeries => (_raw['Type'] ?? '').toString() == 'Series';
+
+  /// Episode ordering schemes the server understands for a series. The empty
+  /// value means "aired order", which is what Jellyfin falls back to when the
+  /// field is unset.
+  List<(String, String)> _displayOrderOptions(AppLocalizations l10n) => [
+    ('originalAirDate', l10n.adminMetadataDisplayOrderOriginalAirDate),
+    ('absolute', l10n.adminMetadataDisplayOrderAbsolute),
+    ('dvd', l10n.adminMetadataDisplayOrderDvd),
+    ('digital', l10n.adminMetadataDisplayOrderDigital),
+    ('storyArc', l10n.adminMetadataDisplayOrderStoryArc),
+    ('production', l10n.adminMetadataDisplayOrderProduction),
+    ('tv', l10n.adminMetadataDisplayOrderTv),
+    ('alternate', l10n.adminMetadataDisplayOrderAlternate),
+    ('regional', l10n.adminMetadataDisplayOrderRegional),
+    ('altdvd', l10n.adminMetadataDisplayOrderAlternateDvd),
+  ];
+
   static const _preservedItemFields = <String>[
     'Id',
     'IndexNumber',
@@ -412,6 +432,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
       'CriticRating':
           double.tryParse(_criticRatingController.text.trim()) ??
           _raw['CriticRating'],
+      if (_isSeries) 'DisplayOrder': _displayOrder,
       'Taglines': tagline.isEmpty ? <String>[] : [tagline],
       'Overview': _overviewController.text.trim(),
       'Genres': _genres,
@@ -931,6 +952,16 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
             ),
           ],
         ),
+        if (_isSeries) ...[
+          const SizedBox(height: 12),
+          adminCodeDropdown(
+            label: l10n.adminMetadataFieldDisplayOrder,
+            defaultLabel: l10n.adminMetadataDisplayOrderAired,
+            current: _displayOrder,
+            rawItems: _displayOrderOptions(l10n),
+            onChanged: (v) => setState(() => _displayOrder = v ?? ''),
+          ),
+        ],
         const SizedBox(height: 12),
         _field(_taglineController, l10n.adminMetadataFieldTagline),
         const SizedBox(height: 12),

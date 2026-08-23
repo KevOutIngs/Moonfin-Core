@@ -12340,6 +12340,78 @@ abstract class AppLocalizations {
   /// **'Overview'**
   String get adminMetadataFieldOverview;
 
+  /// No description provided for @adminMetadataFieldDisplayOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Display order'**
+  String get adminMetadataFieldDisplayOrder;
+
+  /// No description provided for @adminMetadataDisplayOrderAired.
+  ///
+  /// In en, this message translates to:
+  /// **'Aired'**
+  String get adminMetadataDisplayOrderAired;
+
+  /// No description provided for @adminMetadataDisplayOrderOriginalAirDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Original air date'**
+  String get adminMetadataDisplayOrderOriginalAirDate;
+
+  /// No description provided for @adminMetadataDisplayOrderAbsolute.
+  ///
+  /// In en, this message translates to:
+  /// **'Absolute'**
+  String get adminMetadataDisplayOrderAbsolute;
+
+  /// No description provided for @adminMetadataDisplayOrderDvd.
+  ///
+  /// In en, this message translates to:
+  /// **'DVD'**
+  String get adminMetadataDisplayOrderDvd;
+
+  /// No description provided for @adminMetadataDisplayOrderDigital.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital'**
+  String get adminMetadataDisplayOrderDigital;
+
+  /// No description provided for @adminMetadataDisplayOrderStoryArc.
+  ///
+  /// In en, this message translates to:
+  /// **'Story arc'**
+  String get adminMetadataDisplayOrderStoryArc;
+
+  /// No description provided for @adminMetadataDisplayOrderProduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Production'**
+  String get adminMetadataDisplayOrderProduction;
+
+  /// No description provided for @adminMetadataDisplayOrderTv.
+  ///
+  /// In en, this message translates to:
+  /// **'TV'**
+  String get adminMetadataDisplayOrderTv;
+
+  /// No description provided for @adminMetadataDisplayOrderAlternate.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternate'**
+  String get adminMetadataDisplayOrderAlternate;
+
+  /// No description provided for @adminMetadataDisplayOrderRegional.
+  ///
+  /// In en, this message translates to:
+  /// **'Regional'**
+  String get adminMetadataDisplayOrderRegional;
+
+  /// No description provided for @adminMetadataDisplayOrderAlternateDvd.
+  ///
+  /// In en, this message translates to:
+  /// **'Alternate DVD'**
+  String get adminMetadataDisplayOrderAlternateDvd;
+
   /// No description provided for @adminMetadataGenres.
   ///
   /// In en, this message translates to:

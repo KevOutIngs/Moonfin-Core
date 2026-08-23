@@ -6,7 +6,7 @@ abstract class AdminItemsApi {
   Future<void> updateContentType(String itemId, String contentType);
   /// Refreshes [itemId] from the metadata providers. Both refresh modes
   /// default to `None` on the server, which fetches nothing, so the modes are
-  /// always sent; [MetadataRefreshMode.fullRefresh] re-queries every provider
+  /// always sent. [MetadataRefreshMode.fullRefresh] re-queries every provider
   /// while [MetadataRefreshMode.defaultRefresh] only fills in what is missing.
   Future<void> refreshItem(
     String itemId, {

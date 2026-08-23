@@ -687,7 +687,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
           double.tryParse(_criticRatingController.text.trim()) ??
           _raw['CriticRating'],
       if (_isSeries || _isBoxSet) 'DisplayOrder': _displayOrder,
-      if (_isSeries) 'Status': _status,
+      if (_isSeries) 'Status': _nullIfEmpty(_status),
       if (_isVideo) 'Video3DFormat': _nullIfEmpty(_video3DFormat),
       if (_isSeries) 'AirDays': _airDays,
       'LockData': _lockData,

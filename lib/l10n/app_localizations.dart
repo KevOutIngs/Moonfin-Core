@@ -12460,6 +12460,168 @@ abstract class AppLocalizations {
   /// **'Leave this on Default to inherit the setting from a parent item, or from the server default.'**
   String get adminMetadataInheritHelp;
 
+  /// No description provided for @adminMetadataField3DFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'3D format'**
+  String get adminMetadataField3DFormat;
+
+  /// No description provided for @adminMetadataPersonKindUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get adminMetadataPersonKindUnknown;
+
+  /// No description provided for @adminMetadataPersonKindActor.
+  ///
+  /// In en, this message translates to:
+  /// **'Actor'**
+  String get adminMetadataPersonKindActor;
+
+  /// No description provided for @adminMetadataPersonKindDirector.
+  ///
+  /// In en, this message translates to:
+  /// **'Director'**
+  String get adminMetadataPersonKindDirector;
+
+  /// No description provided for @adminMetadataPersonKindComposer.
+  ///
+  /// In en, this message translates to:
+  /// **'Composer'**
+  String get adminMetadataPersonKindComposer;
+
+  /// No description provided for @adminMetadataPersonKindWriter.
+  ///
+  /// In en, this message translates to:
+  /// **'Writer'**
+  String get adminMetadataPersonKindWriter;
+
+  /// No description provided for @adminMetadataPersonKindGuestStar.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest star'**
+  String get adminMetadataPersonKindGuestStar;
+
+  /// No description provided for @adminMetadataPersonKindProducer.
+  ///
+  /// In en, this message translates to:
+  /// **'Producer'**
+  String get adminMetadataPersonKindProducer;
+
+  /// No description provided for @adminMetadataPersonKindConductor.
+  ///
+  /// In en, this message translates to:
+  /// **'Conductor'**
+  String get adminMetadataPersonKindConductor;
+
+  /// No description provided for @adminMetadataPersonKindLyricist.
+  ///
+  /// In en, this message translates to:
+  /// **'Lyricist'**
+  String get adminMetadataPersonKindLyricist;
+
+  /// No description provided for @adminMetadataPersonKindArranger.
+  ///
+  /// In en, this message translates to:
+  /// **'Arranger'**
+  String get adminMetadataPersonKindArranger;
+
+  /// No description provided for @adminMetadataPersonKindEngineer.
+  ///
+  /// In en, this message translates to:
+  /// **'Engineer'**
+  String get adminMetadataPersonKindEngineer;
+
+  /// No description provided for @adminMetadataPersonKindMixer.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixer'**
+  String get adminMetadataPersonKindMixer;
+
+  /// No description provided for @adminMetadataPersonKindRemixer.
+  ///
+  /// In en, this message translates to:
+  /// **'Remixer'**
+  String get adminMetadataPersonKindRemixer;
+
+  /// No description provided for @adminMetadataPersonKindCreator.
+  ///
+  /// In en, this message translates to:
+  /// **'Creator'**
+  String get adminMetadataPersonKindCreator;
+
+  /// No description provided for @adminMetadataPersonKindArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Artist'**
+  String get adminMetadataPersonKindArtist;
+
+  /// No description provided for @adminMetadataPersonKindAlbumArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Album artist'**
+  String get adminMetadataPersonKindAlbumArtist;
+
+  /// No description provided for @adminMetadataPersonKindAuthor.
+  ///
+  /// In en, this message translates to:
+  /// **'Author'**
+  String get adminMetadataPersonKindAuthor;
+
+  /// No description provided for @adminMetadataPersonKindIllustrator.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustrator'**
+  String get adminMetadataPersonKindIllustrator;
+
+  /// No description provided for @adminMetadataPersonKindPenciller.
+  ///
+  /// In en, this message translates to:
+  /// **'Penciller'**
+  String get adminMetadataPersonKindPenciller;
+
+  /// No description provided for @adminMetadataPersonKindInker.
+  ///
+  /// In en, this message translates to:
+  /// **'Inker'**
+  String get adminMetadataPersonKindInker;
+
+  /// No description provided for @adminMetadataPersonKindColorist.
+  ///
+  /// In en, this message translates to:
+  /// **'Colorist'**
+  String get adminMetadataPersonKindColorist;
+
+  /// No description provided for @adminMetadataPersonKindLetterer.
+  ///
+  /// In en, this message translates to:
+  /// **'Letterer'**
+  String get adminMetadataPersonKindLetterer;
+
+  /// No description provided for @adminMetadataPersonKindCoverArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Cover artist'**
+  String get adminMetadataPersonKindCoverArtist;
+
+  /// No description provided for @adminMetadataPersonKindEditor.
+  ///
+  /// In en, this message translates to:
+  /// **'Editor'**
+  String get adminMetadataPersonKindEditor;
+
+  /// No description provided for @adminMetadataPersonKindTranslator.
+  ///
+  /// In en, this message translates to:
+  /// **'Translator'**
+  String get adminMetadataPersonKindTranslator;
+
+  /// No description provided for @adminMetadataPersonKindNarrator.
+  ///
+  /// In en, this message translates to:
+  /// **'Narrator'**
+  String get adminMetadataPersonKindNarrator;
+
   /// No description provided for @adminMetadataGenres.
   ///
   /// In en, this message translates to:

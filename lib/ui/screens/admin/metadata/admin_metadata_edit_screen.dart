@@ -60,6 +60,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
   String _customRating = '';
   String _metadataLanguage = '';
   String _metadataCountry = '';
+  String _status = '';
+  String _video3DFormat = '';
 
   final Map<String, TextEditingController> _externalControllers = {};
 
@@ -146,6 +148,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     _customRating = (raw['CustomRating'] ?? '').toString();
     _metadataLanguage = (raw['PreferredMetadataLanguage'] ?? '').toString();
     _metadataCountry = (raw['PreferredMetadataCountryCode'] ?? '').toString();
+    _status = (raw['Status'] ?? '').toString();
+    _video3DFormat = (raw['Video3DFormat'] ?? '').toString();
 
     _genres = _stringList(raw['Genres']);
     _tags = _stringList(raw['Tags']);
@@ -389,6 +393,10 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
 
   bool get _isBoxSet => (_raw['Type'] ?? '').toString() == 'BoxSet';
 
+  bool get _isVideo =>
+      (_raw['MediaType'] ?? '').toString() == 'Video' &&
+      (_raw['Type'] ?? '').toString() != 'TvChannel';
+
   /// Episode ordering schemes the server understands for a series. The empty
   /// value means "aired order", which is what Jellyfin falls back to when the
   /// field is unset.
@@ -446,6 +454,53 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
       ),
     );
   }
+  /// PersonKind as the server defines it. 'Actor' is the sensible starting
+  /// point for a new credit, so it is what an empty or unrecognised type falls
+  /// back to rather than 'Unknown'.
+  List<(String, String)> _personKinds(AppLocalizations l10n) => [
+    ('Unknown', l10n.adminMetadataPersonKindUnknown),
+    ('Actor', l10n.adminMetadataPersonKindActor),
+    ('Director', l10n.adminMetadataPersonKindDirector),
+    ('Composer', l10n.adminMetadataPersonKindComposer),
+    ('Writer', l10n.adminMetadataPersonKindWriter),
+    ('GuestStar', l10n.adminMetadataPersonKindGuestStar),
+    ('Producer', l10n.adminMetadataPersonKindProducer),
+    ('Conductor', l10n.adminMetadataPersonKindConductor),
+    ('Lyricist', l10n.adminMetadataPersonKindLyricist),
+    ('Arranger', l10n.adminMetadataPersonKindArranger),
+    ('Engineer', l10n.adminMetadataPersonKindEngineer),
+    ('Mixer', l10n.adminMetadataPersonKindMixer),
+    ('Remixer', l10n.adminMetadataPersonKindRemixer),
+    ('Creator', l10n.adminMetadataPersonKindCreator),
+    ('Artist', l10n.adminMetadataPersonKindArtist),
+    ('AlbumArtist', l10n.adminMetadataPersonKindAlbumArtist),
+    ('Author', l10n.adminMetadataPersonKindAuthor),
+    ('Illustrator', l10n.adminMetadataPersonKindIllustrator),
+    ('Penciller', l10n.adminMetadataPersonKindPenciller),
+    ('Inker', l10n.adminMetadataPersonKindInker),
+    ('Colorist', l10n.adminMetadataPersonKindColorist),
+    ('Letterer', l10n.adminMetadataPersonKindLetterer),
+    ('CoverArtist', l10n.adminMetadataPersonKindCoverArtist),
+    ('Editor', l10n.adminMetadataPersonKindEditor),
+    ('Translator', l10n.adminMetadataPersonKindTranslator),
+    ('Narrator', l10n.adminMetadataPersonKindNarrator),
+  ];
+
+  List<(String, String)> _seriesStatuses(AppLocalizations l10n) => [
+    ('Continuing', l10n.continuing),
+    ('Ended', l10n.ended),
+    ('Unreleased', l10n.filterUnreleased),
+  ];
+
+  /// The abbreviations read the same in every language, so they carry no
+  /// localized label of their own.
+  static const _video3DFormats = <(String, String)>[
+    ('HalfSideBySide', 'HSBS'),
+    ('HalfTopAndBottom', 'HTAB'),
+    ('FullSideBySide', 'FSBS'),
+    ('FullTopAndBottom', 'FTAB'),
+    ('MVC', 'MVC'),
+  ];
 
   Widget _displayOrderField(AppLocalizations l10n) {
     if (_isBoxSet) {
@@ -483,13 +538,11 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     'Album',
     'AlbumArtists',
     'ArtistItems',
-    'Status',
     'AirDays',
     'AirTime',
     'DateCreated',
     'Height',
     'AspectRatio',
-    'Video3DFormat',
     'LockData',
     'LockedFields',
     'RunTimeTicks',
@@ -524,6 +577,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
           double.tryParse(_criticRatingController.text.trim()) ??
           _raw['CriticRating'],
       if (_isSeries || _isBoxSet) 'DisplayOrder': _displayOrder,
+      if (_isSeries) 'Status': _status,
+      if (_isVideo) 'Video3DFormat': _nullIfEmpty(_video3DFormat),
       'Taglines': tagline.isEmpty ? <String>[] : [tagline],
       'Overview': _overviewController.text.trim(),
       'Genres': _genres,
@@ -703,9 +758,11 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     final existing = index == null ? null : _people[index];
     final nameController = TextEditingController(text: existing?['Name'] ?? '');
     final roleController = TextEditingController(text: existing?['Role'] ?? '');
-    final typeController = TextEditingController(
-      text: existing?['Type'] ?? 'Actor',
-    );
+    final kinds = _personKinds(l10n);
+    var type = existing?['Type'] ?? '';
+    if (!kinds.any((k) => k.$1 == type)) {
+      type = 'Actor';
+    }
 
     final person = await showDialog<Map<String, String>>(
       context: context,
@@ -727,10 +784,20 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
                         adminInputDecoration(label: l10n.adminMetadataRole),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: typeController,
-                    decoration:
-                        adminInputDecoration(label: l10n.adminMetadataType),
+                  StatefulBuilder(
+                    builder: (ctx, setStateDialog) =>
+                        DropdownButtonFormField<String>(
+                      initialValue: type,
+                      isExpanded: true,
+                      decoration:
+                          adminInputDecoration(label: l10n.adminMetadataType),
+                      items: kinds
+                          .map((k) =>
+                              DropdownMenuItem(value: k.$1, child: Text(k.$2)))
+                          .toList(),
+                      onChanged: (v) =>
+                          setStateDialog(() => type = v ?? 'Actor'),
+                    ),
                   ),
                 ],
               ),
@@ -750,7 +817,7 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
                   Navigator.pop(ctx, {
                     'Name': name,
                     'Role': roleController.text.trim(),
-                    'Type': typeController.text.trim(),
+                    'Type': type,
                   });
                 },
                 child: Text(index == null ? l10n.add : l10n.save),
@@ -761,7 +828,6 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
 
     nameController.dispose();
     roleController.dispose();
-    typeController.dispose();
 
     if (person == null || !mounted) return;
     setState(() {
@@ -1056,6 +1122,26 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
         if (_isSeries || _isBoxSet) ...[
           const SizedBox(height: 12),
           _displayOrderField(l10n),
+        ],
+        if (_isSeries) ...[
+          const SizedBox(height: 12),
+          adminCodeDropdown(
+            label: l10n.status,
+            defaultLabel: l10n.none,
+            current: _status,
+            rawItems: _seriesStatuses(l10n).map((o) => (o.$1, o.$2)),
+            onChanged: (v) => setState(() => _status = v ?? ''),
+          ),
+        ],
+        if (_isVideo) ...[
+          const SizedBox(height: 12),
+          adminCodeDropdown(
+            label: l10n.adminMetadataField3DFormat,
+            defaultLabel: l10n.none,
+            current: _video3DFormat,
+            rawItems: _video3DFormats.map((o) => (o.$1, o.$2)),
+            onChanged: (v) => setState(() => _video3DFormat = v ?? ''),
+          ),
         ],
         const SizedBox(height: 12),
         _field(_taglineController, l10n.adminMetadataFieldTagline),

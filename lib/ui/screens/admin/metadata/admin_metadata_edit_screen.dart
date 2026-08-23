@@ -62,6 +62,9 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
   String _metadataCountry = '';
   String _status = '';
   String _video3DFormat = '';
+  List<String> _airDays = [];
+  bool _lockData = false;
+  List<String> _lockedFields = [];
 
   final Map<String, TextEditingController> _externalControllers = {};
 
@@ -150,6 +153,9 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     _metadataCountry = (raw['PreferredMetadataCountryCode'] ?? '').toString();
     _status = (raw['Status'] ?? '').toString();
     _video3DFormat = (raw['Video3DFormat'] ?? '').toString();
+    _airDays = _stringList(raw['AirDays']);
+    _lockData = raw['LockData'] == true;
+    _lockedFields = _stringList(raw['LockedFields']);
 
     _genres = _stringList(raw['Genres']);
     _tags = _stringList(raw['Tags']);
@@ -442,18 +448,6 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     );
   }
 
-  /// Sits under the two provider dropdowns. [adminCodeDropdown] builds its own
-  /// decoration and has no slot for helper text, so the hint is a plain line
-  /// under the field rather than a reason to widen the shared helper.
-  Widget _inheritHint(AppLocalizations l10n) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, left: AppSpacing.spaceXs),
-      child: Text(
-        l10n.adminMetadataInheritHelp,
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-    );
-  }
   /// PersonKind as the server defines it. 'Actor' is the sensible starting
   /// point for a new credit, so it is what an empty or unrecognised type falls
   /// back to rather than 'Unknown'.
@@ -486,6 +480,39 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     ('Narrator', l10n.adminMetadataPersonKindNarrator),
   ];
 
+  List<(String, String)> _weekdays(AppLocalizations l10n) => [
+    ('Sunday', l10n.adminDaySunday),
+    ('Monday', l10n.adminDayMonday),
+    ('Tuesday', l10n.adminDayTuesday),
+    ('Wednesday', l10n.adminDayWednesday),
+    ('Thursday', l10n.adminDayThursday),
+    ('Friday', l10n.adminDayFriday),
+    ('Saturday', l10n.adminDaySaturday),
+  ];
+
+  /// Fields a refresh can be told to leave alone. The server UI swaps the
+  /// production locations label on a person, and only offers runtime on a
+  /// series.
+  List<(String, String)> _lockableFields(AppLocalizations l10n) {
+    final isPerson = (_raw['Type'] ?? '').toString() == 'Person';
+    return [
+      ('Name', l10n.adminMetadataLockFieldName),
+      ('Overview', l10n.adminMetadataLockFieldOverview),
+      ('Genres', l10n.adminMetadataLockFieldGenres),
+      ('OfficialRating', l10n.adminMetadataLockFieldOfficialRating),
+      ('Cast', l10n.adminMetadataLockFieldCast),
+      (
+        'ProductionLocations',
+        isPerson
+            ? l10n.adminMetadataLockFieldBirthLocation
+            : l10n.adminMetadataLockFieldProductionLocations,
+      ),
+      if (_isSeries) ('Runtime', l10n.adminMetadataLockFieldRuntime),
+      ('Studios', l10n.adminMetadataLockFieldStudios),
+      ('Tags', l10n.adminMetadataLockFieldTags),
+    ];
+  }
+
   List<(String, String)> _seriesStatuses(AppLocalizations l10n) => [
     ('Continuing', l10n.continuing),
     ('Ended', l10n.ended),
@@ -501,6 +528,92 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     ('FullTopAndBottom', 'FTAB'),
     ('MVC', 'MVC'),
   ];
+
+  /// Sits under the two provider dropdowns. [adminCodeDropdown] builds its own
+  /// decoration and has no slot for helper text, so the hint is a plain line
+  /// under the field rather than a reason to widen the shared helper.
+  Widget _inheritHint(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, left: AppSpacing.spaceXs),
+      child: Text(
+        l10n.adminMetadataInheritHelp,
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+  }
+
+  Widget _airDaysField(AppLocalizations l10n) {
+    final days = _weekdays(l10n);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        adminSectionLabel(
+          context,
+          l10n.adminMetadataAirDays,
+          icon: Icons.event_repeat_outlined,
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: days.map((day) {
+            final selected = _airDays.contains(day.$1);
+            return FilterChip(
+              label: Text(day.$2),
+              selected: selected,
+              // Rebuild the whole list so the days keep calendar order however
+              // they were toggled.
+              onSelected: (on) => setState(() {
+                _airDays = [
+                  for (final d in days)
+                    if (d.$1 == day.$1 ? on : _airDays.contains(d.$1)) d.$1,
+                ];
+              }),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// A checked box means the field is left enabled for refreshes to overwrite,
+  /// so the stored list is the inverse of what is ticked. Values the server
+  /// locked that this list does not offer are left untouched.
+  Widget _lockedFieldsEditor(AppLocalizations l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        adminSwitchRow(
+          title: l10n.adminMetadataLockItem,
+          value: _lockData,
+          onChanged: (v) => setState(() => _lockData = v),
+        ),
+        if (!_lockData) ...[
+          adminSectionLabel(
+            context,
+            l10n.adminMetadataEnabledFields,
+            icon: Icons.lock_open_outlined,
+          ),
+          Text(
+            l10n.adminMetadataEnabledFieldsHelp,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          ..._lockableFields(l10n).map((field) {
+            final locked = _lockedFields.contains(field.$1);
+            return CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: !locked,
+              title: Text(field.$2),
+              onChanged: (enabled) => setState(() {
+                final next = [..._lockedFields]..remove(field.$1);
+                if (enabled != true) next.add(field.$1);
+                _lockedFields = next;
+              }),
+            );
+          }),
+        ],
+      ],
+    );
+  }
 
   Widget _displayOrderField(AppLocalizations l10n) {
     if (_isBoxSet) {
@@ -538,13 +651,10 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
     'Album',
     'AlbumArtists',
     'ArtistItems',
-    'AirDays',
     'AirTime',
     'DateCreated',
     'Height',
     'AspectRatio',
-    'LockData',
-    'LockedFields',
     'RunTimeTicks',
     'ProductionLocations',
     'DisplayOrder',
@@ -579,6 +689,9 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
       if (_isSeries || _isBoxSet) 'DisplayOrder': _displayOrder,
       if (_isSeries) 'Status': _status,
       if (_isVideo) 'Video3DFormat': _nullIfEmpty(_video3DFormat),
+      if (_isSeries) 'AirDays': _airDays,
+      'LockData': _lockData,
+      'LockedFields': _lockedFields,
       'Taglines': tagline.isEmpty ? <String>[] : [tagline],
       'Overview': _overviewController.text.trim(),
       'Genres': _genres,
@@ -1132,6 +1245,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
             rawItems: _seriesStatuses(l10n).map((o) => (o.$1, o.$2)),
             onChanged: (v) => setState(() => _status = v ?? ''),
           ),
+          const SizedBox(height: 12),
+          _airDaysField(l10n),
         ],
         if (_isVideo) ...[
           const SizedBox(height: 12),
@@ -1246,6 +1361,8 @@ class _AdminMetadataEditScreenState extends State<AdminMetadataEditScreen> {
           onChanged: (v) => setState(() => _metadataCountry = v ?? ''),
         ),
         _inheritHint(l10n),
+        const SizedBox(height: 8),
+        _lockedFieldsEditor(l10n),
       ],
     );
   }

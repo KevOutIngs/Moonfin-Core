@@ -12622,6 +12622,90 @@ abstract class AppLocalizations {
   /// **'Narrator'**
   String get adminMetadataPersonKindNarrator;
 
+  /// No description provided for @adminMetadataAirDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Air days'**
+  String get adminMetadataAirDays;
+
+  /// No description provided for @adminMetadataLockItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock this item to prevent future metadata changes'**
+  String get adminMetadataLockItem;
+
+  /// No description provided for @adminMetadataEnabledFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled Fields'**
+  String get adminMetadataEnabledFields;
+
+  /// No description provided for @adminMetadataEnabledFieldsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncheck a field to lock it and prevent its data from being changed.'**
+  String get adminMetadataEnabledFieldsHelp;
+
+  /// No description provided for @adminMetadataLockFieldName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get adminMetadataLockFieldName;
+
+  /// No description provided for @adminMetadataLockFieldOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get adminMetadataLockFieldOverview;
+
+  /// No description provided for @adminMetadataLockFieldGenres.
+  ///
+  /// In en, this message translates to:
+  /// **'Genres'**
+  String get adminMetadataLockFieldGenres;
+
+  /// No description provided for @adminMetadataLockFieldOfficialRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Parental rating'**
+  String get adminMetadataLockFieldOfficialRating;
+
+  /// No description provided for @adminMetadataLockFieldCast.
+  ///
+  /// In en, this message translates to:
+  /// **'People'**
+  String get adminMetadataLockFieldCast;
+
+  /// No description provided for @adminMetadataLockFieldProductionLocations.
+  ///
+  /// In en, this message translates to:
+  /// **'Production locations'**
+  String get adminMetadataLockFieldProductionLocations;
+
+  /// No description provided for @adminMetadataLockFieldBirthLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth location'**
+  String get adminMetadataLockFieldBirthLocation;
+
+  /// No description provided for @adminMetadataLockFieldRuntime.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime'**
+  String get adminMetadataLockFieldRuntime;
+
+  /// No description provided for @adminMetadataLockFieldStudios.
+  ///
+  /// In en, this message translates to:
+  /// **'Studios'**
+  String get adminMetadataLockFieldStudios;
+
+  /// No description provided for @adminMetadataLockFieldTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get adminMetadataLockFieldTags;
+
   /// No description provided for @adminMetadataGenres.
   ///
   /// In en, this message translates to:

@@ -152,7 +152,26 @@ int64_t HdrVideoWindow::Create() {
   SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
+  RestoreFocusToFlutterView();
   return reinterpret_cast<int64_t>(window_);
+}
+
+// Creating a child window and re-ordering it can leave the keyboard focus
+// somewhere other than the Flutter view, which is where every key still has to
+// land - only the pixels moved, not the widgets. The symptom is a player that
+// ignores space and escape until the window is deactivated and reactivated,
+// because Win32Window's WM_ACTIVATE handler does this same SetFocus call.
+// Doing it here means the user never has to.
+void HdrVideoWindow::RestoreFocusToFlutterView() {
+  if (flutter_view_ == nullptr || top_level_ == nullptr) {
+    return;
+  }
+  // Only while this window is the active one; stealing focus into a
+  // background app would be worse than the bug.
+  if (GetActiveWindow() != top_level_) {
+    return;
+  }
+  SetFocus(flutter_view_);
 }
 
 void HdrVideoWindow::SetGeometry(int x, int y, int width, int height) {
@@ -172,6 +191,7 @@ void HdrVideoWindow::SetVisible(bool visible) {
   if (visible) {
     SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    RestoreFocusToFlutterView();
   }
 }
 
@@ -210,8 +230,20 @@ LRESULT CALLBACK HdrVideoWindow::WndProc(HWND window, UINT message,
     // mpv owns every pixel, so erasing would only flicker.
     case WM_ERASEBKGND:
       return 1;
-    // Belt and braces alongside WS_EX_TRANSPARENT: never take activation away
-    // from the Flutter view, which is where input is still handled.
+    // The one that actually makes this window click-through.
+    //
+    // WS_EX_TRANSPARENT alone is not enough for a *child* window: it is
+    // honoured for layered top-level windows, but child hit-testing walks the
+    // child chain and lands here regardless. Returning HTTRANSPARENT sends the
+    // hit test on to the window underneath, which is the Flutter view, where
+    // the player's widgets are still laid out and expecting the click.
+    //
+    // Without this the video window silently swallows every mouse event and
+    // the interface looks dead while the keyboard still works - because
+    // keyboard follows focus, which never moved.
+    case WM_NCHITTEST:
+      return HTTRANSPARENT;
+    // Never take activation away from the Flutter view either.
     case WM_MOUSEACTIVATE:
       return MA_NOACTIVATE;
     default:

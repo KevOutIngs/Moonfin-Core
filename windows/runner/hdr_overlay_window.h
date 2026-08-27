@@ -66,6 +66,10 @@ class HdrOverlayWindow {
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   std::map<std::string, Band> bands_;
   HWND top_level_ = nullptr;
+
+  // Where the keyboard has to stay: showing an owned window can shift focus,
+  // and the widgets behind these pixels are the ones expecting the keys.
+  HWND flutter_view_ = nullptr;
 };
 
 #endif  // RUNNER_HDR_OVERLAY_WINDOW_H_

@@ -47,6 +47,11 @@ class HdrVideoWindow {
   void Destroy();
   flutter::EncodableValue State() const;
 
+  // Puts the keyboard back on the Flutter view after this window is created or
+  // shown. Only the pixels moved to the native window; every key still has to
+  // reach the widgets.
+  void RestoreFocusToFlutterView();
+
   static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wparam,
                                   LPARAM lparam) noexcept;
 

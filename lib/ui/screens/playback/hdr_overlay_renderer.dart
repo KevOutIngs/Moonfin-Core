@@ -159,31 +159,42 @@ class HdrVideoGeometry extends StatefulWidget {
 }
 
 class _HdrVideoGeometryState extends State<HdrVideoGeometry> {
-  Rect? _last;
-
   void _report() {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final origin = box.localToGlobal(Offset.zero) * ratio;
-    final rect = Rect.fromLTWH(
-      origin.dx,
-      origin.dy,
-      box.size.width * ratio,
-      box.size.height * ratio,
+    widget.onGeometry(
+      Rect.fromLTWH(
+        origin.dx,
+        origin.dy,
+        box.size.width * ratio,
+        box.size.height * ratio,
+      ),
     );
-    if (rect == _last) return;
-    _last = rect;
-    widget.onGeometry(rect);
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Every layout pass reports, and the callback drops anything that has not
-    // moved, so a resize drag does not flood the channel.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _report();
-    });
-    return const SizedBox.expand();
+  void initState() {
+    super.initState();
+    _scheduleReport();
   }
+
+  // Re-asserts on every frame rather than only when the rect changes, and lets
+  // HdrVideoWindow drop the duplicates, so no channel traffic follows the
+  // first report. Reporting only on change lost a race: when the player screen
+  // is rebuilt, the outgoing state's dispose hides the window *after* the
+  // incoming one has asked for it to be shown, and with a change-only report
+  // nothing ever asked again - leaving mpv rendering into a window nobody
+  // could see. Re-asserting recovers on the very next frame.
+  void _scheduleReport() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _report();
+      _scheduleReport();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.expand();
 }

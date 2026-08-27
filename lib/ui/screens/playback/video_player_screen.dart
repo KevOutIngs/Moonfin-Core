@@ -4005,6 +4005,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             final window = mediaKitBackend.hdrOutput.window;
             unawaited(window.setGeometry(rect));
             unawaited(window.setVisible(true));
+            // Swapping the video surface for this widget rebuilds the subtree
+            // and the overlay focus node goes with it, so the player stops
+            // seeing keys. The giveaway was that alt-tabbing away and back
+            // fixed it: onWindowFocus runs this same call. Re-asserting here
+            // means the user never has to.
+            _ensureDesktopOverlayFocus();
           },
         ),
       );

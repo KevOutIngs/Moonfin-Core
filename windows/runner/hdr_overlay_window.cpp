@@ -37,7 +37,8 @@ HdrOverlayWindow::HdrOverlayWindow(
     flutter::BinaryMessenger* messenger,
     flutter::PluginRegistrarWindows* registrar) {
   if (registrar != nullptr && registrar->GetView() != nullptr) {
-    top_level_ = GetAncestor(registrar->GetView()->GetNativeWindow(), GA_ROOT);
+    flutter_view_ = registrar->GetView()->GetNativeWindow();
+    top_level_ = GetAncestor(flutter_view_, GA_ROOT);
   }
 
   channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -206,6 +207,12 @@ bool HdrOverlayWindow::Push(const std::string& id, const RECT& rect,
   if (!band.visible) {
     ShowWindow(band.window, SW_SHOWNOACTIVATE);
     band.visible = true;
+    // WS_EX_NOACTIVATE should hold this, but showing an owned window is
+    // exactly the kind of moment focus slips, and a player that ignores
+    // space until you alt-tab is a miserable bug to chase.
+    if (flutter_view_ != nullptr && GetActiveWindow() == top_level_) {
+      SetFocus(flutter_view_);
+    }
   }
   // Above the video window, which is a child of the top level, so staying
   // immediately above the owner is enough.
@@ -250,6 +257,11 @@ LRESULT CALLBACK HdrOverlayWindow::WndProc(HWND window, UINT message,
     // and nothing to paint on demand.
     case WM_ERASEBKGND:
       return 1;
+    // Belt and braces with WS_EX_TRANSPARENT, which does work for a layered
+    // top-level window. The controls drawn here are only pixels: the widgets
+    // that handle the click are in the Flutter view underneath.
+    case WM_NCHITTEST:
+      return HTTRANSPARENT;
     case WM_MOUSEACTIVATE:
       return MA_NOACTIVATE;
     default:

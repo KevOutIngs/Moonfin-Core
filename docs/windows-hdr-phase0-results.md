@@ -122,6 +122,9 @@ hit means the stand-in is visible.
 | `3` | `DwmEnableBlurBehindWindow` | 0/35 | **FAIL** |
 | `4` | `ACCENT_ENABLE_TRANSPARENTGRADIENT` | 0/35 | **FAIL** |
 | `6` | separate top-level window behind | 0/35 | **FAIL** |
+| `7` | `flutter_acrylic`'s own call, `ACCENT_DISABLED` flags 2 | 0/15 | **FAIL** — window goes translucent, but against the wallpaper |
+| `8` | mode 7 + `DwmExtendFrameIntoClientArea(-1)` | 0/15 | **FAIL** — same |
+| — | control: top-level stand-in forced `HWND_TOPMOST` | **12/15** | top-level stand-ins do composite |
 
 The stand-in is created, visible and painting in every mode — the probe log confirms it
 each run. Nothing reaches the screen through the Flutter view.
@@ -134,11 +137,49 @@ immediately erased. `Attach` now sets that style on the Flutter view, and only t
 the control light up. Any future run of this spike that cannot show mode `5` working is
 measuring nothing.
 
-**Mode `6` fails too**, confirmed by eye with nothing else fullscreen. It was the one
-arrangement that could have come back yes: Win32 has no per-pixel alpha between sibling
-child HWNDs at all, so 1, 3 and 4 never had a chance, but DWM does composite *top-level*
-windows with alpha. It still shows nothing. The Flutter surface on Windows is opaque, and
-no attribute set on the window changes that.
+**Mode `6` fails too**, confirmed by eye with nothing else fullscreen.
+
+### The Flutter window *can* be transparent — that is not what blocks this
+
+An earlier version of this document concluded "the Flutter surface on Windows is opaque".
+That was wrong, and `flutter_acrylic` is the counter-example that prompted the re-test: it
+makes real Flutter apps translucent on Windows every day.
+
+Modes `7` and `8` use its actual call rather than the guesses in modes 1 and 4 —
+`ACCENT_DISABLED` with flags `2` and a zero gradient colour, on
+`GetAncestor(view, GA_ROOT)`, mode 8 adding `DwmExtendFrameIntoClientArea` with margins of
+`-1`. Every call returns success, now logged:
+
+```
+DwmExtendFrameIntoClientArea(-1) -> 0x00000000
+SetWindowCompositionAttribute(state 0, flags 2, colour 00000000) -> 1, GetLastError 0
+```
+
+And it works. The window goes translucent and the desktop shows through the player UI.
+
+**What it composites against is the problem.** The stand-in still scores 0/15 in modes 7 and
+8, under conditions that leave no room for doubt:
+
+- The stand-in paints correctly — `PrintWindow` on it returns the exact bar sequence
+  white, yellow, cyan, green, magenta, red, blue, black.
+- A top-level stand-in does composite on screen — forced `HWND_TOPMOST`, it scores **12/15**.
+- It was directly behind the Flutter window at capture time — verified with
+  `GetWindow(moonfin, GW_HWNDNEXT)` returning the stand-in's own handle in the same run.
+
+So a transparent Flutter window over a confirmed-visible window, with the two adjacent in
+the z-order, and none of the pattern comes through. What comes through instead is **blurred**,
+while the stand-in is sharp. That is the signature of DWM's backdrop: accent, acrylic and
+mica all sample the *desktop wallpaper*, not the application windows underneath. They make a
+window translucent against the shell, not against whatever happens to sit behind it.
+
+Which is exactly the wrong kind of transparency here. The video window is an application
+window, so it is precisely what a backdrop effect ignores.
+
+The one arrangement that would give true per-pixel alpha over an arbitrary window is the
+plan's own third option — `WS_EX_NOREDIRECTIONBITMAP` with DirectComposition, putting the
+Flutter swapchain into a visual tree we own. The plan already called that "almost certainly
+out of reach without engine work", and nothing found here changes that. It is a Flutter
+engine change, not an app change.
 
 ## Re-scope
 

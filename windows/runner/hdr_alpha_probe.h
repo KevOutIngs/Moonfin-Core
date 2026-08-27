@@ -54,6 +54,16 @@ enum class Technique {
   // composite top-level windows with alpha, so this is the one arrangement
   // where the question can come back yes.
   kTopLevelBehind = 6,
+  // What flutter_acrylic actually does for a fully transparent window, which
+  // is a working counter-example on real apps: ACCENT_DISABLED with flags 2
+  // and a zero gradient colour, applied to GetAncestor(view, GA_ROOT). Not
+  // ACCENT_ENABLE_TRANSPARENTGRADIENT, which is what modes 1 and 4 guessed at.
+  // Stand-in is top-level, as in mode 6.
+  kAcrylicDisabled = 7,
+  // Mode 7 plus DwmExtendFrameIntoClientArea with margins of -1 - the "sheet
+  // of glass" call that pulls the whole client area into DWM's composited
+  // region. flutter_acrylic uses it on Windows 11 builds >= 22523.
+  kAcrylicExtendFrame = 8,
 };
 
 // Reads MOONFIN_HDR_Q4 once and caches it.

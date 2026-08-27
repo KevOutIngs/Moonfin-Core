@@ -44,6 +44,28 @@ constexpr int kAccentPolicyAttribute = 19;
 using SetWindowCompositionAttributePtr =
     BOOL(WINAPI*)(HWND, WindowCompositionAttributeData*);
 
+// Appends a line to %TEMP%\moonfin_hdr_q4.log. The probe runs detached from a
+// console, so this is the only way to tell "the call failed" from "the call
+// succeeded and changed nothing".
+void Log(const wchar_t* format, ...) {
+  wchar_t path[MAX_PATH] = {};
+  if (GetTempPathW(static_cast<DWORD>(std::size(path)), path) == 0) {
+    return;
+  }
+  wcsncat_s(path, L"moonfin_hdr_q4.log", _TRUNCATE);
+
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path, L"a, ccs=UTF-8") != 0 || file == nullptr) {
+    return;
+  }
+  va_list args;
+  va_start(args, format);
+  vfwprintf(file, format, args);
+  va_end(args);
+  fwprintf(file, L"\n");
+  fclose(file);
+}
+
 bool ApplyAccentPolicy(HWND top_level, AccentState state) {
   HMODULE user32 = LoadLibraryW(L"user32.dll");
   if (user32 == nullptr) {
@@ -71,9 +93,25 @@ bool ApplyAccentPolicy(HWND top_level, AccentState state) {
   data.data = &policy;
   data.size = sizeof(policy);
 
+  SetLastError(0);
   const BOOL ok = set_composition_attribute(top_level, &data);
+  const DWORD error = GetLastError();
   FreeLibrary(user32);
+  Log(L"SetWindowCompositionAttribute(state %d, flags %d, colour %08X) -> %d, "
+      L"GetLastError %lu",
+      policy.accent_state, policy.accent_flags, policy.gradient_color, ok,
+      error);
   return ok != FALSE;
+}
+
+// The "sheet of glass" call: negative margins pull the entire client area into
+// DWM's composited region, which is what lets a window be alpha-blended per
+// pixel rather than just tinted.
+bool ExtendFrameIntoClientArea(HWND top_level) {
+  MARGINS margins = {-1, -1, -1, -1};
+  const HRESULT hr = DwmExtendFrameIntoClientArea(top_level, &margins);
+  Log(L"DwmExtendFrameIntoClientArea(-1) -> 0x%08lX", hr);
+  return SUCCEEDED(hr);
 }
 
 bool ApplyColorKey(HWND top_level) {
@@ -99,28 +137,6 @@ bool ApplyDwmBlurBehind(HWND top_level) {
   return SUCCEEDED(hr);
 }
 
-// Appends a line to %TEMP%\moonfin_hdr_q4.log. The probe runs detached from a
-// console, so this is the only way to tell "the window was never created" from
-// "the window was created and then painted over".
-void Log(const wchar_t* format, ...) {
-  wchar_t path[MAX_PATH] = {};
-  if (GetTempPathW(static_cast<DWORD>(std::size(path)), path) == 0) {
-    return;
-  }
-  wcsncat_s(path, L"moonfin_hdr_q4.log", _TRUNCATE);
-
-  FILE* file = nullptr;
-  if (_wfopen_s(&file, path, L"a, ccs=UTF-8") != 0 || file == nullptr) {
-    return;
-  }
-  va_list args;
-  va_start(args, format);
-  vfwprintf(file, format, args);
-  va_end(args);
-  fwprintf(file, L"\n");
-  fclose(file);
-}
-
 // The owner's client area, in screen coordinates - what a top-level stand-in
 // has to cover to line up with where the Flutter view draws.
 RECT ClientRectInScreenSpace(HWND top_level) {
@@ -130,6 +146,15 @@ RECT ClientRectInScreenSpace(HWND top_level) {
   ClientToScreen(top_level, &origin);
   return RECT{origin.x, origin.y, origin.x + (client.right - client.left),
               origin.y + (client.bottom - client.top)};
+}
+
+// Whether the stand-in is a top-level window rather than a child HWND. Only
+// top-level windows can be alpha-blended against each other by DWM, so every
+// technique with a real chance of passing uses one.
+bool UsesTopLevelStandIn(Technique technique) {
+  return technique == Technique::kTopLevelBehind ||
+         technique == Technique::kAcrylicDisabled ||
+         technique == Technique::kAcrylicExtendFrame;
 }
 
 const wchar_t* TechniqueName(Technique technique) {
@@ -146,6 +171,10 @@ const wchar_t* TechniqueName(Technique technique) {
       return L"5  control - stand-in on top, no transparency at all";
     case Technique::kTopLevelBehind:
       return L"6  separate top-level window behind a transparent Flutter window";
+    case Technique::kAcrylicDisabled:
+      return L"7  flutter_acrylic's own call: ACCENT_DISABLED, flags 2";
+    case Technique::kAcrylicExtendFrame:
+      return L"8  mode 7 plus DwmExtendFrameIntoClientArea(-1)";
     case Technique::kOff:
       break;
   }
@@ -232,6 +261,10 @@ Technique SelectedTechnique() {
         return Technique::kSanityOnTop;
       case L'6':
         return Technique::kTopLevelBehind;
+      case L'7':
+        return Technique::kAcrylicDisabled;
+      case L'8':
+        return Technique::kAcrylicExtendFrame;
       default:
         return Technique::kOff;
     }
@@ -271,7 +304,7 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
   top_level_ = top_level;
   flutter_view_ = flutter_view;
 
-  if (technique == Technique::kTopLevelBehind) {
+  if (UsesTopLevelStandIn(technique)) {
     const RECT screen = ClientRectInScreenSpace(top_level);
     window_ = CreateWindowEx(
         WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kStandInClassName, L"",
@@ -327,6 +360,12 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
     case Technique::kTopLevelBehind:
       ApplyAccentPolicy(top_level, ACCENT_ENABLE_TRANSPARENTGRADIENT);
       break;
+    case Technique::kAcrylicExtendFrame:
+      ExtendFrameIntoClientArea(top_level);
+      [[fallthrough]];
+    case Technique::kAcrylicDisabled:
+      ApplyAccentPolicy(top_level, ACCENT_DISABLED);
+      break;
     // The control applies nothing on purpose.
     case Technique::kSanityOnTop:
     case Technique::kOff:
@@ -349,7 +388,7 @@ void StandInWindow::SyncGeometry() {
   syncing_ = true;
 
   const Technique technique = SelectedTechnique();
-  if (technique == Technique::kTopLevelBehind) {
+  if (UsesTopLevelStandIn(technique)) {
     // Track the owner's client area in screen space, and stay immediately
     // behind it in the top-level z-order. Deliberately not an owned window:
     // an owned window is always drawn above its owner, which is the opposite

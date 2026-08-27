@@ -8,7 +8,11 @@ starts until all four questions have a written answer.
 | 1 | Does the shipped libmpv have `gpu-next`, `gpu-api=d3d11`, `target-colorspace-hint`? | **PASS** |
 | 2 | Is `wid` settable after `mpv_initialize`? | **PASS** |
 | 3 | Does HDR actually reach the display? | **PASS** |
-| 4 | Can the Flutter window get per-pixel alpha over that window? | **FAIL** for every in-window technique; one arrangement still unmeasured |
+| 4 | Can the Flutter window get per-pixel alpha over that window? | **FAIL** |
+
+**The gate is not met.** Q1-Q3 all pass — the HDR half of the plan works, on the libmpv that
+ships today. Q4 does not, and per the plan that stops Phases 1-4. See
+[the re-scope](#re-scope) at the end.
 
 ---
 
@@ -117,7 +121,7 @@ hit means the stand-in is visible.
 | `1` | `ACCENT_ENABLE_BLURBEHIND` | 0/35 | **FAIL** |
 | `3` | `DwmEnableBlurBehindWindow` | 0/35 | **FAIL** |
 | `4` | `ACCENT_ENABLE_TRANSPARENTGRADIENT` | 0/35 | **FAIL** |
-| `6` | separate top-level window behind | — | **not yet measured** |
+| `6` | separate top-level window behind | 0/35 | **FAIL** |
 
 The stand-in is created, visible and painting in every mode — the probe log confirms it
 each run. Nothing reaches the screen through the Flutter view.
@@ -130,12 +134,46 @@ immediately erased. `Attach` now sets that style on the Flutter view, and only t
 the control light up. Any future run of this spike that cannot show mode `5` working is
 measuring nothing.
 
-**Mode `6` is still open.** Its stand-in is a separate top-level window, so it falls outside
-a `PrintWindow` capture of the Flutter window and needs a real screen capture. Both attempts
-so far were spoiled — a fullscreen game held the screen, and the machine has only one
-display. It has to be re-run with nothing else fullscreen. It is the one arrangement that
-could still come back yes, because Win32 has no per-pixel alpha between sibling child HWNDs
-at all, whereas DWM does composite top-level windows with alpha.
+**Mode `6` fails too**, confirmed by eye with nothing else fullscreen. It was the one
+arrangement that could have come back yes: Win32 has no per-pixel alpha between sibling
+child HWNDs at all, so 1, 3 and 4 never had a chance, but DWM does composite *top-level*
+windows with alpha. It still shows nothing. The Flutter surface on Windows is opaque, and
+no attribute set on the window changes that.
+
+## Re-scope
+
+Q4 fails, so Phases 1-4 do not start. The plan named two fallbacks; only one of them
+survives this result.
+
+**Fullscreen-only with an on-demand overlay is dead too.** It assumed the controls could be
+drawn over the video by a Flutter surface that Q4 has just shown to be opaque — as a child
+window *and* as a top-level one. Drawing them in a separate window above the video hits the
+same wall. The only way through would be to draw the player chrome natively instead of in
+Flutter, which is a rewrite of the whole OSD, not a re-scope.
+
+**What is left is the tone-mapping work, and it is worth doing on its own.** `gpu-next` and
+libplacebo run through the render API as well, without owning a swapchain. That gives up HDR
+passthrough but keeps the rest:
+
+- **Dolby Vision Profile 5** — libplacebo handles the RPU, so the wrong-hue problem should
+  resolve. This is the most visible single win.
+- **Better tone-mapping** of HDR sources down to SDR, which is every HDR title on Windows
+  today.
+- **media_kit's Android defaults, undone.** It applies `dither=no`, `scale=bilinear`,
+  `dscale=bilinear`, `hdr-compute-peak=no` and `sigmoid-upscaling=no` to every native
+  platform (`real.dart:2389-2412`). These are phone performance defaults. `dither=no` in
+  particular bands dark gradients on desktop.
+- The mpv.conf allowlist additions already committed, which let a custom config reach these
+  options at all.
+
+None of it needs a native window, a second HWND, or any change to how Flutter composites,
+so none of it carries the risk that sank the original scope.
+
+**Still true and worth keeping from the original investigation:** the shipped libmpv has
+everything needed for real HDR (Q1), `wid` is runtime-settable (Q2), and
+`target-colorspace-hint` genuinely reconfigures the swapchain to 10-bit BT.2020 PQ (Q3). If
+Flutter ever gains a transparent surface or a real platform view on Windows, this plan
+becomes viable again with only Q4 to re-answer.
 
 ### Running it
 

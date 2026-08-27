@@ -54,7 +54,10 @@ import '../../../util/audio_labels.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/auto_hdr_switcher.dart';
 import '../../../util/episode_playability.dart';
+import '../../../playback/hdr_output_controller.dart';
+import '../../../playback/hdr_overlay_channel.dart';
 import '../../../util/hdr_alpha_probe.dart';
+import 'hdr_overlay_renderer.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/play_method_label.dart';
 import '../../../util/platform_detection.dart';
@@ -135,6 +138,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final backend = _activeBackend;
     return backend is Media3PlayerBackend ? backend : null;
   }
+
+  final HdrOverlayChannel _hdrOverlayChannel = HdrOverlayChannel();
+
+  /// The HDR-output line for the playback info sheet, or null on platforms
+  /// where there is nothing to say. Reports both the outcome and, when it did
+  /// not engage, why — so "my HDR TV is not lighting up" has an answer in the
+  /// app rather than needing a log.
+  String? _hdrOutputRow(AppLocalizations l10n) {
+    if (!PlatformDetection.isWindows) return null;
+    final backend = _activeMediaKitBackend ?? _backend;
+    if (backend == null) return null;
+    final status = backend.hdrOutput.status;
+    return switch (status.reason) {
+      HdrOutputReason.active => l10n.hdrOutputActive(status.output),
+      HdrOutputReason.displayNotInHdrMode => l10n.hdrOutputDisplayNotHdr,
+      HdrOutputReason.contentIsSdr => l10n.hdrOutputContentSdr,
+      HdrOutputReason.disabledByPreference => l10n.hdrOutputDisabled,
+      HdrOutputReason.failed => l10n.hdrOutputFailed,
+      HdrOutputReason.notWindows => l10n.hdrOutputUnsupported,
+    };
+  }
+
+  /// Whether the player chrome has to be mirrored into a layered window
+  /// because mpv's own window is covering the Flutter view.
+  bool get _hdrOverlayActive =>
+      (_activeMediaKitBackend ?? _backend)?.hdrOutput.isEngaged ?? false;
 
   HtmlVideoBackend? get _activeHtmlVideoBackend {
     final backend = _activeBackend;
@@ -1597,6 +1626,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           '${width ?? '?'}×${height ?? '?'}${fps != null ? ' @ ${fps.round()}fps' : ''}',
         ),
         row(l10n.hdr, _getHdrType(video)),
+        if (_hdrOutputRow(l10n) case final hdrOutput?)
+          row(l10n.hdrOutput, hdrOutput),
         row(l10n.codec, _formatVideoCodec(video)),
         if (video['BitRate'] != null)
           row(l10n.videoBitrate, _formatBitrate(video['BitRate'] as int?)),
@@ -3733,12 +3764,43 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     if (_controlsVisible &&
                         !_isOsdLocked &&
                         !hideOsdForPreroll) ...[
-                      _buildTopOverlay(context),
-                      if (!PlatformDetection.useLeanbackUi)
+                      // While mpv owns its own window the Flutter view is
+                      // covered, so the chrome has to be re-sent as pixels to
+                      // a layered window above the video. The widgets stay
+                      // exactly where they were, because that is still what
+                      // gets hit-tested - both native windows are
+                      // WS_EX_TRANSPARENT and clicks fall through to them.
+                      if (_hdrOverlayActive)
                         Positioned.fill(
-                          child: Center(child: _buildCenterTransportControls()),
-                        ),
-                      _buildBottomOverlay(context),
+                          child: HdrOverlayCapture(
+                            band: HdrOverlayBand.full,
+                            enabled: true,
+                            channel: _hdrOverlayChannel,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                _buildTopOverlay(context),
+                                if (!PlatformDetection.useLeanbackUi)
+                                  Positioned.fill(
+                                    child: Center(
+                                      child: _buildCenterTransportControls(),
+                                    ),
+                                  ),
+                                _buildBottomOverlay(context),
+                              ],
+                            ),
+                          ),
+                        )
+                      else ...[
+                        _buildTopOverlay(context),
+                        if (!PlatformDetection.useLeanbackUi)
+                          Positioned.fill(
+                            child: Center(
+                              child: _buildCenterTransportControls(),
+                            ),
+                          ),
+                        _buildBottomOverlay(context),
+                      ],
                     ],
                     _buildBufferingIndicator(),
                     _buildVolumeOverlay(),
@@ -3904,6 +3966,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final mediaKitBackend = _activeMediaKitBackend ?? _backend;
     if (mediaKitBackend == null) {
       return const Positioned.fill(child: ColoredBox(color: Colors.black));
+    }
+
+    // Native HDR output: mpv is drawing into its own D3D11 window, so there is
+    // nothing for Flutter to paint here. The rect still has to be measured
+    // from the same layout, so the window can be moved to it.
+    if (mediaKitBackend.hdrOutput.isEngaged) {
+      return Positioned.fill(
+        child: HdrVideoGeometry(
+          key: _videoSurfaceKey,
+          onGeometry: (rect) {
+            final window = mediaKitBackend.hdrOutput.window;
+            unawaited(window.setGeometry(rect));
+            unawaited(window.setVisible(true));
+          },
+        ),
+      );
     }
     final hwDecodingEnabled = _prefs.get(UserPreferences.hardwareDecoding);
     const selectedVo = 'gpu';

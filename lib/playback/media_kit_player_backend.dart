@@ -11,8 +11,10 @@ import 'package:playback_core/playback_core.dart';
 
 import '../preference/preference_constants.dart';
 import '../preference/user_preferences.dart';
+import '../util/auto_hdr_switcher.dart';
 import '../util/platform_detection.dart';
 import 'device_profile_builder.dart';
+import 'hdr_output_controller.dart';
 import 'known_defects.dart';
 import 'server_transcode_capabilities.dart';
 
@@ -177,6 +179,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
   final UserPreferences _prefs;
   final Future<void> Function(int handle)? _onNativeHandleReady;
   final bool _hwDecodingEnabled;
+
+  /// Owns the decision about native HDR output and the window it needs.
+  /// Public so the playback info sheet can report what actually happened.
+  final HdrOutputController hdrOutput = HdrOutputController();
+
   bool _didNotifyNativeHandle = false;
   bool _didConfigureAppleMobileLibassFont = false;
   bool _didConfigureAndroidLibassFonts = false;
@@ -657,6 +664,98 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (!_useLibass) {
       _enableNativeSubtitleRendering();
     }
+    await _maybeEngageNativeHdr(
+      serverRangeType: payload['videoRangeType']?.toString(),
+    );
+  }
+
+  /// Gives mpv its own D3D11 window when the content is HDR and the display is
+  /// already in HDR mode, so the stream reaches the screen untouched instead
+  /// of being flattened into media_kit's 8-bit texture.
+  ///
+  /// Runs after `open`, because the decision needs `video-params`, which only
+  /// exist once a file is loaded. See docs/windows-hdr-output-plan.md.
+  Future<void> _maybeEngageNativeHdr({String? serverRangeType}) async {
+    if (!PlatformDetection.supportsNativeHdrWindow) return;
+    if (_player.platform is! NativePlayer) return;
+    final native = _player.platform as NativePlayer;
+
+    final input = await _readHdrInputFormat(native);
+    if (hdrOutput.isEngaged) {
+      hdrOutput.observe(input: input, serverRangeType: serverRangeType);
+      return;
+    }
+
+    await hdrOutput.maybeEngage(
+      preferenceEnabled: _prefs.get(UserPreferences.nativeHdrOutput),
+      displayInHdrMode: await AutoHdrSwitcher.isDisplayHdrEnabled(),
+      input: input,
+      serverRangeType: serverRangeType,
+      engageMpv: (handle) => _handOverToNativeWindow(native, handle),
+    );
+  }
+
+  /// Reads what mpv actually decoded, rather than trusting server metadata,
+  /// which can be absent or wrong. `video-params` appears a beat after `open`
+  /// returns, so this polls briefly rather than reading once.
+  Future<HdrInputFormat> _readHdrInputFormat(NativePlayer native) async {
+    for (var attempt = 0; attempt < 20; attempt++) {
+      final gamma = await _tryNativeGetProperty(native, 'video-params/gamma');
+      if (gamma != null && gamma.isNotEmpty && gamma != 'null') {
+        final primaries = await _tryNativeGetProperty(
+          native,
+          'video-params/primaries',
+        );
+        return HdrInputFormat.fromVideoParams(gamma, primaries);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return HdrInputFormat.sdr;
+  }
+
+  /// Points mpv at the native window and switches it to the libplacebo
+  /// renderer over D3D11. Q2 of the Phase 0 spike established that all of
+  /// these are settable after `mpv_initialize`, which is what lets this happen
+  /// mid-session instead of needing a second Player.
+  Future<bool> _handOverToNativeWindow(NativePlayer native, int handle) async {
+    try {
+      await _nativeSetProperty(native, 'wid', handle.toString());
+      await _nativeSetProperty(native, 'gpu-api', 'd3d11');
+      await _nativeSetProperty(native, 'vo', 'gpu-next');
+      // The option that actually produces HDR passthrough. It tags the
+      // swapchain, so it only does anything on a context that owns one -
+      // which is exactly what the native window just provided.
+      await _nativeSetProperty(native, 'target-colorspace-hint', 'yes');
+      await _applyDesktopRenderQuality(native);
+
+      // If the renderer refused, `current-vo` still reads as the old one and
+      // the window would sit black over the player.
+      final vo = await _tryNativeGetProperty(native, 'current-vo');
+      return vo == 'gpu-next';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Undoes the defaults media_kit applies to every native platform.
+  ///
+  /// It sets `dither=no`, `scale=bilinear`, `dscale=bilinear`,
+  /// `hdr-compute-peak=no` and `sigmoid-upscaling=no` regardless of platform.
+  /// Those are phone performance choices; on a desktop GPU driving an HDR
+  /// display they are all wrong, and `dither=no` alone visibly bands dark
+  /// gradients. A custom mpv.conf still wins, because it is applied after
+  /// this.
+  Future<void> _applyDesktopRenderQuality(NativePlayer native) async {
+    await _nativeSetProperty(native, 'dither', 'fruit');
+    await _nativeSetProperty(native, 'dither-depth', 'auto');
+    await _nativeSetProperty(native, 'scale', 'spline36');
+    await _nativeSetProperty(native, 'dscale', 'mitchell');
+    await _nativeSetProperty(native, 'cscale', 'spline36');
+    await _nativeSetProperty(native, 'sigmoid-upscaling', 'yes');
+    // Dynamic peak detection, which is what makes HDR10+ and Dolby Vision
+    // dynamic metadata worth anything when tone-mapping down.
+    await _nativeSetProperty(native, 'hdr-compute-peak', 'yes');
+    await _nativeSetProperty(native, 'tone-mapping', 'bt.2390');
   }
 
   Future<void> _applyLinuxHwdecFallbackIfNeeded(
@@ -1073,6 +1172,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // it, so it is inert on the Flutter texture path and harmless to allow.
     'target-colorspace-hint',
     'hdr-compute-peak',
+    // Only meaningful once mpv owns a window, but harmless before that, and
+    // needed for anyone wanting vulkan instead of d3d11.
+    'gpu-api',
+    'gpu-context',
+    'target-inverse-tone-mapping',
     // media_kit initializes every native platform with dither=no, which bands
     // dark gradients on desktop. Let a conf turn it back on.
     'dither',

@@ -1569,6 +1569,15 @@ class UserPreferences extends ChangeNotifier {
     values: AutoHdrSwitchingBehavior.values,
   );
 
+  /// Sends HDR video to the display untouched, by giving mpv its own D3D11
+  /// window instead of the shared 8-bit texture. Windows only, and only
+  /// engaged when the display is already in HDR mode and the content is HDR;
+  /// see docs/windows-hdr-output-plan.md.
+  static final nativeHdrOutput = Preference(
+    key: 'native_hdr_output',
+    defaultValue: true,
+  );
+
   static final preferExoPlayerFfmpeg = Preference(
     key: 'exoplayer_prefer_ffmpeg',
     defaultValue: !(PlatformDetection.isAndroid && PlatformDetection.isTV),

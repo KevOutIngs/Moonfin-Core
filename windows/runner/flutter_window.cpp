@@ -193,6 +193,17 @@ bool FlutterWindow::OnCreate() {
       native_game_registrar_->texture_registrar(),
       native_game_registrar_.get());
 
+  hdr_video_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
+      flutter_controller_->engine()->GetRegistrarForPlugin("HdrVideo"));
+  hdr_video_ = std::make_unique<HdrVideoWindow>(
+      flutter_controller_->engine()->messenger(), hdr_video_registrar_.get());
+
+  hdr_overlay_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
+      flutter_controller_->engine()->GetRegistrarForPlugin("HdrOverlay"));
+  hdr_overlay_ = std::make_unique<HdrOverlayWindow>(
+      flutter_controller_->engine()->messenger(),
+      hdr_overlay_registrar_.get());
+
   if (!g_hdr_display_channel) {
     g_hdr_display_channel =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -265,6 +276,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  hdr_overlay_ = nullptr;
+  hdr_video_ = nullptr;
   hdr_alpha_probe_ = nullptr;
 
   if (flutter_controller_) {

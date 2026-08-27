@@ -9,6 +9,8 @@ project(runner LANGUAGES CXX)
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "hdr_alpha_probe.cpp"
+  "hdr_overlay_window.cpp"
+  "hdr_video_window.cpp"
   "main.cpp"
   "native_game.cpp"
   "utils.cpp"

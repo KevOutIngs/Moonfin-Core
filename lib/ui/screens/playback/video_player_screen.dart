@@ -1204,6 +1204,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _ensureDesktopOverlayFocus();
   }
 
+  // Fullscreen can be entered without the player ever being asked: F11 and
+  // Alt+Enter are handled by the global shortcut in app.dart, which calls
+  // FullscreenHelper directly, and the title bar, Win+Up and the window menu
+  // bypass the app entirely. Listening to the window itself catches all of
+  // them, so _isDesktopFullscreen and the auto-HDR switch stay in step
+  // whichever route was taken.
+  @override
+  void onWindowEnterFullScreen() {
+    unawaited(_syncDesktopFullscreenState());
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    unawaited(_syncDesktopFullscreenState());
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
     if (lifecycleState != AppLifecycleState.resumed) {

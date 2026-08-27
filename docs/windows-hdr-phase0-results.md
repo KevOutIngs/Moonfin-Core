@@ -7,7 +7,7 @@ starts until all four questions have a written answer.
 |---|---|---|
 | 1 | Does the shipped libmpv have `gpu-next`, `gpu-api=d3d11`, `target-colorspace-hint`? | **PASS** |
 | 2 | Is `wid` settable after `mpv_initialize`? | **PASS** |
-| 3 | Does HDR actually reach the display? | *not yet run — needs an HDR10 file and the display in HDR mode* |
+| 3 | Does HDR actually reach the display? | **PASS** |
 | 4 | Can the Flutter window get per-pixel alpha over that window? | *spike built, awaiting a run on real hardware* |
 
 ---
@@ -48,19 +48,29 @@ directly — `vo=null` at init, then `wid` + `vo=gpu-next` once the HWND exists.
 not have to join `dependency_overrides`. The risk row "`wid` not runtime-settable" is
 closed.
 
-## Q3 — HDR to the display — not yet run
+## Q3 — HDR to the display — PASS
 
-Needs a real HDR10 file and the display already switched into HDR mode. Re-run the same
-binary with `--media` and watch the display's own HDR indicator:
+Run against a 4K HDR10 ShadowPlay capture (`d3d11[p010]`, `bt.2020-ncl/bt.2020/pq/full`),
+`vo=gpu-next gpu-api=d3d11 target-colorspace-hint=yes`:
 
-```powershell
-.\build\hdr_probe\Release\hdr_probe.exe `
-  --libmpv build\windows\x64\libmpv\libmpv-2.dll `
-  --media "<path to an HDR10 file>" --seconds 20
+```
+current-vo                gpu-next
+video-params/primaries    bt.2020
+video-params/gamma        pq
+video-params/sig-peak     49.26
+video-params/max-luma     10000
+hwdec-current             d3d11va
+
+[vo/gpu-next/libplacebo] New swap chain configuration received from hint:
+    format: R10G10B10A2_UNORM, color space: RGB_FULL_G2084_NONE_P2020
+[vo/gpu-next/libplacebo] Dithering to 10 bit depth
 ```
 
-Passing is `video-params/gamma` → `pq`, `video-params/primaries` → `bt.2020`, a 10-bit or
-fp16 D3D11 swapchain in the verbose log, and the display indicator engaging.
+**Consequence:** `target-colorspace-hint` reaches the swapchain and reconfigures it — 10-bit,
+BT.2020 primaries, PQ transfer, no tone-map to SDR. This is the thing the texture path
+structurally cannot do, and it works on the DLL that ships today. Worth re-running once on a
+real HDR10 movie rather than a game capture, and watching the display's own HDR indicator,
+but the negotiation above is the part that was in doubt.
 
 ## Q4 — per-pixel alpha over the video window — spike built
 

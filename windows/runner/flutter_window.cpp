@@ -20,8 +20,15 @@ struct HdrDisplayState {
   bool enabled = false;
 };
 
-#if defined(DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO) && \
-    defined(DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE)
+// These two used to sit behind
+// `#if defined(DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO)`, which
+// never held: both names are enumerators of DISPLAYCONFIG_DEVICE_INFO_TYPE,
+// not preprocessor macros, and `defined()` only tests macros. So the stub
+// below was always the one compiled, getHdrState always answered "no HDR
+// here", and auto HDR switching could never have engaged on any machine.
+//
+// They have been in the SDK since Windows 10 1703, well under this project's
+// floor, so the guard is gone rather than corrected.
 
 bool GetMonitorDeviceNameFromWindow(HWND hwnd, std::wstring* device_name) {
   if (device_name == nullptr) {
@@ -145,21 +152,6 @@ bool SetHdrStateForWindow(HWND hwnd, bool enabled) {
 
   return DisplayConfigSetDeviceInfo(&request.header) == ERROR_SUCCESS;
 }
-
-#else
-
-HdrDisplayState QueryHdrStateForWindow(HWND hwnd) {
-  (void)hwnd;
-  return {};
-}
-
-bool SetHdrStateForWindow(HWND hwnd, bool enabled) {
-  (void)hwnd;
-  (void)enabled;
-  return false;
-}
-
-#endif
 
 }  // namespace
 

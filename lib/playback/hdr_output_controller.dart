@@ -30,14 +30,22 @@ enum HdrInputFormat {
   hlg,
   dolbyVision;
 
-  /// From mpv's `video-params/gamma` and `video-params/primaries`.
+  /// What is playing, from mpv's own `video-params` first and the server's
+  /// `VideoRangeType` only where mpv cannot know yet.
   ///
-  /// Every HDR transfer function reaching libplacebo comes out as `pq` or
-  /// `hlg`; Dolby Vision Profile 5 included, because libplacebo applies the
-  /// RPU and converts IPT to BT.2020 PQ before this is readable. So this
-  /// distinguishes HDR from SDR reliably, and the finer label is refined by
-  /// the server metadata in [describe].
-  static HdrInputFormat fromVideoParams(String? gamma, String? primaries) {
+  /// mpv is the better source: server metadata can be missing or wrong, and
+  /// what matters is what actually decoded. But it cannot answer for **Dolby
+  /// Vision Profile 5**. A P5 stream has no HDR10 base layer and frequently no
+  /// VUI transfer characteristic at all — the picture is IPT and only becomes
+  /// BT.2020 PQ once libplacebo applies the RPU, which happens under
+  /// `gpu-next`, which is the very thing being decided here. So mpv can report
+  /// a P5 title as SDR right up until the moment it stops being one, and the
+  /// container has to break the tie.
+  static HdrInputFormat detect({
+    required String? gamma,
+    required String? primaries,
+    required String? serverRangeType,
+  }) {
     final transfer = gamma?.toLowerCase() ?? '';
     if (transfer == 'pq' || transfer == 'st2084') {
       return HdrInputFormat.hdr10;
@@ -45,8 +53,21 @@ enum HdrInputFormat {
     if (transfer == 'hlg') {
       return HdrInputFormat.hlg;
     }
-    // bt.2020 primaries with an SDR curve is wide-gamut SDR, not HDR, and
-    // must not trigger an HDR display switch.
+
+    // The Profile 5 case. IPT is carried on BT.2020 primaries, so those are
+    // present even when the transfer characteristic is not, and no other
+    // common content reaches here with them: wide-gamut SDR is rare, and the
+    // cost of being wrong is only that mpv tone-maps in its own window
+    // instead of the texture - on a display that is already in HDR mode,
+    // since that is a precondition for getting this far.
+    if ((primaries?.toLowerCase() ?? '').contains('2020')) {
+      final range = serverRangeType?.toUpperCase().replaceAll(' ', '') ?? '';
+      if (range.contains('DOVI') || range.contains('DOLBYVISION')) {
+        return HdrInputFormat.dolbyVision;
+      }
+      return HdrInputFormat.hdr10;
+    }
+
     return HdrInputFormat.sdr;
   }
 

@@ -680,7 +680,10 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (_player.platform is! NativePlayer) return;
     final native = _player.platform as NativePlayer;
 
-    final input = await _readHdrInputFormat(native);
+    final input = await _readHdrInputFormat(
+      native,
+      serverRangeType: serverRangeType,
+    );
     if (hdrOutput.isEngaged) {
       hdrOutput.observe(input: input, serverRangeType: serverRangeType);
       return;
@@ -698,15 +701,25 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// Reads what mpv actually decoded, rather than trusting server metadata,
   /// which can be absent or wrong. `video-params` appears a beat after `open`
   /// returns, so this polls briefly rather than reading once.
-  Future<HdrInputFormat> _readHdrInputFormat(NativePlayer native) async {
+  Future<HdrInputFormat> _readHdrInputFormat(
+    NativePlayer native, {
+    String? serverRangeType,
+  }) async {
     for (var attempt = 0; attempt < 20; attempt++) {
       final gamma = await _tryNativeGetProperty(native, 'video-params/gamma');
-      if (gamma != null && gamma.isNotEmpty && gamma != 'null') {
-        final primaries = await _tryNativeGetProperty(
-          native,
-          'video-params/primaries',
+      final primaries = await _tryNativeGetProperty(
+        native,
+        'video-params/primaries',
+      );
+      final haveParams =
+          (gamma != null && gamma.isNotEmpty && gamma != 'null') ||
+          (primaries != null && primaries.isNotEmpty && primaries != 'null');
+      if (haveParams) {
+        return HdrInputFormat.detect(
+          gamma: gamma,
+          primaries: primaries,
+          serverRangeType: serverRangeType,
         );
-        return HdrInputFormat.fromVideoParams(gamma, primaries);
       }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }

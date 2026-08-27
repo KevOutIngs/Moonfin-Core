@@ -891,6 +891,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   @override
   void dispose() {
     _trickplayLoadGeneration++;
+    // The native HDR window and its overlay belong to this screen, but mpv
+    // itself is a process-lifetime singleton shared with Live TV and the mini
+    // player. Leaving the window up would float the last video frame over
+    // whatever comes next, so it goes away with the screen even though the
+    // session stays engaged.
+    if (_hdrOverlayActive) {
+      final window = (_activeMediaKitBackend ?? _backend)?.hdrOutput.window;
+      unawaited(window?.setVisible(false));
+      unawaited(_hdrOverlayChannel.hide());
+    }
     if (_isInPiP && GetIt.instance.isRegistered<PlaybackArbiter>()) {
       GetIt.instance<PlaybackArbiter>().pipActive = false;
     }

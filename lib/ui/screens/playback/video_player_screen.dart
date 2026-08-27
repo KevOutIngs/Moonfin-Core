@@ -825,9 +825,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       if (isMobilePlayback) {
         _pipService.updatePiPActions(isPlaying: playing);
         _syncAirPlayPlaybackState();
-        if (PlatformDetection.useNativeVideoSurface && playing) {
-          _syncSubtitleActive();
-        }
       }
     });
 

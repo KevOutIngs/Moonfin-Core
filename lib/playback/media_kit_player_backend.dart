@@ -664,9 +664,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (!_useLibass) {
       _enableNativeSubtitleRendering();
     }
-    await _maybeEngageNativeHdr(
-      serverRangeType: payload['videoRangeType']?.toString(),
-    );
+    await _maybeEngageNativeHdr();
   }
 
   /// Gives mpv its own D3D11 window when the content is HDR and the display is
@@ -675,55 +673,45 @@ class MediaKitPlayerBackend extends PlayerBackend {
   ///
   /// Runs after `open`, because the decision needs `video-params`, which only
   /// exist once a file is loaded. See docs/windows-hdr-output-plan.md.
-  Future<void> _maybeEngageNativeHdr({String? serverRangeType}) async {
+  Future<void> _maybeEngageNativeHdr() async {
     if (!PlatformDetection.supportsNativeHdrWindow) return;
     if (_player.platform is! NativePlayer) return;
+    // Every gate that can be answered without waiting comes first. Reading
+    // video-params waits for mpv, and on an audio track it waits in vain -
+    // this backend is the singleton for music and audiobooks too, so ordering
+    // this after the poll added seconds to the tail of every track's open.
+    if (hdrOutput.isEngaged || hdrOutput.hasFailed) return;
+    if (!_prefs.get(UserPreferences.nativeHdrOutput)) return;
+
     final native = _player.platform as NativePlayer;
-
-    final input = await _readHdrInputFormat(
-      native,
-      serverRangeType: serverRangeType,
-    );
-    if (hdrOutput.isEngaged) {
-      hdrOutput.observe(input: input, serverRangeType: serverRangeType);
-      return;
-    }
-
     await hdrOutput.maybeEngage(
-      preferenceEnabled: _prefs.get(UserPreferences.nativeHdrOutput),
-      displayInHdrMode: await AutoHdrSwitcher.isDisplayHdrEnabled(),
-      input: input,
-      serverRangeType: serverRangeType,
+      preferenceEnabled: true,
+      isHdrContent: await _isHdrContent(),
+      displayInHdrMode: AutoHdrSwitcher.isDisplayHdrEnabled,
       engageMpv: (handle) => _handOverToNativeWindow(native, handle),
     );
   }
 
-  /// Reads what mpv actually decoded, rather than trusting server metadata,
-  /// which can be absent or wrong. `video-params` appears a beat after `open`
-  /// returns, so this polls briefly rather than reading once.
-  Future<HdrInputFormat> _readHdrInputFormat(
-    NativePlayer native, {
-    String? serverRangeType,
-  }) async {
-    for (var attempt = 0; attempt < 20; attempt++) {
-      final gamma = await _tryNativeGetProperty(native, 'video-params/gamma');
-      final primaries = await _tryNativeGetProperty(
-        native,
-        'video-params/primaries',
-      );
-      final haveParams =
-          (gamma != null && gamma.isNotEmpty && gamma != 'null') ||
-          (primaries != null && primaries.isNotEmpty && primaries != 'null');
-      if (haveParams) {
-        return HdrInputFormat.detect(
-          gamma: gamma,
-          primaries: primaries,
-          serverRangeType: serverRangeType,
-        );
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+  /// What mpv actually decoded, rather than what the server claimed.
+  ///
+  /// media_kit already observes `video-params` and pushes it into
+  /// [Player.stream.videoParams], so this waits on that stream rather than
+  /// polling properties over FFI. It reacts the moment mpv reports instead of
+  /// on a 100 ms granularity, and costs nothing while it waits.
+  Future<bool> _isHdrContent() async {
+    var params = _player.state.videoParams;
+    if (params.gamma == null && params.primaries == null) {
+      params = await _player.stream.videoParams
+          .firstWhere((p) => p.gamma != null || p.primaries != null)
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => const VideoParams(),
+          );
     }
-    return HdrInputFormat.sdr;
+    return isHdrVideoParams(
+      gamma: params.gamma,
+      primaries: params.primaries,
+    );
   }
 
   /// Points mpv at the native window and switches it to the libplacebo

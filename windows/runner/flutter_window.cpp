@@ -246,15 +246,6 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  if (hdr_alpha_probe::SelectedTechnique() !=
-      hdr_alpha_probe::Technique::kOff) {
-    hdr_alpha_probe_ = std::make_unique<hdr_alpha_probe::StandInWindow>();
-    if (!hdr_alpha_probe_->Attach(
-            GetHandle(), flutter_controller_->view()->GetNativeWindow())) {
-      hdr_alpha_probe_ = nullptr;
-    }
-  }
-
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -270,7 +261,6 @@ bool FlutterWindow::OnCreate() {
 void FlutterWindow::OnDestroy() {
   hdr_overlay_ = nullptr;
   hdr_video_ = nullptr;
-  hdr_alpha_probe_ = nullptr;
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -297,14 +287,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
-    // Win32Window::MessageHandler only re-fits the single tracked child, so
-    // the stand-in window needs its own geometry pass. WM_WINDOWPOSCHANGED
-    // rather than WM_SIZE, because the top-level variant also has to follow
-    // the window as it moves and to hold its place in the z-order. Phase 3 of
-    // the plan makes the same point about the real video window.
+    // The video window is a child, so it follows the runner for free once
+    // Dart has given it a rect. The overlay does not: it is a layered
+    // top-level window positioned in screen space, and Flutter does not
+    // rebuild when the window is merely dragged. WM_WINDOWPOSCHANGED rather
+    // than WM_SIZE, because a move is exactly the case that needs it.
     case WM_WINDOWPOSCHANGED:
-      if (hdr_alpha_probe_) {
-        hdr_alpha_probe_->SyncGeometry();
+      if (hdr_overlay_) {
+        hdr_overlay_->SyncPosition();
       }
       break;
   }

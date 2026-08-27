@@ -1,13 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-import '../util/platform_detection.dart';
 import 'hdr_video_window.dart';
 
 /// Why native HDR output is or is not running, for the playback info sheet.
 enum HdrOutputReason {
   /// Running: HDR is reaching the display untouched.
   active,
-  notWindows,
   disabledByPreference,
   displayNotInHdrMode,
   contentIsSdr,
@@ -17,78 +15,12 @@ enum HdrOutputReason {
   failed,
 }
 
-/// What the decode side reported, mapped to the names users know.
-///
-/// mpv does not expose the Dolby Vision *profile* number, so that half comes
-/// from the server's `VideoRangeType` and is carried alongside. What mpv does
-/// report is what actually got decoded, which is what the engage decision has
-/// to be based on - server metadata can be absent or wrong.
-enum HdrInputFormat {
-  sdr,
-  hdr10,
-  hdr10Plus,
-  hlg,
-  dolbyVision;
-
-  /// What is playing, from mpv's own `video-params` first and the server's
-  /// `VideoRangeType` only where mpv cannot know yet.
-  ///
-  /// mpv is the better source: server metadata can be missing or wrong, and
-  /// what matters is what actually decoded. But it cannot answer for **Dolby
-  /// Vision Profile 5**. A P5 stream has no HDR10 base layer and frequently no
-  /// VUI transfer characteristic at all — the picture is IPT and only becomes
-  /// BT.2020 PQ once libplacebo applies the RPU, which happens under
-  /// `gpu-next`, which is the very thing being decided here. So mpv can report
-  /// a P5 title as SDR right up until the moment it stops being one, and the
-  /// container has to break the tie.
-  static HdrInputFormat detect({
-    required String? gamma,
-    required String? primaries,
-    required String? serverRangeType,
-  }) {
-    final transfer = gamma?.toLowerCase() ?? '';
-    if (transfer == 'pq' || transfer == 'st2084') {
-      return HdrInputFormat.hdr10;
-    }
-    if (transfer == 'hlg') {
-      return HdrInputFormat.hlg;
-    }
-
-    // The Profile 5 case. IPT is carried on BT.2020 primaries, so those are
-    // present even when the transfer characteristic is not, and no other
-    // common content reaches here with them: wide-gamut SDR is rare, and the
-    // cost of being wrong is only that mpv tone-maps in its own window
-    // instead of the texture - on a display that is already in HDR mode,
-    // since that is a precondition for getting this far.
-    if ((primaries?.toLowerCase() ?? '').contains('2020')) {
-      final range = serverRangeType?.toUpperCase().replaceAll(' ', '') ?? '';
-      if (range.contains('DOVI') || range.contains('DOLBYVISION')) {
-        return HdrInputFormat.dolbyVision;
-      }
-      return HdrInputFormat.hdr10;
-    }
-
-    return HdrInputFormat.sdr;
-  }
-
-  bool get isHdr => this != HdrInputFormat.sdr;
-}
-
 /// A snapshot for the diagnostics row in the playback info sheet.
 @immutable
 class HdrOutputStatus {
-  const HdrOutputStatus({
-    required this.reason,
-    this.input = HdrInputFormat.sdr,
-    this.serverRangeType,
-  });
+  const HdrOutputStatus(this.reason);
 
   final HdrOutputReason reason;
-  final HdrInputFormat input;
-
-  /// Jellyfin's `VideoRangeType`, which is where the Dolby Vision profile
-  /// number comes from since mpv does not expose it.
-  final String? serverRangeType;
 
   bool get isActive => reason == HdrOutputReason.active;
 
@@ -109,102 +41,96 @@ class HdrOutputStatus {
 /// window is not a regression: mpv renders it, and with `gpu-next` renders it
 /// better than the texture path does.
 class HdrOutputController {
-  HdrOutputController({HdrVideoWindow? window})
-    : window = window ?? HdrVideoWindow();
+  final HdrVideoWindow window = HdrVideoWindow();
 
-  final HdrVideoWindow window;
-
+  // One field, not three. `_engaged` and `_failed` were separate booleans that
+  // were only ever set one line before the matching status, so they could not
+  // disagree with it - they just had to be kept in step by hand on every
+  // return path.
   HdrOutputStatus _status = const HdrOutputStatus(
-    reason: HdrOutputReason.contentIsSdr,
+    HdrOutputReason.contentIsSdr,
   );
   HdrOutputStatus get status => _status;
 
-  bool get isEngaged => _engaged;
-  bool _engaged = false;
+  bool get isEngaged => _status.reason == HdrOutputReason.active;
 
-  /// Set when creating the window or handing it to mpv failed. Sticky, so a
-  /// broken configuration is not retried on every item.
-  bool _failed = false;
+  /// Whether a previous attempt failed. Sticky, so a broken configuration is
+  /// not retried on every item; the caller uses it to skip the work of even
+  /// deciding.
+  bool get hasFailed => _status.reason == HdrOutputReason.failed;
 
   /// Decides and, if the answer is yes, creates the window.
   ///
   /// Returns the HWND to hand mpv as `wid`, or null to stay on the texture
-  /// path. [engageMpv] is called with the handle and must return false if mpv
-  /// refused it, so the failure is recorded rather than leaving a black window
-  /// on screen.
+  /// path. [displayInHdrMode] is a callback rather than a value so the
+  /// display-config enumeration behind it is not paid for SDR content, which
+  /// is the common case. [engageMpv] must return false if mpv refused the
+  /// handle, so the failure is recorded rather than leaving a black window on
+  /// screen.
   Future<int?> maybeEngage({
     required bool preferenceEnabled,
-    required bool displayInHdrMode,
-    required HdrInputFormat input,
-    String? serverRangeType,
+    required bool isHdrContent,
+    required Future<bool> Function() displayInHdrMode,
     required Future<bool> Function(int handle) engageMpv,
   }) async {
-    HdrOutputStatus statusFor(HdrOutputReason reason) => HdrOutputStatus(
-      reason: reason,
-      input: input,
-      serverRangeType: serverRangeType,
-    );
-
-    if (_engaged) {
-      _status = statusFor(HdrOutputReason.active);
+    if (isEngaged) {
       return window.handle;
     }
-
-    if (!PlatformDetection.supportsNativeHdrWindow) {
-      _status = statusFor(HdrOutputReason.notWindows);
-      return null;
-    }
-    if (_failed) {
-      _status = statusFor(HdrOutputReason.failed);
+    if (hasFailed) {
       return null;
     }
     if (!preferenceEnabled) {
-      _status = statusFor(HdrOutputReason.disabledByPreference);
+      _status = const HdrOutputStatus(HdrOutputReason.disabledByPreference);
       return null;
     }
-    if (!input.isHdr) {
-      _status = statusFor(HdrOutputReason.contentIsSdr);
+    if (!isHdrContent) {
+      _status = const HdrOutputStatus(HdrOutputReason.contentIsSdr);
       return null;
     }
-    if (!displayInHdrMode) {
+    if (!await displayInHdrMode()) {
       // Switching the display is the auto-HDR preference's job, and it runs
       // before this. If it is off, or the display refused, there is nothing
       // useful to send.
-      _status = statusFor(HdrOutputReason.displayNotInHdrMode);
+      _status = const HdrOutputStatus(HdrOutputReason.displayNotInHdrMode);
       return null;
     }
 
     final handle = await window.create();
     if (handle == null) {
-      _failed = true;
-      _status = statusFor(HdrOutputReason.failed);
+      _status = const HdrOutputStatus(HdrOutputReason.failed);
       return null;
     }
 
     if (!await engageMpv(handle)) {
-      _failed = true;
       await window.destroy();
-      _status = statusFor(HdrOutputReason.failed);
+      _status = const HdrOutputStatus(HdrOutputReason.failed);
       return null;
     }
 
-    _engaged = true;
-    _status = statusFor(HdrOutputReason.active);
+    _status = const HdrOutputStatus(HdrOutputReason.active);
     return handle;
   }
+}
 
-  /// Records what the current item is, without changing engagement. Keeps the
-  /// diagnostics row honest once the session is already engaged.
-  void observe({
-    required HdrInputFormat input,
-    String? serverRangeType,
-  }) {
-    _status = HdrOutputStatus(
-      reason: _status.reason,
-      input: input,
-      serverRangeType: serverRangeType,
-    );
+/// Whether what mpv decoded is HDR.
+///
+/// mpv is the better source than the server's `VideoRangeType`, which can be
+/// missing or wrong — what matters is what actually decoded. But it cannot
+/// answer for **Dolby Vision Profile 5**: that has no HDR10 base layer and
+/// frequently no VUI transfer characteristic, so the picture is IPT and only
+/// becomes BT.2020 PQ once libplacebo applies the RPU — which happens under
+/// `gpu-next`, which is the very thing being decided. mpv reports a P5 title
+/// as SDR right up until it stops being one.
+///
+/// BT.2020 primaries break that tie: IPT is carried on them, so they are
+/// present even when the transfer characteristic is not. Wide-gamut SDR also
+/// matches, and the cost of being wrong there is only that mpv tone-maps in
+/// its own window rather than the texture, on a display already in HDR mode
+/// since that is a precondition for reaching this at all.
+bool isHdrVideoParams({required String? gamma, required String? primaries}) {
+  final transfer = gamma?.toLowerCase() ?? '';
+  if (transfer == 'pq' || transfer == 'st2084' || transfer == 'hlg') {
+    return true;
   }
-
-  Future<void> dispose() => window.destroy();
+  return (primaries?.toLowerCase() ?? '').contains('2020');
 }

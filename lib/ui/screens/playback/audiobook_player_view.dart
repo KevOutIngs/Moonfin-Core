@@ -125,11 +125,7 @@ class _AudiobookPlayerViewState extends State<AudiobookPlayerView> {
       if (_state.isPlaying) _saveResume();
     });
 
-    // Android TV drives volume from the remote through AudioTrack, so mpv's own
-    // mixer stays wide open. Gated on the platform rather than on the native
-    // video surface: desktop restores its saved player volume instead, and
-    // sharing the surface flag would fight that once Windows renders natively.
-    if (PlatformDetection.isAndroid && PlatformDetection.isTV) {
+    if (PlatformDetection.playerVolumeIsSystemManaged) {
       unawaited(_manager.backend?.setVolume(100.0));
     }
 

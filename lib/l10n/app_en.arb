@@ -2345,10 +2345,6 @@
   "@hdrOutputFailed": {
     "description": "Stream info value when the native HDR window could not be created"
   },
-  "hdrOutputUnsupported": "Not available on this platform",
-  "@hdrOutputUnsupported": {
-    "description": "Stream info value on platforms with no native HDR output path"
-  },
   "nativeHdrOutput": "Native HDR output",
   "@nativeHdrOutput": {
     "description": "Settings label for sending HDR to the display untouched"

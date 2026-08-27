@@ -350,6 +350,15 @@ class PlatformDetection {
 
   static bool get useNativeVideoSurface => isAndroid && isTV;
 
+  /// Volume is driven by the remote through AudioTrack, so the player's own
+  /// mixer should stay wide open rather than restoring a saved level.
+  ///
+  /// The same expression as [useNativeVideoSurface] today, but a different
+  /// question: the audiobook view used to read the video-surface flag for
+  /// this, which would have started answering wrongly the moment Windows
+  /// rendered natively.
+  static bool get playerVolumeIsSystemManaged => isAndroid && isTV;
+
   /// Whether this platform can give mpv its own window for HDR output.
   ///
   /// Deliberately separate from [useNativeVideoSurface] rather than widening
@@ -359,13 +368,11 @@ class PlatformDetection {
   ///
   /// This only says the platform is capable. Whether the window is actually
   /// used is decided per session from the content, the display's HDR state and
-  /// the user's preference - see `HdrOutputController`.
-  /// The kill switch is a string rather than a bool because
-  /// `bool.fromEnvironment` only accepts the literal `true`, so
-  /// `MOONFIN_WIN_HDR=0` would read the same as not passing it at all.
-  static bool get supportsNativeHdrWindow =>
-      isWindows &&
-      const String.fromEnvironment('MOONFIN_WIN_HDR', defaultValue: '1') != '0';
+  /// [UserPreferences.nativeHdrOutput] - see `HdrOutputController`. That
+  /// preference is the off switch; there is deliberately no second
+  /// compile-time one, which could only have hidden the setting from the user
+  /// it was meant to rescue.
+  static bool get supportsNativeHdrWindow => isWindows;
 
   /// Apple platforms use the shared AVPlayer-based preview/theme channels
   /// (`moonfin/appletv_preview`, `moonfin/appletv_theme_music`) instead of a

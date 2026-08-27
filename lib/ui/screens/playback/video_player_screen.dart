@@ -56,7 +56,6 @@ import '../../../util/auto_hdr_switcher.dart';
 import '../../../util/episode_playability.dart';
 import '../../../playback/hdr_output_controller.dart';
 import '../../../playback/hdr_overlay_channel.dart';
-import '../../../util/hdr_alpha_probe.dart';
 import 'hdr_overlay_renderer.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/play_method_label.dart';
@@ -156,7 +155,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       HdrOutputReason.contentIsSdr => l10n.hdrOutputContentSdr,
       HdrOutputReason.disabledByPreference => l10n.hdrOutputDisabled,
       HdrOutputReason.failed => l10n.hdrOutputFailed,
-      HdrOutputReason.notWindows => l10n.hdrOutputUnsupported,
     };
   }
 
@@ -895,10 +893,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     // itself is a process-lifetime singleton shared with Live TV and the mini
     // player. Leaving the window up would float the last video frame over
     // whatever comes next, so it goes away with the screen even though the
-    // session stays engaged.
+    // session stays engaged. `release` is keyed on identity, so a successor
+    // screen that has already claimed the window is not disturbed.
     if (_hdrOverlayActive) {
       final window = (_activeMediaKitBackend ?? _backend)?.hdrOutput.window;
-      unawaited(window?.setVisible(false));
+      unawaited(window?.release(this));
       unawaited(_hdrOverlayChannel.hide());
     }
     if (_isInPiP && GetIt.instance.isRegistered<PlaybackArbiter>()) {
@@ -3727,12 +3726,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _exitPlayback();
       },
       child: Scaffold(
-        // Transparent under the Q4 probe so the stand-in video window behind
-        // the Flutter view shows through. The route is opaque, so nothing
-        // below it paints either.
-        backgroundColor: HdrAlphaProbe.isActive
-            ? Colors.transparent
-            : Colors.black,
+        backgroundColor: Colors.black,
         body: Focus(
           focusNode: _overlayFocus,
           autofocus: true,
@@ -3790,43 +3784,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     if (_controlsVisible &&
                         !_isOsdLocked &&
                         !hideOsdForPreroll) ...[
-                      // While mpv owns its own window the Flutter view is
-                      // covered, so the chrome has to be re-sent as pixels to
-                      // a layered window above the video. The widgets stay
-                      // exactly where they were, because that is still what
-                      // gets hit-tested - both native windows are
-                      // WS_EX_TRANSPARENT and clicks fall through to them.
-                      if (_hdrOverlayActive)
-                        Positioned.fill(
-                          child: HdrOverlayCapture(
-                            band: HdrOverlayBand.full,
-                            enabled: true,
-                            channel: _hdrOverlayChannel,
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                _buildTopOverlay(context),
-                                if (!PlatformDetection.useLeanbackUi)
-                                  Positioned.fill(
-                                    child: Center(
-                                      child: _buildCenterTransportControls(),
-                                    ),
+                      // Wrapped unconditionally. While mpv owns its own window
+                      // the Flutter view is covered, so the chrome has to be
+                      // re-sent as pixels to a layered window above the video
+                      // - but the widgets stay exactly where they were,
+                      // because that is still what gets hit-tested: both
+                      // native windows are WS_EX_TRANSPARENT and clicks fall
+                      // through to them.
+                      //
+                      // Branching here instead cost the player its keyboard.
+                      // Two arms meant two element identities, so engaging HDR
+                      // re-parented the subtree and Flutter dropped the
+                      // overlay focus node with it - the bug where nothing
+                      // responded until you alt-tabbed away and back. One arm,
+                      // and `enabled` doing the work it was built for, keeps
+                      // the identity stable.
+                      Positioned.fill(
+                        child: HdrOverlayCapture(
+                          enabled: _hdrOverlayActive,
+                          channel: _hdrOverlayChannel,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              _buildTopOverlay(context),
+                              if (!PlatformDetection.useLeanbackUi)
+                                Positioned.fill(
+                                  child: Center(
+                                    child: _buildCenterTransportControls(),
                                   ),
-                                _buildBottomOverlay(context),
-                              ],
-                            ),
+                                ),
+                              _buildBottomOverlay(context),
+                            ],
                           ),
-                        )
-                      else ...[
-                        _buildTopOverlay(context),
-                        if (!PlatformDetection.useLeanbackUi)
-                          Positioned.fill(
-                            child: Center(
-                              child: _buildCenterTransportControls(),
-                            ),
-                          ),
-                        _buildBottomOverlay(context),
-                      ],
+                        ),
+                      ),
                     ],
                     _buildBufferingIndicator(),
                     _buildVolumeOverlay(),
@@ -3951,14 +3942,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   Widget _buildVideoSurface() {
-    // Phase 0 question 4: leave the video rect unpainted so the stand-in
-    // window shows through, and judge the scrim gradients over it.
-    if (HdrAlphaProbe.isActive) {
-      return Positioned.fill(
-        child: ColoredBox(color: HdrAlphaProbe.videoRectColor),
-      );
-    }
-
     if (PlatformDetection.isTizen) {
       return _buildTizenVideoSurface();
     }
@@ -4001,17 +3984,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       return Positioned.fill(
         child: HdrVideoGeometry(
           key: _videoSurfaceKey,
-          onGeometry: (rect) {
-            final window = mediaKitBackend.hdrOutput.window;
-            unawaited(window.setGeometry(rect));
-            unawaited(window.setVisible(true));
-            // Swapping the video surface for this widget rebuilds the subtree
-            // and the overlay focus node goes with it, so the player stops
-            // seeing keys. The giveaway was that alt-tabbing away and back
-            // fixed it: onWindowFocus runs this same call. Re-asserting here
-            // means the user never has to.
-            _ensureDesktopOverlayFocus();
-          },
+          onGeometry: (rect) =>
+              unawaited(mediaKitBackend.hdrOutput.window.claim(this, rect)),
+          onDetached: () =>
+              unawaited(mediaKitBackend.hdrOutput.window.release(this)),
         ),
       );
     }

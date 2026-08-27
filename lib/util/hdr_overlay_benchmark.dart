@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -25,6 +26,16 @@ import 'package:flutter/rendering.dart';
 /// widgets produced it.
 class HdrOverlayBenchmarkApp extends StatelessWidget {
   const HdrOverlayBenchmarkApp({super.key});
+
+  /// Whether `MOONFIN_HDR_Q4=11` asked for the benchmark instead of the app.
+  ///
+  /// Read here rather than through the Phase 0 probe's own flag: that spike
+  /// has been deleted now its questions are answered, and this outlives it as
+  /// the throughput regression check named in the plan.
+  static bool get requested {
+    if (kIsWeb || !Platform.isWindows) return false;
+    return Platform.environment['MOONFIN_HDR_Q4']?.trim() == '11';
+  }
 
   @override
   Widget build(BuildContext context) {

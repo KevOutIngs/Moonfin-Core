@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 
-import '../../util/hdr_alpha_probe.dart';
 import '../../util/idiom/app_ui_idiom.dart';
 
 class AppTheme {
@@ -96,12 +95,7 @@ class AppTheme {
         onSurface: c.onSurface,
         scrim: c.scrim,
       ),
-      // Transparent under the Q4 probe, so the stand-in window shows through
-      // from the very first screen instead of only inside the player. Saves
-      // navigating to a video to read each technique's result.
-      scaffoldBackgroundColor: HdrAlphaProbe.isActive
-          ? Colors.transparent
-          : c.background,
+      scaffoldBackgroundColor: c.background,
       textSelectionTheme: TextSelectionThemeData(
         selectionColor: c.accent.withValues(alpha: 0.40),
         selectionHandleColor: c.accent,

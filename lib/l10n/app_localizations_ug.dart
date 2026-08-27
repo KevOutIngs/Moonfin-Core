@@ -1683,9 +1683,6 @@ class AppLocalizationsUg extends AppLocalizations {
       'Inactive — could not start, using the standard path';
 
   @override
-  String get hdrOutputUnsupported => 'Not available on this platform';
-
-  @override
   String get nativeHdrOutput => 'Native HDR output';
 
   @override

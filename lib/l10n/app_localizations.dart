@@ -3100,12 +3100,6 @@ abstract class AppLocalizations {
   /// **'Inactive — could not start, using the standard path'**
   String get hdrOutputFailed;
 
-  /// Stream info value on platforms with no native HDR output path
-  ///
-  /// In en, this message translates to:
-  /// **'Not available on this platform'**
-  String get hdrOutputUnsupported;
-
   /// Settings label for sending HDR to the display untouched
   ///
   /// In en, this message translates to:

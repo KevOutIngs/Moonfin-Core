@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -22,16 +23,15 @@ import '../../../playback/hdr_overlay_channel.dart';
 class HdrOverlayCapture extends StatefulWidget {
   const HdrOverlayCapture({
     super.key,
-    required this.band,
     required this.enabled,
     required this.channel,
     required this.child,
   });
 
-  final HdrOverlayBand band;
-
-  /// Capture only while the chrome is actually on screen. The controls
-  /// auto-hide during playback, so the steady state is no readback at all.
+  /// Capture only while mpv owns its own window. False leaves the subtree
+  /// completely untouched, which is what lets the call site wrap
+  /// unconditionally and keep one element identity across engage/disengage -
+  /// branching there cost the player its keyboard focus.
   final bool enabled;
 
   final HdrOverlayChannel channel;
@@ -48,8 +48,16 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
   /// so overlapping calls would queue up behind each other and the overlay
   /// would drift further behind the widget tree with every frame.
   bool _capturing = false;
-  bool _scheduled = false;
-  bool _disposed = false;
+
+  /// Floor on how often the overlay is re-sent.
+  ///
+  /// The only continuously-moving pixel is the seek bar, which at 4K advances
+  /// one physical pixel every couple of seconds of a feature film, and the
+  /// remaining-time label changes once a second. Capturing at the display's
+  /// frame rate spent the whole readback - tens of megabytes - redrawing
+  /// pixels that had not changed.
+  static const _minInterval = Duration(milliseconds: 66);
+  final _sinceLastCapture = Stopwatch();
 
   @override
   void initState() {
@@ -63,28 +71,29 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
     if (widget.enabled && !oldWidget.enabled) {
       _schedule();
     } else if (!widget.enabled && oldWidget.enabled) {
-      widget.channel.hide(widget.band);
+      widget.channel.hide();
     }
   }
 
   @override
   void dispose() {
-    _disposed = true;
-    widget.channel.hide(widget.band);
+    if (widget.enabled) widget.channel.hide();
     super.dispose();
   }
 
   void _schedule() {
-    if (_scheduled || _disposed) return;
-    _scheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scheduled = false;
-      _capture();
+      if (mounted) unawaited(_capture());
     });
   }
 
   Future<void> _capture() async {
-    if (_disposed || !widget.enabled || _capturing) return;
+    if (!mounted || !widget.enabled || _capturing) return;
+    if (_sinceLastCapture.isRunning &&
+        _sinceLastCapture.elapsed < _minInterval) {
+      _schedule();
+      return;
+    }
     final context = _boundaryKey.currentContext;
     final boundary = context?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null || !boundary.hasSize) {
@@ -93,6 +102,9 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
     }
 
     _capturing = true;
+    _sinceLastCapture
+      ..reset()
+      ..start();
     try {
       // Physical pixels: the layered window is sized in them, and rendering
       // at the logical size would upscale the chrome on a high-DPI display.
@@ -105,17 +117,12 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
       final height = image.height;
       image.dispose();
 
-      if (data == null || _disposed || !widget.enabled) return;
+      if (data == null || !mounted || !widget.enabled) return;
 
       final origin = boundary.localToGlobal(Offset.zero) * ratio;
       await widget.channel.push(
-        band: widget.band,
-        rect: Rect.fromLTWH(
-          origin.dx,
-          origin.dy,
-          width.toDouble(),
-          height.toDouble(),
-        ),
+        x: origin.dx,
+        y: origin.dy,
         pixels: data.buffer.asUint8List(),
         width: width,
         height: height,
@@ -148,53 +155,57 @@ class HdrVideoGeometry extends StatefulWidget {
   const HdrVideoGeometry({
     super.key,
     required this.onGeometry,
+    required this.onDetached,
   });
 
   /// Called with the video rect in physical pixels, relative to the top-level
-  /// window's client area.
+  /// window's client area, whenever it changes.
   final void Function(Rect rect) onGeometry;
+
+  /// Called when this widget goes away, so the window can be released by
+  /// whoever still owns it.
+  final VoidCallback onDetached;
 
   @override
   State<HdrVideoGeometry> createState() => _HdrVideoGeometryState();
 }
 
 class _HdrVideoGeometryState extends State<HdrVideoGeometry> {
+  Rect? _last;
+
   void _report() {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final ratio = MediaQuery.devicePixelRatioOf(context);
     final origin = box.localToGlobal(Offset.zero) * ratio;
-    widget.onGeometry(
-      Rect.fromLTWH(
-        origin.dx,
-        origin.dy,
-        box.size.width * ratio,
-        box.size.height * ratio,
-      ),
+    final rect = Rect.fromLTWH(
+      origin.dx,
+      origin.dy,
+      box.size.width * ratio,
+      box.size.height * ratio,
     );
+    if (rect == _last) return;
+    _last = rect;
+    widget.onGeometry(rect);
   }
 
   @override
-  void initState() {
-    super.initState();
-    _scheduleReport();
+  void dispose() {
+    widget.onDetached();
+    super.dispose();
   }
 
-  // Re-asserts on every frame rather than only when the rect changes, and lets
-  // HdrVideoWindow drop the duplicates, so no channel traffic follows the
-  // first report. Reporting only on change lost a race: when the player screen
-  // is rebuilt, the outgoing state's dispose hides the window *after* the
-  // incoming one has asked for it to be shown, and with a change-only report
-  // nothing ever asked again - leaving mpv rendering into a window nobody
-  // could see. Re-asserting recovers on the very next frame.
-  void _scheduleReport() {
+  @override
+  Widget build(BuildContext context) {
+    // Once per layout, not once per frame. An earlier version re-asserted on
+    // every frame to survive the dispose/build race between two player-screen
+    // states - `localToGlobal` walks the whole ancestor chain, so that was
+    // several microseconds and a few hundred bytes of garbage per frame for
+    // the length of a film. The race is closed properly now, by
+    // HdrVideoWindow.claim/release taking ownership by identity.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _report();
-      _scheduleReport();
+      if (mounted) _report();
     });
+    return const SizedBox.expand();
   }
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.expand();
 }

@@ -8,7 +8,6 @@
 
 #include <flutter/plugin_registrar_windows.h>
 
-#include "hdr_alpha_probe.h"
 #include "hdr_overlay_window.h"
 #include "hdr_video_window.h"
 #include "native_game.h"
@@ -34,10 +33,6 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
-
-  // Phase 0 question 4 of docs/windows-hdr-output-plan.md. Inert unless
-  // MOONFIN_HDR_Q4 is set in the environment.
-  std::unique_ptr<hdr_alpha_probe::StandInWindow> hdr_alpha_probe_;
 
   // Native HDR video output: mpv's own D3D11 window, and the layered windows
   // the player controls are composited into above it.

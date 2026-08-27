@@ -70,6 +70,27 @@ class HdrVideoWindow {
     }
   }
 
+  /// Whoever is currently presenting the video, so a departing presenter
+  /// cannot hide a window its successor has already claimed.
+  ///
+  /// The player screen is rebuilt on route changes, and the incoming state
+  /// mounts before the outgoing one disposes - so a plain `setVisible(false)`
+  /// in `dispose` lands last and wins, leaving mpv rendering into a window
+  /// nobody can see. Claiming by identity makes the ordering irrelevant.
+  Object? _presenter;
+
+  Future<void> claim(Object presenter, Rect rect) async {
+    _presenter = presenter;
+    await setGeometry(rect);
+    await setVisible(true);
+  }
+
+  Future<void> release(Object presenter) async {
+    if (!identical(_presenter, presenter)) return;
+    _presenter = null;
+    await setVisible(false);
+  }
+
   Future<void> destroy() async {
     if (_handle == null) return;
     _handle = null;

@@ -159,7 +159,8 @@ bool UsesTopLevelStandIn(Technique technique) {
   return technique == Technique::kTopLevelBehind ||
          technique == Technique::kAcrylicDisabled ||
          technique == Technique::kAcrylicExtendFrame ||
-         technique == Technique::kAccentState6;
+         technique == Technique::kAccentState6 ||
+         technique == Technique::kLayeredOverlay;
 }
 
 const wchar_t* TechniqueName(Technique technique) {
@@ -182,10 +183,32 @@ const wchar_t* TechniqueName(Technique technique) {
       return L"8  mode 7 plus DwmExtendFrameIntoClientArea(-1)";
     case Technique::kAccentState6:
       return L"9  flutter_native_view's call: accent state 6, flags 2";
+    case Technique::kLayeredOverlay:
+      return L"10 UpdateLayeredWindow scrim over the stand-in - no Flutter";
     case Technique::kOff:
       break;
   }
   return L"off";
+}
+
+// The alpha a player scrim would have at a given height: opaque-ish black at
+// the very top and the very bottom, fading to nothing across the middle. This
+// is the shape a colour key cannot reproduce and the whole reason mode 2 was
+// never acceptable.
+BYTE ScrimAlphaAt(int y, int height) {
+  const int band = height / 4;
+  if (band <= 0) {
+    return 0;
+  }
+  if (y < band) {
+    // 180 at the top edge down to 0 at the band's lower edge.
+    return static_cast<BYTE>(180 - (180 * y) / band);
+  }
+  if (y >= height - band) {
+    const int into = y - (height - band);
+    return static_cast<BYTE>((180 * into) / band);
+  }
+  return 0;
 }
 
 // Colour bars across the top, then a black-to-white ramp. The bars show
@@ -255,25 +278,29 @@ Technique SelectedTechnique() {
     if (length == 0 || length >= capacity) {
       return Technique::kOff;
     }
-    switch (value[0]) {
-      case L'1':
+    // Parse the whole string, not the first character - mode 10 exists now.
+    const int mode = _wtoi(value);
+    switch (mode) {
+      case 1:
         return Technique::kBlurBehind;
-      case L'2':
+      case 2:
         return Technique::kColorKey;
-      case L'3':
+      case 3:
         return Technique::kDwmBlurBehind;
-      case L'4':
+      case 4:
         return Technique::kTransparent;
-      case L'5':
+      case 5:
         return Technique::kSanityOnTop;
-      case L'6':
+      case 6:
         return Technique::kTopLevelBehind;
-      case L'7':
+      case 7:
         return Technique::kAcrylicDisabled;
-      case L'8':
+      case 8:
         return Technique::kAcrylicExtendFrame;
-      case L'9':
+      case 9:
         return Technique::kAccentState6;
+      case 10:
+        return Technique::kLayeredOverlay;
       default:
         return Technique::kOff;
     }
@@ -282,10 +309,108 @@ Technique SelectedTechnique() {
 }
 
 StandInWindow::~StandInWindow() {
+  if (overlay_ != nullptr) {
+    DestroyWindow(overlay_);
+    overlay_ = nullptr;
+  }
   if (window_ != nullptr) {
     DestroyWindow(window_);
     window_ = nullptr;
   }
+}
+
+bool StandInWindow::CreateLayeredOverlay(const RECT& screen) {
+  const int width = screen.right - screen.left;
+  const int height = screen.bottom - screen.top;
+  if (width <= 0 || height <= 0) {
+    return false;
+  }
+
+  // Called again on every resize, because the window is still settling into
+  // its final size when Attach runs.
+  if (overlay_ == nullptr) {
+    overlay_ = CreateWindowEx(
+        WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT,
+        kStandInClassName, L"", WS_POPUP | WS_VISIBLE, screen.left, screen.top,
+        width, height, nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+    if (overlay_ == nullptr) {
+      Log(L"overlay CreateWindowEx failed, GetLastError %lu", GetLastError());
+      return false;
+    }
+  } else {
+    MoveWindow(overlay_, screen.left, screen.top, width, height, FALSE);
+  }
+
+  // Top-down 32-bit DIB. UpdateLayeredWindow wants premultiplied alpha, and
+  // the scrim is pure black, so the colour channels stay at zero whatever the
+  // alpha is - premultiplying black by anything is still black.
+  BITMAPINFO info = {};
+  info.bmiHeader.biSize = sizeof(info.bmiHeader);
+  info.bmiHeader.biWidth = width;
+  info.bmiHeader.biHeight = -height;
+  info.bmiHeader.biPlanes = 1;
+  info.bmiHeader.biBitCount = 32;
+  info.bmiHeader.biCompression = BI_RGB;
+
+  void* bits = nullptr;
+  HDC screen_dc = GetDC(nullptr);
+  HBITMAP bitmap =
+      CreateDIBSection(screen_dc, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
+  if (bitmap == nullptr || bits == nullptr) {
+    ReleaseDC(nullptr, screen_dc);
+    Log(L"overlay CreateDIBSection failed");
+    return false;
+  }
+
+  auto* pixels = static_cast<BYTE*>(bits);
+  for (int y = 0; y < height; ++y) {
+    const BYTE alpha = ScrimAlphaAt(y, height);
+    for (int x = 0; x < width; ++x) {
+      BYTE* pixel = pixels + (static_cast<size_t>(y) * width + x) * 4;
+      pixel[0] = 0;      // blue, premultiplied
+      pixel[1] = 0;      // green
+      pixel[2] = 0;      // red
+      pixel[3] = alpha;  // alpha
+    }
+  }
+
+  // A fully opaque white block in the middle, standing in for a control that
+  // is not translucent, so the same capture shows both cases at once.
+  const int block_top = height / 2 - height / 20;
+  const int block_bottom = height / 2 + height / 20;
+  for (int y = block_top; y < block_bottom; ++y) {
+    for (int x = width / 4; x < width / 4 + width / 8; ++x) {
+      BYTE* pixel = pixels + (static_cast<size_t>(y) * width + x) * 4;
+      pixel[0] = 255;
+      pixel[1] = 255;
+      pixel[2] = 255;
+      pixel[3] = 255;
+    }
+  }
+
+  HDC memory_dc = CreateCompatibleDC(screen_dc);
+  HGDIOBJ previous = SelectObject(memory_dc, bitmap);
+
+  POINT destination = {screen.left, screen.top};
+  SIZE size = {width, height};
+  POINT source = {0, 0};
+  BLENDFUNCTION blend = {};
+  blend.BlendOp = AC_SRC_OVER;
+  blend.SourceConstantAlpha = 255;
+  blend.AlphaFormat = AC_SRC_ALPHA;
+
+  SetLastError(0);
+  const BOOL ok =
+      UpdateLayeredWindow(overlay_, screen_dc, &destination, &size, memory_dc,
+                          &source, 0, &blend, ULW_ALPHA);
+  Log(L"UpdateLayeredWindow(%dx%d) -> %d, GetLastError %lu", width, height, ok,
+      GetLastError());
+
+  SelectObject(memory_dc, previous);
+  DeleteDC(memory_dc);
+  DeleteObject(bitmap);
+  ReleaseDC(nullptr, screen_dc);
+  return ok != FALSE;
 }
 
 bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
@@ -378,6 +503,18 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
     case Technique::kAccentState6:
       ApplyAccentPolicy(top_level, ACCENT_INVALID_STATE);
       break;
+    case Technique::kLayeredOverlay: {
+      // Flutter plays no part here. Both windows go topmost so the capture
+      // sees the scrim composited over the bars and nothing else.
+      const RECT screen = ClientRectInScreenSpace(top_level);
+      SetWindowPos(window_, HWND_TOPMOST, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      if (CreateLayeredOverlay(screen)) {
+        SetWindowPos(overlay_, HWND_TOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      }
+      break;
+    }
     // The control applies nothing on purpose.
     case Technique::kSanityOnTop:
     case Technique::kOff:
@@ -406,6 +543,19 @@ void StandInWindow::SyncGeometry() {
     // an owned window is always drawn above its owner, which is the opposite
     // of what this needs.
     const RECT screen = ClientRectInScreenSpace(top_level_);
+    if (technique == Technique::kLayeredOverlay) {
+      // Flutter is not part of this test, so both windows stay above
+      // everything and the overlay is refitted to the settled size.
+      SetWindowPos(window_, HWND_TOPMOST, screen.left, screen.top,
+                   screen.right - screen.left, screen.bottom - screen.top,
+                   SWP_NOACTIVATE);
+      if (CreateLayeredOverlay(screen)) {
+        SetWindowPos(overlay_, HWND_TOPMOST, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      }
+      syncing_ = false;
+      return;
+    }
     SetWindowPos(window_, top_level_, screen.left, screen.top,
                  screen.right - screen.left, screen.bottom - screen.top,
                  SWP_NOACTIVATE);

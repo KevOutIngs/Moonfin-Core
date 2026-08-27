@@ -71,6 +71,16 @@ enum class Technique {
   // matching that package's native_view_container_ sitting behind the Flutter
   // window.
   kAccentState6 = 9,
+  // The one path left. Flutter is not involved at all: the stand-in plays the
+  // part of the mpv window, and a second top-level window above it is filled
+  // with UpdateLayeredWindow from a premultiplied ARGB bitmap holding the same
+  // kind of scrim gradient the player's controls use.
+  //
+  // UpdateLayeredWindow is the only Win32 API that gives genuine per-pixel
+  // alpha over an arbitrary window. If a gradient survives here, the
+  // architecture is viable and the remaining work is getting Flutter to render
+  // that bitmap. If it does not, native HDR on Windows is finished.
+  kLayeredOverlay = 10,
 };
 
 // Reads MOONFIN_HDR_Q4 once and caches it.
@@ -104,7 +114,12 @@ class StandInWindow {
   static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wparam,
                                   LPARAM lparam) noexcept;
 
+  // Builds the layered overlay for kLayeredOverlay and fills it with a
+  // premultiplied ARGB scrim.
+  bool CreateLayeredOverlay(const RECT& screen);
+
   HWND window_ = nullptr;
+  HWND overlay_ = nullptr;
   HWND top_level_ = nullptr;
   HWND flutter_view_ = nullptr;
   bool syncing_ = false;

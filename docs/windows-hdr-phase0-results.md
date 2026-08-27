@@ -8,11 +8,18 @@ starts until all four questions have a written answer.
 | 1 | Does the shipped libmpv have `gpu-next`, `gpu-api=d3d11`, `target-colorspace-hint`? | **PASS** |
 | 2 | Is `wid` settable after `mpv_initialize`? | **PASS** |
 | 3 | Does HDR actually reach the display? | **PASS** |
-| 4 | Can the Flutter window get per-pixel alpha over that window? | **FAIL** |
+| 4 | Can the Flutter window get per-pixel alpha over that window? | **FAIL** — but see below |
+| 4b | Can *anything* get per-pixel alpha over that window? | **PASS** — `UpdateLayeredWindow` |
 
-**The gate is not met.** Q1-Q3 all pass — the HDR half of the plan works, on the libmpv that
-ships today. Q4 does not, and per the plan that stops Phases 1-4. See
-[the re-scope](#re-scope) at the end.
+**The gate is met, by a different architecture than the plan assumed.** Q1-Q3 pass: the HDR
+half works on the libmpv that ships today. Q4 as written fails — the Flutter surface cannot
+be made transparent, and ten techniques were tried. But the question behind Q4 is whether the
+*controls* can be drawn over the video with real alpha, and that answer is yes:
+`UpdateLayeredWindow` composites a scrim gradient over an arbitrary window correctly.
+
+That inverts the architecture. Instead of the video going behind Flutter, the controls go in
+front of the video, in a layered window of their own. See
+[the revised architecture](#revised-architecture).
 
 ---
 
@@ -125,6 +132,7 @@ hit means the stand-in is visible.
 | `7` | `flutter_acrylic`'s call, `ACCENT_DISABLED` flags 2 | 0/15 | **FAIL** |
 | `8` | mode 7 + `DwmExtendFrameIntoClientArea(-1)` | 0/15 | **FAIL** |
 | `9` | `flutter_native_view`'s call, accent state 6 | 0/15 | **FAIL** |
+| `10` | **`UpdateLayeredWindow` scrim above the stand-in** | — | **PASS** — gradients survive |
 | — | control: top-level stand-in forced `HWND_TOPMOST` | **12/15** | top-level stand-ins do composite |
 
 The stand-in is created, visible and painting in every mode — the probe log confirms it
@@ -187,7 +195,53 @@ window returning success — and not one pixel of the pattern reaches the screen
 surface on Windows is opaque, and no accent state, DWM call or window style tried here
 changes that.
 
-### What is left
+## Revised architecture
+
+Every technique above asks the same question: can the video window be seen *through* Flutter?
+The answer is no, and no accent state changes it.
+
+Mode `10` asks the opposite question, and Flutter takes no part in it. The stand-in plays the
+mpv window. A second top-level window sits **above** it, `WS_EX_LAYERED`, filled by
+`UpdateLayeredWindow` from a premultiplied ARGB bitmap carrying the same shape as the
+player's scrims — alpha 180 at the top edge fading to 0 over the top quarter, mirrored at the
+bottom, plus one fully opaque block to cover the other case.
+
+**It works.** Sampling straight down the white bar, through the fading scrim:
+
+```
+y=0.08  ->  85     y=0.17  -> 120     y=0.23  -> 143
+y=0.11  ->  97     y=0.20  -> 132     y=0.30  -> 171
+```
+
+A smooth ramp from dark to bright, which is exactly `255 * (1 - alpha/255)` as the scrim
+fades out. Visually every bar is dark at its top edge and clean at its bottom, and the opaque
+block renders solid. `UpdateLayeredWindow` returns 1.
+
+This is the thing a colour key could never do, and the reason mode `2` was rejected. Real
+per-pixel alpha over an arbitrary window does exist on Windows — just not through Flutter's
+own surface.
+
+```
+mpv window        ← top-level, D3D11 HDR swapchain, gpu-next
+└── layered window ← above it, controls as premultiplied ARGB, true alpha
+```
+
+**What this proves:** the compositing works, and gradients survive.
+
+**What it does not prove**, and what a Phase 1 has to answer before any of this ships:
+
+- Can Flutter render the controls into that bitmap fast enough? The intended route is an
+  off-screen `RepaintBoundary.toImage()` per frame, which is a GPU-to-CPU readback. The
+  controls auto-hide, so it only runs while they are visible, but the progress bar animates
+  the whole time they are.
+- Input. The layered window is `WS_EX_TRANSPARENT` here, so it is click-through. Real
+  controls need clicks, wheel, keyboard, hit-testing and focus routed back into Flutter.
+- Dialogs — the track selector, the info sheet — have to live in this arrangement too.
+- Fullscreen, multi-monitor and DPI changes, for two windows instead of one.
+
+None of these are the kind of unknown Q4 was. They are work, not a gate.
+
+### What was left before mode 10 was tried
 
 `flutter_native_view` is the one project that claims to do exactly this — arbitrary HWNDs
 embedded under a Flutter window with widgets on top — and it is by the author of `media_kit`,

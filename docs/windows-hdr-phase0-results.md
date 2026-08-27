@@ -122,8 +122,9 @@ hit means the stand-in is visible.
 | `3` | `DwmEnableBlurBehindWindow` | 0/35 | **FAIL** |
 | `4` | `ACCENT_ENABLE_TRANSPARENTGRADIENT` | 0/35 | **FAIL** |
 | `6` | separate top-level window behind | 0/35 | **FAIL** |
-| `7` | `flutter_acrylic`'s own call, `ACCENT_DISABLED` flags 2 | 0/15 | **FAIL** — window goes translucent, but against the wallpaper |
-| `8` | mode 7 + `DwmExtendFrameIntoClientArea(-1)` | 0/15 | **FAIL** — same |
+| `7` | `flutter_acrylic`'s call, `ACCENT_DISABLED` flags 2 | 0/15 | **FAIL** |
+| `8` | mode 7 + `DwmExtendFrameIntoClientArea(-1)` | 0/15 | **FAIL** |
+| `9` | `flutter_native_view`'s call, accent state 6 | 0/15 | **FAIL** |
 | — | control: top-level stand-in forced `HWND_TOPMOST` | **12/15** | top-level stand-ins do composite |
 
 The stand-in is created, visible and painting in every mode — the probe log confirms it
@@ -139,26 +140,41 @@ measuring nothing.
 
 **Mode `6` fails too**, confirmed by eye with nothing else fullscreen.
 
-### The Flutter window *can* be transparent — that is not what blocks this
+### What was tried, and one false alarm along the way
 
-An earlier version of this document concluded "the Flutter surface on Windows is opaque".
-That was wrong, and `flutter_acrylic` is the counter-example that prompted the re-test: it
-makes real Flutter apps translucent on Windows every day.
+`flutter_acrylic` and `flutter_native_view` both make Windows transparency work in real
+apps, so their exact calls were tried rather than guessed at:
 
-Modes `7` and `8` use its actual call rather than the guesses in modes 1 and 4 —
-`ACCENT_DISABLED` with flags `2` and a zero gradient colour, on
-`GetAncestor(view, GA_ROOT)`, mode 8 adding `DwmExtendFrameIntoClientArea` with margins of
-`-1`. Every call returns success, now logged:
+| Mode | Call | Source |
+|---|---|---|
+| `7` | `ACCENT_DISABLED`, flags 2, colour 0 | `flutter_acrylic`'s `SetEffect` |
+| `8` | mode 7 + `DwmExtendFrameIntoClientArea` margins `-1` | same, Win11 ≥ 22523 path |
+| `9` | **accent state 6**, flags 2, colour 0 | `flutter_native_view`'s `SetWindowComposition(window_, 6, 0)` — past the documented end of the enum |
+
+All applied to `GetAncestor(view, GA_ROOT)`, with the stand-in as a top-level window
+directly behind, mirroring that package's `native_view_container_`. Every call returns
+success, now logged:
 
 ```
 DwmExtendFrameIntoClientArea(-1) -> 0x00000000
-SetWindowCompositionAttribute(state 0, flags 2, colour 00000000) -> 1, GetLastError 0
+SetWindowCompositionAttribute(state 6, flags 2, colour 00000000) -> 1, GetLastError 0
 ```
 
-And it works. The window goes translucent and the desktop shows through the player UI.
+**None of them changes anything on screen.** Every mode scores 0/15.
 
-**What it composites against is the problem.** The stand-in still scores 0/15 in modes 7 and
-8, under conditions that leave no room for doubt:
+There was a false alarm here worth recording, because it nearly went into this document as a
+finding. Modes 7-9 *looked* like they had worked — the player background stopped being flat
+black and showed a soft blurred image, exactly what you would expect if the desktop were
+coming through. It was Moonfin's own home-screen backdrop, the blurred poster preview,
+which had simply finished loading. Sampling fixed screen points through the window returns a
+uniform `70,70,70` — Moonfin's own UI, not wallpaper. **The window never became
+transparent at all.**
+
+The lesson is the same one the `WS_CLIPSIBLINGS` bug taught: in this spike, only the pure
+bar colours count as evidence. They appear nowhere in Moonfin's UI. Anything judged by
+"it looks different now" is worthless.
+
+**The stand-in scores 0/15 in every mode**, under conditions that leave no room for doubt:
 
 - The stand-in paints correctly — `PrintWindow` on it returns the exact bar sequence
   white, yellow, cyan, green, magenta, red, blue, black.
@@ -166,16 +182,27 @@ And it works. The window goes translucent and the desktop shows through the play
 - It was directly behind the Flutter window at capture time — verified with
   `GetWindow(moonfin, GW_HWNDNEXT)` returning the stand-in's own handle in the same run.
 
-So a transparent Flutter window over a confirmed-visible window, with the two adjacent in
-the z-order, and none of the pattern comes through. What comes through instead is **blurred**,
-while the stand-in is sharp. That is the signature of DWM's backdrop: accent, acrylic and
-mica all sample the *desktop wallpaper*, not the application windows underneath. They make a
-window translucent against the shell, not against whatever happens to sit behind it.
+So a confirmed-visible window, directly behind, with every transparency call on the Flutter
+window returning success — and not one pixel of the pattern reaches the screen. The Flutter
+surface on Windows is opaque, and no accent state, DWM call or window style tried here
+changes that.
 
-Which is exactly the wrong kind of transparency here. The video window is an application
-window, so it is precisely what a backdrop effect ignores.
+### What is left
 
-The one arrangement that would give true per-pixel alpha over an arbitrary window is the
+`flutter_native_view` is the one project that claims to do exactly this — arbitrary HWNDs
+embedded under a Flutter window with widgets on top — and it is by the author of `media_kit`,
+which this app already depends on. Its accent call alone does not reproduce the effect, so
+whatever makes it work is in the rest of its setup: a dedicated container window, a subclass
+proc on the embedded view, and `WS_EX_TRANSPARENT`/`WS_EX_LAYERED` toggled for hit-testing.
+Porting that is real work on a base its own README calls unfinished — "general stability"
+and "finalized API" are still open items, and the hit-test support is marked UNSTABLE.
+
+It is also worth knowing what it would buy even if it worked. That package's own README
+describes widget placement on top, not translucent widgets over the native view. Moonfin's
+controls need gradient scrims, so "opaque widgets over an opaque video window" does not
+clear the bar that sank the colour-key option in the first place.
+
+The arrangement that would give true per-pixel alpha over an arbitrary window remains the
 plan's own third option — `WS_EX_NOREDIRECTIONBITMAP` with DirectComposition, putting the
 Flutter swapchain into a visual tree we own. The plan already called that "almost certainly
 out of reach without engine work", and nothing found here changes that. It is a Flutter

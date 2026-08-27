@@ -64,6 +64,13 @@ enum class Technique {
   // of glass" call that pulls the whole client area into DWM's composited
   // region. flutter_acrylic uses it on Windows 11 builds >= 22523.
   kAcrylicExtendFrame = 8,
+  // What flutter_native_view uses to put Flutter widgets over an embedded
+  // HWND: accent state 6, past the end of the documented enum, with flags 2
+  // and a zero gradient colour. Unlike states 0-5 this is reported to give
+  // real transparency rather than a wallpaper backdrop. Stand-in is top-level,
+  // matching that package's native_view_container_ sitting behind the Flutter
+  // window.
+  kAccentState6 = 9,
 };
 
 // Reads MOONFIN_HDR_Q4 once and caches it.

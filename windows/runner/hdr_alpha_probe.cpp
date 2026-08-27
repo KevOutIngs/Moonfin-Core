@@ -23,6 +23,10 @@ enum AccentState {
   ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
   ACCENT_ENABLE_BLURBEHIND = 3,
   ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
+  ACCENT_ENABLE_HOSTBACKDROP = 5,
+  // Past the documented end of the enum. flutter_native_view uses exactly
+  // this to show an embedded HWND through the Flutter window.
+  ACCENT_INVALID_STATE = 6,
 };
 
 struct AccentPolicy {
@@ -154,7 +158,8 @@ RECT ClientRectInScreenSpace(HWND top_level) {
 bool UsesTopLevelStandIn(Technique technique) {
   return technique == Technique::kTopLevelBehind ||
          technique == Technique::kAcrylicDisabled ||
-         technique == Technique::kAcrylicExtendFrame;
+         technique == Technique::kAcrylicExtendFrame ||
+         technique == Technique::kAccentState6;
 }
 
 const wchar_t* TechniqueName(Technique technique) {
@@ -175,6 +180,8 @@ const wchar_t* TechniqueName(Technique technique) {
       return L"7  flutter_acrylic's own call: ACCENT_DISABLED, flags 2";
     case Technique::kAcrylicExtendFrame:
       return L"8  mode 7 plus DwmExtendFrameIntoClientArea(-1)";
+    case Technique::kAccentState6:
+      return L"9  flutter_native_view's call: accent state 6, flags 2";
     case Technique::kOff:
       break;
   }
@@ -265,6 +272,8 @@ Technique SelectedTechnique() {
         return Technique::kAcrylicDisabled;
       case L'8':
         return Technique::kAcrylicExtendFrame;
+      case L'9':
+        return Technique::kAccentState6;
       default:
         return Technique::kOff;
     }
@@ -365,6 +374,9 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
       [[fallthrough]];
     case Technique::kAcrylicDisabled:
       ApplyAccentPolicy(top_level, ACCENT_DISABLED);
+      break;
+    case Technique::kAccentState6:
+      ApplyAccentPolicy(top_level, ACCENT_INVALID_STATE);
       break;
     // The control applies nothing on purpose.
     case Technique::kSanityOnTop:

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../playback/hdr_overlay_channel.dart';
 
@@ -41,8 +42,19 @@ class HdrOverlayCapture extends StatefulWidget {
   State<HdrOverlayCapture> createState() => _HdrOverlayCaptureState();
 }
 
-class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
+class _HdrOverlayCaptureState extends State<HdrOverlayCapture>
+    with SingleTickerProviderStateMixin {
   final _boundaryKey = GlobalKey();
+
+  /// Drives the capture loop.
+  ///
+  /// A ticker rather than a chain of post-frame callbacks, because
+  /// `addPostFrameCallback` does not *request* a frame - it only runs after
+  /// one Flutter was going to draw anyway. Once mpv owns the video window
+  /// Flutter has nothing left to animate, so those frames stop coming and the
+  /// overlay freezes on whatever it last pushed: the seek bar stops moving and
+  /// the clock stops counting, while the controls underneath still respond.
+  late final Ticker _ticker = createTicker((_) => unawaited(_capture()));
 
   /// One capture in flight at a time. `toByteData` is a GPU-to-CPU readback,
   /// so overlapping calls would queue up behind each other and the overlay
@@ -62,42 +74,36 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
   @override
   void initState() {
     super.initState();
-    if (widget.enabled) _schedule();
+    if (widget.enabled) _ticker.start();
   }
 
   @override
   void didUpdateWidget(HdrOverlayCapture oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.enabled && !oldWidget.enabled) {
-      _schedule();
+      _ticker.start();
     } else if (!widget.enabled && oldWidget.enabled) {
+      _ticker.stop();
       widget.channel.hide();
     }
   }
 
   @override
   void dispose() {
+    _ticker.dispose();
     if (widget.enabled) widget.channel.hide();
     super.dispose();
-  }
-
-  void _schedule() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_capture());
-    });
   }
 
   Future<void> _capture() async {
     if (!mounted || !widget.enabled || _capturing) return;
     if (_sinceLastCapture.isRunning &&
         _sinceLastCapture.elapsed < _minInterval) {
-      _schedule();
       return;
     }
     final context = _boundaryKey.currentContext;
     final boundary = context?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null || !boundary.hasSize) {
-      _schedule();
       return;
     }
 
@@ -136,8 +142,6 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
     } finally {
       _capturing = false;
     }
-
-    if (mounted && widget.enabled) _schedule();
   }
 
   @override
@@ -159,7 +163,19 @@ class HdrVideoGeometry extends StatefulWidget {
     super.key,
     required this.onGeometry,
     required this.onDetached,
+    this.showVideo = true,
   });
+
+  /// Whether the native window should be on screen at all.
+  ///
+  /// False while a route sits above the player - a track picker, the info
+  /// sheet, any dialog. Those live in the Navigator's overlay, outside this
+  /// screen's subtree, so they are not mirrored into the layered window and
+  /// the video would simply cover them: the menu opens, takes the keyboard,
+  /// and cannot be seen. Standing the video window down for the few seconds a
+  /// menu is open hands the screen back to Flutter, which can draw it. Audio
+  /// is untouched.
+  final bool showVideo;
 
   /// Called with the video rect in physical pixels, relative to the top-level
   /// window's client area, whenever it changes.
@@ -176,7 +192,17 @@ class HdrVideoGeometry extends StatefulWidget {
 class _HdrVideoGeometryState extends State<HdrVideoGeometry> {
   Rect? _last;
 
+  bool? _lastShown;
+
   void _report() {
+    if (!widget.showVideo) {
+      if (_lastShown != false) {
+        _lastShown = false;
+        widget.onDetached();
+      }
+      return;
+    }
+
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
     final ratio = MediaQuery.devicePixelRatioOf(context);
@@ -187,8 +213,11 @@ class _HdrVideoGeometryState extends State<HdrVideoGeometry> {
       box.size.width * ratio,
       box.size.height * ratio,
     );
-    if (rect == _last) return;
+    // Re-report the rect when coming back from hidden, since the claim that
+    // shows the window again rides on it.
+    if (rect == _last && _lastShown == true) return;
     _last = rect;
+    _lastShown = true;
     widget.onGeometry(rect);
   }
 

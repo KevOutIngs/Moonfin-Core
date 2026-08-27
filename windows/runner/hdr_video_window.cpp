@@ -140,11 +140,26 @@ void HdrVideoWindow::SetVisible(bool visible) {
   if (window_ == nullptr) {
     return;
   }
-  ShowWindow(window_, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+
   if (visible) {
-    SetWindowPos(window_, HWND_TOP, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    ShowWindow(window_, SW_SHOWNOACTIVATE);
+    SetWindowPos(window_, HWND_TOP, geometry_.left, geometry_.top,
+                 geometry_.right - geometry_.left,
+                 geometry_.bottom - geometry_.top, SWP_NOACTIVATE);
+    return;
   }
+
+  // Parked off-screen rather than hidden.
+  //
+  // SW_HIDE under a live D3D11 swapchain stalls mpv's presentation queue, and
+  // because mpv paces audio against video the whole file stops - silence, not
+  // just a frozen picture. Moving the window outside the parent's client area
+  // clips it away just as effectively while leaving it WS_VISIBLE, so mpv
+  // keeps presenting into a surface nobody can see. The size is kept so the
+  // swapchain is not reallocated on the way back.
+  SetWindowPos(window_, HWND_TOP, -32000, -32000,
+               geometry_.right - geometry_.left,
+               geometry_.bottom - geometry_.top, SWP_NOACTIVATE);
 }
 
 void HdrVideoWindow::Destroy() {

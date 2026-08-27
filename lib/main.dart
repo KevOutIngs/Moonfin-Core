@@ -46,7 +46,8 @@ import 'platform/web_runtime_config.dart';
 import 'preference/preference_constants.dart';
 import 'preference/user_preferences.dart';
 import 'util/fullscreen_helper.dart';
-import 'util/hdr_overlay_benchmark.dart';
+import 'util/hdr_overlay_benchmark_stub.dart'
+    if (dart.library.io) 'util/hdr_overlay_benchmark.dart';
 import 'util/window_geometry.dart';
 import 'util/http_overrides_stub.dart'
     if (dart.library.io) 'util/http_overrides_io.dart';

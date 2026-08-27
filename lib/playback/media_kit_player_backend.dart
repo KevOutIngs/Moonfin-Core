@@ -719,6 +719,13 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// mid-session instead of needing a second Player.
   Future<bool> _handOverToNativeWindow(NativePlayer native, int handle) async {
     try {
+      // Swapping the video output tears down mpv's subtitle renderer and
+      // drops the active track with it, so the selection has to be carried
+      // across by hand. Without this, subtitles simply never appear once HDR
+      // engages - and re-selecting them in the menu does not bring them back,
+      // because the renderer is gone rather than the track.
+      final sid = await _tryNativeGetProperty(native, 'sid');
+
       await _nativeSetProperty(native, 'wid', handle.toString());
       await _nativeSetProperty(native, 'gpu-api', 'd3d11');
       await _nativeSetProperty(native, 'vo', 'gpu-next');
@@ -735,12 +742,38 @@ class MediaKitPlayerBackend extends PlayerBackend {
       // If the renderer refused, `current-vo` still reads as the old one and
       // the window would sit black over the player.
       final vo = await _tryNativeGetProperty(native, 'current-vo');
-      if (vo == 'gpu-next') return true;
-      await _restoreTexturePath(native);
-      return false;
+      if (vo != 'gpu-next') {
+        await _restoreTexturePath(native);
+        return false;
+      }
+
+      await _restoreSubtitleState(native, sid);
+      return true;
     } catch (_) {
       await _restoreTexturePath(native);
       return false;
+    }
+  }
+
+  /// Rebuilds mpv's subtitle rendering after the video output was swapped.
+  ///
+  /// mpv renders subtitles itself in the native window, so they come along
+  /// inside it - but only once the renderer exists again. Re-asserting
+  /// `sub-ass` and `sub-visibility` brings it back, and [sid] restores the
+  /// track that was selected before the swap. Setting `sid` last matters: it
+  /// is what actually re-initialises the renderer for that track.
+  Future<void> _restoreSubtitleState(NativePlayer native, String? sid) async {
+    try {
+      // PlayerConfiguration(libass: false) starts mpv with sub-ass=no, and the
+      // swap resets it again.
+      await _nativeSetProperty(native, 'sub-ass', 'yes');
+      await _nativeSetProperty(native, 'sub-visibility', 'yes');
+      if (sid != null && sid.isNotEmpty && sid != 'no' && sid != 'null') {
+        await _nativeSetProperty(native, 'sid', sid);
+      }
+    } catch (_) {
+      // Subtitles can still be re-picked from the menu; the video path is
+      // already up and must not be torn down over this.
     }
   }
 

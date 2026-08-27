@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Dart side of `windows/runner/hdr_video_window.cpp`: the window mpv renders
@@ -77,15 +78,25 @@ class HdrVideoWindow {
   /// nobody can see. Claiming by identity makes the ordering irrelevant.
   Object? _presenter;
 
+  /// Whether a player screen currently has the window on screen.
+  ///
+  /// Drives the overlay capture: while this is true mpv is covering the
+  /// Flutter view, so everything Flutter draws has to be mirrored over the
+  /// video instead. It stays true while a dialog is open, which is the whole
+  /// point - the menu is what needs mirroring.
+  final ValueNotifier<bool> presenting = ValueNotifier(false);
+
   Future<void> claim(Object presenter, Rect rect) async {
     _presenter = presenter;
     await setGeometry(rect);
     await setVisible(true);
+    presenting.value = true;
   }
 
   Future<void> release(Object presenter) async {
     if (!identical(_presenter, presenter)) return;
     _presenter = null;
+    presenting.value = false;
     await setVisible(false);
   }
 

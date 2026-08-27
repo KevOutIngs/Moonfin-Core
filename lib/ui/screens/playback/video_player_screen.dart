@@ -3741,6 +3741,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _exitPlayback();
       },
       child: Scaffold(
+        // Stays black. The capture below sits inside this Scaffold's body, so
+        // the background is not part of it - a capture taken above this point
+        // sweeps up an opaque backdrop and paints the video out, which is
+        // exactly what happened twice while finding the right level.
         backgroundColor: Colors.black,
         body: Focus(
           focusNode: _overlayFocus,
@@ -3778,13 +3782,41 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     }
                   }
                 },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const Positioned.fill(
-                      child: ColoredBox(color: Colors.black),
-                    ),
-                    _buildVideoSurface(),
+                // Everything this screen draws is mirrored into the layered
+                // window over the video, not just the chrome: the buffering
+                // indicator, the volume and brightness OSDs, next-up,
+                // skip-segment and the locked overlay are all siblings below.
+                // Capturing only the top and bottom bars left every one of
+                // them behind the video window, which is why the volume could
+                // be changed but never seen.
+                //
+                // Routes *above* this screen - the track pickers, the info
+                // sheet - are outside this subtree and cannot be mirrored from
+                // here. Both this and the video window stand down while one is
+                // open, handing the screen back to Flutter, which can draw it.
+                //
+                // Wrapped unconditionally so the subtree keeps one element
+                // identity; toggling a wrapper re-parents it and the player
+                // loses its focus node.
+                child: HdrOverlayCapture(
+                  enabled:
+                      _hdrOverlayActive &&
+                      (ModalRoute.of(context)?.isCurrent ?? true),
+                  channel: _hdrOverlayChannel,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Transparent while mpv owns the video window: this
+                      // capture is drawn over the picture, so black here would
+                      // paint it out.
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: _hdrOverlayActive
+                              ? Colors.transparent
+                              : Colors.black,
+                        ),
+                      ),
+                      _buildVideoSurface(),
                     if (PlatformDetection.isWeb)
                       const Positioned.fill(
                         child: ColoredBox(color: Colors.transparent),
@@ -3815,22 +3847,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                       // and `enabled` doing the work it was built for, keeps
                       // the identity stable.
                       Positioned.fill(
-                        child: HdrOverlayCapture(
-                          enabled: _hdrOverlayActive,
-                          channel: _hdrOverlayChannel,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              _buildTopOverlay(context),
-                              if (!PlatformDetection.useLeanbackUi)
-                                Positioned.fill(
-                                  child: Center(
-                                    child: _buildCenterTransportControls(),
-                                  ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _buildTopOverlay(context),
+                            if (!PlatformDetection.useLeanbackUi)
+                              Positioned.fill(
+                                child: Center(
+                                  child: _buildCenterTransportControls(),
                                 ),
-                              _buildBottomOverlay(context),
-                            ],
-                          ),
+                              ),
+                            _buildBottomOverlay(context),
+                          ],
                         ),
                       ),
                     ],
@@ -3885,7 +3913,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                             ? _tvNextUpDismissFocus
                             : null,
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -3999,6 +4028,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       return Positioned.fill(
         child: HdrVideoGeometry(
           key: _videoSurfaceKey,
+          // A picker or sheet above this screen is drawn by Flutter, which the
+          // video window covers. Standing it down for the few seconds one is
+          // open is what makes those menus reachable at all.
+          showVideo: ModalRoute.of(context)?.isCurrent ?? true,
           onGeometry: (rect) =>
               unawaited(mediaKitBackend.hdrOutput.window.claim(this, rect)),
           onDetached: () =>

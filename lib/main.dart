@@ -46,6 +46,8 @@ import 'platform/web_runtime_config.dart';
 import 'preference/preference_constants.dart';
 import 'preference/user_preferences.dart';
 import 'util/fullscreen_helper.dart';
+import 'util/hdr_alpha_probe.dart';
+import 'util/hdr_overlay_benchmark.dart';
 import 'util/window_geometry.dart';
 import 'util/http_overrides_stub.dart'
     if (dart.library.io) 'util/http_overrides_io.dart';
@@ -852,6 +854,15 @@ void main() async {
   try {
     GetIt.instance<AirPlayCommandBridge>().start();
   } catch (_) {}
+
+  // MOONFIN_HDR_Q4=11 measures whether Flutter can produce the controls
+  // bitmap fast enough for the layered-window architecture. It replaces the
+  // app rather than running alongside it, so nothing else is in the way of
+  // the timings.
+  if (HdrAlphaProbe.mode == 11) {
+    runApp(const HdrOverlayBenchmarkApp());
+    return;
+  }
 
   runApp(const MoonfinApp());
 }

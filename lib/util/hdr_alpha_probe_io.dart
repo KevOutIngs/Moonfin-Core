@@ -6,8 +6,7 @@ int readMode() {
   if (!Platform.isWindows) return 0;
   final raw = Platform.environment['MOONFIN_HDR_Q4']?.trim();
   if (raw == null || raw.isEmpty) return 0;
-  // The runner switches on the first character, so match that exactly rather
-  // than parsing the whole string.
-  final mode = int.tryParse(raw[0]) ?? 0;
-  return mode >= 1 && mode <= 4 ? mode : 0;
+  // The runner parses the whole string too, now that mode 10 exists.
+  final mode = int.tryParse(raw) ?? 0;
+  return mode >= 1 && mode <= 11 ? mode : 0;
 }

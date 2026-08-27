@@ -230,16 +230,43 @@ mpv window        ← top-level, D3D11 HDR swapchain, gpu-next
 
 **What it does not prove**, and what a Phase 1 has to answer before any of this ships:
 
-- Can Flutter render the controls into that bitmap fast enough? The intended route is an
-  off-screen `RepaintBoundary.toImage()` per frame, which is a GPU-to-CPU readback. The
-  controls auto-hide, so it only runs while they are visible, but the progress bar animates
-  the whole time they are.
+- ~~Can Flutter render the controls into that bitmap fast enough?~~ **Answered — yes, if the
+  overlay is split into bands.** See below.
 - Input. The layered window is `WS_EX_TRANSPARENT` here, so it is click-through. Real
   controls need clicks, wheel, keyboard, hit-testing and focus routed back into Flutter.
 - Dialogs — the track selector, the info sheet — have to live in this arrangement too.
 - Fullscreen, multi-monitor and DPI changes, for two windows instead of one.
 
 None of these are the kind of unknown Q4 was. They are work, not a gate.
+
+### Overlay throughput — PASS, and it settles the layout
+
+`MOONFIN_HDR_Q4=11` replaces the app with a benchmark
+(`lib/util/hdr_overlay_benchmark.dart`) that lays out a stand-in OSD — two scrim gradients,
+a progress bar, a row of buttons — at each size and times
+`RepaintBoundary.toImage()` followed by `toByteData(rawRgba)`, which is the readback that
+would feed `UpdateLayeredWindow`. Twenty runs each, after three untimed warm-ups.
+
+| Layout | Size | Per frame | Rate | Readback |
+|---|---|---|---|---|
+| whole window, 4K | 3814×1993 | 19.2 ms | 52 fps | 29.0 MB |
+| whole window, 1080p | 1907×996 | 5.2 ms | 193 fps | 7.2 MB |
+| **bottom band only, 4K** | 3814×500 | **4.9 ms** | **202 fps** | 7.3 MB |
+| bottom band only, 1080p | 1907×250 | 1.5 ms | 645 fps | 1.8 MB |
+
+Cost tracks area, as expected of a readback, and that is the design decision: **do not make
+one overlay the size of the window.** Two layered windows, one per scrim band, with the clear
+middle left out entirely, turn the worst case from 19.2 ms into 4.9 ms — 4K controls at over
+200 fps, with the middle of the screen never read back at all. It also means the video window
+is only overlapped where the controls actually are.
+
+Two honest caveats on these numbers:
+
+- Measured with the app otherwise idle. During real playback mpv is decoding and presenting
+  4K HDR on the same GPU, so expect worse under contention. The headroom at 4.9 ms is wide
+  enough that this looks survivable, but it has not been measured.
+- The first table row is what a naive implementation would cost. It is included precisely
+  because it is the one to avoid.
 
 ### What was left before mode 10 was tried
 

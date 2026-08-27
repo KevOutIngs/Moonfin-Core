@@ -292,10 +292,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
-    case WM_SIZE:
-      // Win32Window::MessageHandler only re-fits the single tracked child, so
-      // the stand-in window needs its own geometry pass. Phase 3 of the plan
-      // makes the same point about the real video window.
+    // Win32Window::MessageHandler only re-fits the single tracked child, so
+    // the stand-in window needs its own geometry pass. WM_WINDOWPOSCHANGED
+    // rather than WM_SIZE, because the top-level variant also has to follow
+    // the window as it moves and to hold its place in the z-order. Phase 3 of
+    // the plan makes the same point about the real video window.
+    case WM_WINDOWPOSCHANGED:
       if (hdr_alpha_probe_) {
         hdr_alpha_probe_->SyncGeometry();
       }

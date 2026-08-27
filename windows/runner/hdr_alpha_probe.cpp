@@ -2,6 +2,9 @@
 
 #include <dwmapi.h>
 
+#include <cstdarg>
+#include <cstdio>
+#include <cwchar>
 #include <iterator>
 #include <string>
 
@@ -96,6 +99,39 @@ bool ApplyDwmBlurBehind(HWND top_level) {
   return SUCCEEDED(hr);
 }
 
+// Appends a line to %TEMP%\moonfin_hdr_q4.log. The probe runs detached from a
+// console, so this is the only way to tell "the window was never created" from
+// "the window was created and then painted over".
+void Log(const wchar_t* format, ...) {
+  wchar_t path[MAX_PATH] = {};
+  if (GetTempPathW(static_cast<DWORD>(std::size(path)), path) == 0) {
+    return;
+  }
+  wcsncat_s(path, L"moonfin_hdr_q4.log", _TRUNCATE);
+
+  FILE* file = nullptr;
+  if (_wfopen_s(&file, path, L"a, ccs=UTF-8") != 0 || file == nullptr) {
+    return;
+  }
+  va_list args;
+  va_start(args, format);
+  vfwprintf(file, format, args);
+  va_end(args);
+  fwprintf(file, L"\n");
+  fclose(file);
+}
+
+// The owner's client area, in screen coordinates - what a top-level stand-in
+// has to cover to line up with where the Flutter view draws.
+RECT ClientRectInScreenSpace(HWND top_level) {
+  RECT client = {};
+  GetClientRect(top_level, &client);
+  POINT origin = {client.left, client.top};
+  ClientToScreen(top_level, &origin);
+  return RECT{origin.x, origin.y, origin.x + (client.right - client.left),
+              origin.y + (client.bottom - client.top)};
+}
+
 const wchar_t* TechniqueName(Technique technique) {
   switch (technique) {
     case Technique::kBlurBehind:
@@ -106,6 +142,10 @@ const wchar_t* TechniqueName(Technique technique) {
       return L"3  DwmEnableBlurBehindWindow, null region";
     case Technique::kTransparent:
       return L"4  SetWindowCompositionAttribute / TRANSPARENTGRADIENT";
+    case Technique::kSanityOnTop:
+      return L"5  control - stand-in on top, no transparency at all";
+    case Technique::kTopLevelBehind:
+      return L"6  separate top-level window behind a transparent Flutter window";
     case Technique::kOff:
       break;
   }
@@ -188,6 +228,10 @@ Technique SelectedTechnique() {
         return Technique::kDwmBlurBehind;
       case L'4':
         return Technique::kTransparent;
+      case L'5':
+        return Technique::kSanityOnTop;
+      case L'6':
+        return Technique::kTopLevelBehind;
       default:
         return Technique::kOff;
     }
@@ -224,25 +268,48 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
     class_registered = true;
   }
 
-  RECT client = {};
-  GetClientRect(top_level, &client);
-
-  window_ = CreateWindowEx(
-      0, kStandInClassName, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
-      client.left, client.top, client.right - client.left,
-      client.bottom - client.top, top_level, nullptr, GetModuleHandle(nullptr),
-      nullptr);
-  if (window_ == nullptr) {
-    return false;
-  }
-
   top_level_ = top_level;
   flutter_view_ = flutter_view;
 
-  // Beneath the Flutter view. A child HWND composites above the Flutter
-  // surface by default, which is the whole reason this question is hard.
-  SetWindowPos(window_, HWND_BOTTOM, 0, 0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  if (technique == Technique::kTopLevelBehind) {
+    const RECT screen = ClientRectInScreenSpace(top_level);
+    window_ = CreateWindowEx(
+        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kStandInClassName, L"",
+        WS_POPUP | WS_VISIBLE, screen.left, screen.top,
+        screen.right - screen.left, screen.bottom - screen.top, nullptr,
+        nullptr, GetModuleHandle(nullptr), nullptr);
+  } else {
+    RECT client = {};
+    GetClientRect(top_level, &client);
+    window_ = CreateWindowEx(
+        0, kStandInClassName, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+        client.left, client.top, client.right - client.left,
+        client.bottom - client.top, top_level, nullptr,
+        GetModuleHandle(nullptr), nullptr);
+  }
+  if (window_ == nullptr) {
+    Log(L"CreateWindowEx failed, technique %d, GetLastError %lu",
+        static_cast<int>(technique), GetLastError());
+    return false;
+  }
+
+  // Without WS_CLIPSIBLINGS on the Flutter view, its swapchain present paints
+  // straight over any overlapping sibling, and nothing ever sends the sibling
+  // a WM_PAINT to put it back. That alone made the control come up empty, so
+  // it has to be set before any result here means anything.
+  const LONG_PTR view_style = GetWindowLongPtr(flutter_view, GWL_STYLE);
+  if ((view_style & WS_CLIPSIBLINGS) == 0) {
+    SetWindowLongPtr(flutter_view, GWL_STYLE, view_style | WS_CLIPSIBLINGS);
+    SetWindowPos(flutter_view, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                     SWP_FRAMECHANGED);
+    Log(L"added WS_CLIPSIBLINGS to the Flutter view");
+  }
+
+  SyncGeometry();
+
+  Log(L"technique %d attached: top-level %p, flutter view %p, stand-in %p",
+      static_cast<int>(technique), top_level, flutter_view, window_);
 
   switch (technique) {
     case Technique::kBlurBehind:
@@ -257,6 +324,11 @@ bool StandInWindow::Attach(HWND top_level, HWND flutter_view) {
     case Technique::kDwmBlurBehind:
       ApplyDwmBlurBehind(top_level);
       break;
+    case Technique::kTopLevelBehind:
+      ApplyAccentPolicy(top_level, ACCENT_ENABLE_TRANSPARENTGRADIENT);
+      break;
+    // The control applies nothing on purpose.
+    case Technique::kSanityOnTop:
     case Technique::kOff:
       break;
   }
@@ -268,12 +340,36 @@ void StandInWindow::SyncGeometry() {
   if (window_ == nullptr || top_level_ == nullptr) {
     return;
   }
-  RECT client = {};
-  GetClientRect(top_level_, &client);
-  MoveWindow(window_, client.left, client.top, client.right - client.left,
-             client.bottom - client.top, TRUE);
-  SetWindowPos(window_, HWND_BOTTOM, 0, 0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+  // Re-ordering the stand-in can itself produce a WM_WINDOWPOSCHANGED on the
+  // owner, which is what calls this.
+  if (syncing_) {
+    return;
+  }
+  syncing_ = true;
+
+  const Technique technique = SelectedTechnique();
+  if (technique == Technique::kTopLevelBehind) {
+    // Track the owner's client area in screen space, and stay immediately
+    // behind it in the top-level z-order. Deliberately not an owned window:
+    // an owned window is always drawn above its owner, which is the opposite
+    // of what this needs.
+    const RECT screen = ClientRectInScreenSpace(top_level_);
+    SetWindowPos(window_, top_level_, screen.left, screen.top,
+                 screen.right - screen.left, screen.bottom - screen.top,
+                 SWP_NOACTIVATE);
+  } else {
+    RECT client = {};
+    GetClientRect(top_level_, &client);
+    MoveWindow(window_, client.left, client.top, client.right - client.left,
+               client.bottom - client.top, TRUE);
+    // The control sits on top, everything else beneath the Flutter view.
+    SetWindowPos(window_,
+                 technique == Technique::kSanityOnTop ? HWND_TOP : HWND_BOTTOM,
+                 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  }
+
+  syncing_ = false;
 }
 
 // static
@@ -290,6 +386,13 @@ LRESULT CALLBACK StandInWindow::WndProc(HWND window, UINT message,
       GetClientRect(window, &client);
       PaintTestPattern(dc, client);
       EndPaint(window, &paint);
+      // Only the first few, so the log stays readable.
+      static int paints = 0;
+      if (++paints <= 5) {
+        Log(L"stand-in painted (%d), client %ldx%ld, visible %d", paints,
+            client.right - client.left, client.bottom - client.top,
+            IsWindowVisible(window));
+      }
       return 0;
     }
     // Never take focus - the Flutter view owns input.

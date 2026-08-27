@@ -8,7 +8,7 @@ starts until all four questions have a written answer.
 | 1 | Does the shipped libmpv have `gpu-next`, `gpu-api=d3d11`, `target-colorspace-hint`? | **PASS** |
 | 2 | Is `wid` settable after `mpv_initialize`? | **PASS** |
 | 3 | Does HDR actually reach the display? | **PASS** |
-| 4 | Can the Flutter window get per-pixel alpha over that window? | *spike built, awaiting a run on real hardware* |
+| 4 | Can the Flutter window get per-pixel alpha over that window? | **FAIL** for every in-window technique; one arrangement still unmeasured |
 
 ---
 
@@ -104,6 +104,38 @@ where its alpha crosses the key. Mode `2` exists to confirm that failure, not to
 
 If nothing here preserves the gradients, stop and re-scope — to fullscreen-only with an
 on-demand overlay, or to the tone-mapping-only work that already stands on its own.
+
+### Results
+
+Measured by capturing the window and counting how many sample points in the colour-bar
+band land on a pure bar colour — those colours appear nowhere in Moonfin's own UI, so a
+hit means the stand-in is visible.
+
+| Mode | Technique | Hits | Verdict |
+|---|---|---|---|
+| `5` | control — stand-in on top, no transparency | **30/35** | harness is sound |
+| `1` | `ACCENT_ENABLE_BLURBEHIND` | 0/35 | **FAIL** |
+| `3` | `DwmEnableBlurBehindWindow` | 0/35 | **FAIL** |
+| `4` | `ACCENT_ENABLE_TRANSPARENTGRADIENT` | 0/35 | **FAIL** |
+| `6` | separate top-level window behind | — | **not yet measured** |
+
+The stand-in is created, visible and painting in every mode — the probe log confirms it
+each run. Nothing reaches the screen through the Flutter view.
+
+**Read the control first.** The first round of this spike reported black screens for 1, 3
+and 4, and every one of those results was worthless: the Flutter view HWND does not carry
+`WS_CLIPSIBLINGS`, so its swapchain present painted straight over the stand-in, and nothing
+ever sent the stand-in a `WM_PAINT` to put it back. The stand-in was being drawn once and
+immediately erased. `Attach` now sets that style on the Flutter view, and only then does
+the control light up. Any future run of this spike that cannot show mode `5` working is
+measuring nothing.
+
+**Mode `6` is still open.** Its stand-in is a separate top-level window, so it falls outside
+a `PrintWindow` capture of the Flutter window and needs a real screen capture. Both attempts
+so far were spoiled — a fullscreen game held the screen, and the machine has only one
+display. It has to be re-run with nothing else fullscreen. It is the one arrangement that
+could still come back yes, because Win32 has no per-pixel alpha between sibling child HWNDs
+at all, whereas DWM does composite top-level windows with alpha.
 
 ### Running it
 

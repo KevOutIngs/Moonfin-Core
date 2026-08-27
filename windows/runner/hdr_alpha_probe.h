@@ -39,6 +39,21 @@ enum class Technique {
   // the plan's list, but it is the same call as kBlurBehind without the blur,
   // so it is the variant most likely to actually pass.
   kTransparent = 4,
+  // Not a candidate - a control. The stand-in goes ON TOP of the Flutter view
+  // and no transparency is applied at all, so the test pattern must be
+  // visible. If it is not, the probe itself is broken and every other result
+  // here is void.
+  kSanityOnTop = 5,
+  // The stand-in is a separate top-level window sitting directly behind the
+  // Flutter window, rather than a child HWND inside it, with the Flutter
+  // window made transparent by the same accent policy as kTransparent.
+  //
+  // Win32 has no per-pixel alpha between sibling child HWNDs - each child
+  // composites opaquely into its parent's redirection surface, which is why
+  // 1, 3 and 4 cannot work no matter which attribute is set. DWM does
+  // composite top-level windows with alpha, so this is the one arrangement
+  // where the question can come back yes.
+  kTopLevelBehind = 6,
 };
 
 // Reads MOONFIN_HDR_Q4 once and caches it.
@@ -75,6 +90,7 @@ class StandInWindow {
   HWND window_ = nullptr;
   HWND top_level_ = nullptr;
   HWND flutter_view_ = nullptr;
+  bool syncing_ = false;
 };
 
 }  // namespace hdr_alpha_probe

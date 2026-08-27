@@ -19,8 +19,6 @@ class HdrVideoWindow {
   /// The HWND, once created. Null until [create] succeeds.
   int? get handle => _handle;
 
-  bool get isCreated => _handle != null;
-
   /// Creates the window and returns its HWND, or null if it could not be
   /// created. Safe to call repeatedly; the second call returns the same
   /// handle.

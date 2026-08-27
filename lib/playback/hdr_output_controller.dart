@@ -41,7 +41,13 @@ class HdrOutputStatus {
 /// window is not a regression: mpv renders it, and with `gpu-next` renders it
 /// better than the texture path does.
 class HdrOutputController {
-  final HdrVideoWindow window = HdrVideoWindow();
+  /// [window] is injectable so the decision can be tested without a platform
+  /// channel - every path through [maybeEngage] past the display gate touches
+  /// it, and those are the paths worth pinning down.
+  HdrOutputController({HdrVideoWindow? window})
+    : window = window ?? HdrVideoWindow();
+
+  final HdrVideoWindow window;
 
   // One field, not three. `_engaged` and `_failed` were separate booleans that
   // were only ever set one line before the matching status, so they could not

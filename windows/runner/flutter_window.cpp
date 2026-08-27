@@ -243,6 +243,15 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  if (hdr_alpha_probe::SelectedTechnique() !=
+      hdr_alpha_probe::Technique::kOff) {
+    hdr_alpha_probe_ = std::make_unique<hdr_alpha_probe::StandInWindow>();
+    if (!hdr_alpha_probe_->Attach(
+            GetHandle(), flutter_controller_->view()->GetNativeWindow())) {
+      hdr_alpha_probe_ = nullptr;
+    }
+  }
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -256,6 +265,8 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  hdr_alpha_probe_ = nullptr;
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -280,6 +291,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    case WM_SIZE:
+      // Win32Window::MessageHandler only re-fits the single tracked child, so
+      // the stand-in window needs its own geometry pass. Phase 3 of the plan
+      // makes the same point about the real video window.
+      if (hdr_alpha_probe_) {
+        hdr_alpha_probe_->SyncGeometry();
+      }
       break;
   }
 

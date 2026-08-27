@@ -54,6 +54,7 @@ import '../../../util/audio_labels.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/auto_hdr_switcher.dart';
 import '../../../util/episode_playability.dart';
+import '../../../util/hdr_alpha_probe.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/play_method_label.dart';
 import '../../../util/platform_detection.dart';
@@ -3669,7 +3670,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _exitPlayback();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        // Transparent under the Q4 probe so the stand-in video window behind
+        // the Flutter view shows through. The route is opaque, so nothing
+        // below it paints either.
+        backgroundColor: HdrAlphaProbe.isActive
+            ? Colors.transparent
+            : Colors.black,
         body: Focus(
           focusNode: _overlayFocus,
           autofocus: true,
@@ -3857,6 +3863,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   Widget _buildVideoSurface() {
+    // Phase 0 question 4: leave the video rect unpainted so the stand-in
+    // window shows through, and judge the scrim gradients over it.
+    if (HdrAlphaProbe.isActive) {
+      return Positioned.fill(
+        child: ColoredBox(color: HdrAlphaProbe.videoRectColor),
+      );
+    }
+
     if (PlatformDetection.isTizen) {
       return _buildTizenVideoSurface();
     }

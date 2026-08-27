@@ -8,6 +8,7 @@
 
 #include <flutter/plugin_registrar_windows.h>
 
+#include "hdr_alpha_probe.h"
 #include "native_game.h"
 #include "win32_window.h"
 
@@ -31,6 +32,10 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Phase 0 question 4 of docs/windows-hdr-output-plan.md. Inert unless
+  // MOONFIN_HDR_Q4 is set in the environment.
+  std::unique_ptr<hdr_alpha_probe::StandInWindow> hdr_alpha_probe_;
 
   // Native retro-game playback.
   std::unique_ptr<flutter::PluginRegistrarWindows> native_game_registrar_;

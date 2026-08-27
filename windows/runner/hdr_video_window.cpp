@@ -98,6 +98,16 @@ int64_t HdrVideoWindow::Create() {
     }
   }
 
+  // Dart has not laid anything out yet when this runs - the handle is needed
+  // before the widget that would measure the video rect can exist - so fall
+  // back to the whole client area rather than the empty default. A zero-area
+  // window would be handed straight to mpv as `wid`, and its D3D11 context
+  // fails CreateSwapChainForHwnd on one, which marks the session permanently
+  // failed before the first frame.
+  if (geometry_.right <= geometry_.left || geometry_.bottom <= geometry_.top) {
+    GetClientRect(top_level_, &geometry_);
+  }
+
   // WS_EX_TRANSPARENT and the shared window proc's HTTRANSPARENT keep this
   // window out of hit-testing, so clicks fall through to the Flutter view
   // underneath where the player's widgets are still laid out. That is what

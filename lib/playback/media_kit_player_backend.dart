@@ -681,12 +681,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // this backend is the singleton for music and audiobooks too, so ordering
     // this after the poll added seconds to the tail of every track's open.
     if (hdrOutput.isEngaged || hdrOutput.hasFailed) return;
-    if (!_prefs.get(UserPreferences.nativeHdrOutput)) return;
 
     final native = _player.platform as NativePlayer;
     await hdrOutput.maybeEngage(
-      preferenceEnabled: true,
-      isHdrContent: await _isHdrContent(),
+      preferenceEnabled: _prefs.get(UserPreferences.nativeHdrOutput),
+      isHdrContent: _isHdrContent,
       displayInHdrMode: AutoHdrSwitcher.isDisplayHdrEnabled,
       engageMpv: (handle) => _handOverToNativeWindow(native, handle),
     );
@@ -728,13 +727,36 @@ class MediaKitPlayerBackend extends PlayerBackend {
       // which is exactly what the native window just provided.
       await _nativeSetProperty(native, 'target-colorspace-hint', 'yes');
       await _applyDesktopRenderQuality(native);
+      // The quality overrides above replace keys a custom mpv.conf may also
+      // set, and the conf was applied before this. Re-apply it so the user's
+      // values win, which is what the allowlist promised them.
+      await _applyCustomMpvConfIfEnabled(force: true);
 
       // If the renderer refused, `current-vo` still reads as the old one and
       // the window would sit black over the player.
       final vo = await _tryNativeGetProperty(native, 'current-vo');
-      return vo == 'gpu-next';
-    } catch (_) {
+      if (vo == 'gpu-next') return true;
+      await _restoreTexturePath(native);
       return false;
+    } catch (_) {
+      await _restoreTexturePath(native);
+      return false;
+    }
+  }
+
+  /// Puts mpv back on media_kit's render-API output after a failed handover.
+  ///
+  /// Without this the fallback is worse than the feature: `vo` has already
+  /// been switched away from `libmpv`, so the texture the `Video` widget shows
+  /// is fed by a dead context, and `wid` still points at a window that is
+  /// about to be destroyed. The user would get a black player for the rest of
+  /// the session rather than the path they started on.
+  Future<void> _restoreTexturePath(NativePlayer native) async {
+    try {
+      await _nativeSetProperty(native, 'wid', '0');
+      await _nativeSetProperty(native, 'vo', 'libmpv');
+    } catch (_) {
+      // Nothing further to try; the diagnostics row reports the failure.
     }
   }
 
@@ -744,8 +766,8 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// `hdr-compute-peak=no` and `sigmoid-upscaling=no` regardless of platform.
   /// Those are phone performance choices; on a desktop GPU driving an HDR
   /// display they are all wrong, and `dither=no` alone visibly bands dark
-  /// gradients. A custom mpv.conf still wins, because it is applied after
-  /// this.
+  /// gradients. The caller re-applies any custom mpv.conf afterwards, so a
+  /// user who set these keys themselves still wins.
   Future<void> _applyDesktopRenderQuality(NativePlayer native) async {
     await _nativeSetProperty(native, 'dither', 'fruit');
     await _nativeSetProperty(native, 'dither-depth', 'auto');
@@ -923,7 +945,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
     }
   }
 
-  Future<void> _applyCustomMpvConfIfEnabled() async {
+  /// [force] re-applies even when the same file was applied already. Handing
+  /// mpv the native HDR window resets a batch of render options, so the user's
+  /// conf has to be laid back over the top; the path/mtime cache would
+  /// otherwise skip it and their values would be gone for the session.
+  Future<void> _applyCustomMpvConfIfEnabled({bool force = false}) async {
     if (!PlatformDetection.isDesktop && !PlatformDetection.isAndroid) {
       return;
     }
@@ -950,7 +976,8 @@ class MediaKitPlayerBackend extends PlayerBackend {
       }
 
       final stat = await file.stat();
-      if (_appliedCustomMpvConfPath == path &&
+      if (!force &&
+          _appliedCustomMpvConfPath == path &&
           _appliedCustomMpvConfMtime == stat.modified) {
         return;
       }

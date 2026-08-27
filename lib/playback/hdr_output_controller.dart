@@ -47,29 +47,41 @@ class HdrOutputController {
   // were only ever set one line before the matching status, so they could not
   // disagree with it - they just had to be kept in step by hand on every
   // return path.
-  HdrOutputStatus _status = const HdrOutputStatus(
-    HdrOutputReason.contentIsSdr,
+  //
+  // A notifier rather than a plain field because engagement finishes
+  // asynchronously at the tail of `play()`, long after the player screen last
+  // built. Without a signal the swap from the texture surface to the native
+  // window would wait for some unrelated setState to happen along, and until
+  // it did mpv would be drawing into a window nothing had claimed - so still
+  // hidden.
+  final ValueNotifier<HdrOutputStatus> status = ValueNotifier(
+    const HdrOutputStatus(HdrOutputReason.contentIsSdr),
   );
-  HdrOutputStatus get status => _status;
 
-  bool get isEngaged => _status.reason == HdrOutputReason.active;
+  bool get isEngaged => status.value.reason == HdrOutputReason.active;
 
   /// Whether a previous attempt failed. Sticky, so a broken configuration is
   /// not retried on every item; the caller uses it to skip the work of even
   /// deciding.
-  bool get hasFailed => _status.reason == HdrOutputReason.failed;
+  bool get hasFailed => status.value.reason == HdrOutputReason.failed;
 
   /// Decides and, if the answer is yes, creates the window.
   ///
   /// Returns the HWND to hand mpv as `wid`, or null to stay on the texture
-  /// path. [displayInHdrMode] is a callback rather than a value so the
-  /// display-config enumeration behind it is not paid for SDR content, which
-  /// is the common case. [engageMpv] must return false if mpv refused the
-  /// handle, so the failure is recorded rather than leaving a black window on
-  /// screen.
+  /// path.
+  ///
+  /// [isHdrContent] and [displayInHdrMode] are callbacks rather than values
+  /// because both are expensive and neither is needed unless everything ahead
+  /// of it passed. Waiting for mpv's video-params costs up to two seconds on
+  /// an audio track, where they never arrive at all - and this backend is the
+  /// singleton for music and audiobooks too. The display query enumerates
+  /// every display path.
+  ///
+  /// [engageMpv] must return false if mpv refused the handle, so the failure
+  /// is recorded rather than leaving a black window on screen.
   Future<int?> maybeEngage({
     required bool preferenceEnabled,
-    required bool isHdrContent,
+    required Future<bool> Function() isHdrContent,
     required Future<bool> Function() displayInHdrMode,
     required Future<bool> Function(int handle) engageMpv,
   }) async {
@@ -80,34 +92,36 @@ class HdrOutputController {
       return null;
     }
     if (!preferenceEnabled) {
-      _status = const HdrOutputStatus(HdrOutputReason.disabledByPreference);
+      status.value = const HdrOutputStatus(
+        HdrOutputReason.disabledByPreference,
+      );
       return null;
     }
-    if (!isHdrContent) {
-      _status = const HdrOutputStatus(HdrOutputReason.contentIsSdr);
+    if (!await isHdrContent()) {
+      status.value = const HdrOutputStatus(HdrOutputReason.contentIsSdr);
       return null;
     }
     if (!await displayInHdrMode()) {
       // Switching the display is the auto-HDR preference's job, and it runs
       // before this. If it is off, or the display refused, there is nothing
       // useful to send.
-      _status = const HdrOutputStatus(HdrOutputReason.displayNotInHdrMode);
+      status.value = const HdrOutputStatus(HdrOutputReason.displayNotInHdrMode);
       return null;
     }
 
     final handle = await window.create();
     if (handle == null) {
-      _status = const HdrOutputStatus(HdrOutputReason.failed);
+      status.value = const HdrOutputStatus(HdrOutputReason.failed);
       return null;
     }
 
     if (!await engageMpv(handle)) {
       await window.destroy();
-      _status = const HdrOutputStatus(HdrOutputReason.failed);
+      status.value = const HdrOutputStatus(HdrOutputReason.failed);
       return null;
     }
 
-    _status = const HdrOutputStatus(HdrOutputReason.active);
+    status.value = const HdrOutputStatus(HdrOutputReason.active);
     return handle;
   }
 }

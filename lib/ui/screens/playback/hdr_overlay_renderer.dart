@@ -117,16 +117,19 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
       final height = image.height;
       image.dispose();
 
-      if (data == null || !mounted || !widget.enabled) return;
-
-      final origin = boundary.localToGlobal(Offset.zero) * ratio;
-      await widget.channel.push(
-        x: origin.dx,
-        y: origin.dy,
-        pixels: data.buffer.asUint8List(),
-        width: width,
-        height: height,
-      );
+      // `data == null` is a documented outcome of toByteData, and returning
+      // here would skip the reschedule below and freeze the overlay on its
+      // last bitmap for the rest of the screen's life. Fall through instead.
+      if (data != null && mounted && widget.enabled) {
+        final origin = boundary.localToGlobal(Offset.zero) * ratio;
+        await widget.channel.push(
+          x: origin.dx,
+          y: origin.dy,
+          pixels: data.buffer.asUint8List(),
+          width: width,
+          height: height,
+        );
+      }
     } catch (_) {
       // A capture can fail while the tree is being torn down. The next frame
       // either retries or the widget is gone.
@@ -134,7 +137,7 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture> {
       _capturing = false;
     }
 
-    if (widget.enabled) _schedule();
+    if (mounted && widget.enabled) _schedule();
   }
 
   @override

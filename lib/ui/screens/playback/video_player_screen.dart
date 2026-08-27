@@ -140,15 +140,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   final HdrOverlayChannel _hdrOverlayChannel = HdrOverlayChannel();
 
+  ValueNotifier<HdrOutputStatus>? _hdrStatus;
+
+  void _onHdrStatusChanged() {
+    if (mounted) setState(() {});
+  }
+
   /// The HDR-output line for the playback info sheet, or null on platforms
   /// where there is nothing to say. Reports both the outcome and, when it did
   /// not engage, why — so "my HDR TV is not lighting up" has an answer in the
   /// app rather than needing a log.
   String? _hdrOutputRow(AppLocalizations l10n) {
-    if (!PlatformDetection.isWindows) return null;
+    if (!PlatformDetection.supportsNativeHdrWindow) return null;
     final backend = _activeMediaKitBackend ?? _backend;
     if (backend == null) return null;
-    final status = backend.hdrOutput.status;
+    final status = backend.hdrOutput.status.value;
     return switch (status.reason) {
       HdrOutputReason.active => l10n.hdrOutputActive(status.output),
       HdrOutputReason.displayNotInHdrMode => l10n.hdrOutputDisplayNotHdr,
@@ -707,6 +713,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       releaseImageMemoryForPlayback();
       detachTextInputForPlayback();
     }
+    if (PlatformDetection.supportsNativeHdrWindow) {
+      // Engagement finishes at the tail of play(), well after the last build,
+      // and swaps which video surface this screen should be showing. Without
+      // this the swap waits for some unrelated rebuild to come along, and
+      // until it does mpv is drawing into a window nothing has claimed.
+      _hdrStatus = (_activeMediaKitBackend ?? _backend)?.hdrOutput.status
+        ?..addListener(_onHdrStatusChanged);
+    }
     _screensaverController.setPlaybackActive(true);
     _screensaverPlayingSub = _state.playingStream.listen(
       _screensaverController.setPlaybackActive,
@@ -895,6 +909,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     // whatever comes next, so it goes away with the screen even though the
     // session stays engaged. `release` is keyed on identity, so a successor
     // screen that has already claimed the window is not disturbed.
+    _hdrStatus?.removeListener(_onHdrStatusChanged);
     if (_hdrOverlayActive) {
       final window = (_activeMediaKitBackend ?? _backend)?.hdrOutput.window;
       unawaited(window?.release(this));

@@ -18,6 +18,12 @@ std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
 // Posted after a nested WM_SIZE. WM_APP + 1 is native_game's.
 constexpr UINT kResyncViewMessage = WM_APP + 2;
 
+// Heartbeat that keeps the HDR companion windows in position - see the
+// WM_TIMER note in MessageHandler. The id is 'HD', chosen not to collide with
+// timers plugins set against the same window.
+constexpr UINT_PTR kHdrSyncTimerId = 0x4844;
+constexpr UINT kHdrSyncIntervalMs = 500;
+
 struct HdrDisplayState {
   bool supported = false;
   bool enabled = false;
@@ -183,6 +189,15 @@ bool FlutterWindow::OnCreate() {
       native_game_registrar_->texture_registrar(),
       native_game_registrar_.get());
 
+  hdr_video_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
+      flutter_controller_->engine()->GetRegistrarForPlugin("HdrVideo"));
+  hdr_video_ = std::make_unique<HdrVideoWindow>(
+      flutter_controller_->engine()->messenger(), hdr_video_registrar_.get(),
+      GetHandle());
+
+  hdr_overlay_ = std::make_unique<HdrOverlayWindow>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
   if (!g_hdr_display_channel) {
     g_hdr_display_channel =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
@@ -233,6 +248,10 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // Half-second heartbeat for the HDR windows' position sync - see the
+  // WM_TIMER note in MessageHandler.
+  SetTimer(GetHandle(), kHdrSyncTimerId, kHdrSyncIntervalMs, nullptr);
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -246,6 +265,10 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  KillTimer(GetHandle(), kHdrSyncTimerId);
+  hdr_overlay_ = nullptr;
+  hdr_video_ = nullptr;
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -300,6 +323,21 @@ LRESULT
 FlutterWindow::RouteMessage(HWND hwnd, UINT const message,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
+  // Ahead of the plugin dispatch, deliberately: the registered-delegate chain
+  // stops at the first plugin that claims a message, and window_manager
+  // registers before these windows exist, so a delegate never sees
+  // WM_WINDOWPOSCHANGED. The timer is the fallback for a lost message;
+  // wparam-checked because plugins may set their own timers on this window.
+  if (message == WM_WINDOWPOSCHANGED ||
+      (message == WM_TIMER && wparam == kHdrSyncTimerId)) {
+    if (hdr_overlay_) {
+      hdr_overlay_->SyncPosition();
+    }
+    if (hdr_video_) {
+      hdr_video_->SyncPosition();
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

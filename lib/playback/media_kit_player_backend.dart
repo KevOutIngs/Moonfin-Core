@@ -1062,7 +1062,25 @@ class MediaKitPlayerBackend extends PlayerBackend {
     'video-sync',
     'tone-mapping',
     'tone-mapping-param',
+    'tone-mapping-mode',
+    'gamut-mapping-mode',
     'target-trc',
+    'target-prim',
+    'target-peak',
+    'target-contrast',
+    // Tags the swapchain's colorspace, which is what HDR passthrough rides on.
+    // Only the contexts that own their swapchain (d3d11, winvk, wayland) act on
+    // it, so it is inert on the Flutter texture path and harmless to allow.
+    'target-colorspace-hint',
+    'hdr-compute-peak',
+    // gpu-api and gpu-context deliberately stay OUT of this list: they belong
+    // to the unsafe-advanced tier, and listing them here would bypass that
+    // gate on every platform - a wrong gpu-context blacks out all playback.
+    'target-inverse-tone-mapping',
+    // media_kit initializes every native platform with dither=no, which bands
+    // dark gradients on desktop. Let a conf turn it back on.
+    'dither',
+    'dither-depth',
     'brightness',
     'contrast',
     'saturation',
@@ -1091,6 +1109,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
 
   static const Set<String> _advancedMpvKeys = {
     'vo',
+    'gpu-api',
     'gpu-context',
     'hwdec',
     'audio-exclusive',

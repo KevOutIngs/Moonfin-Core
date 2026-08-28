@@ -877,6 +877,13 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// [_handOverToNativeWindow].
   Timer? _monitorSettleTimer;
 
+  /// True while the native renderer is being torn down and recreated for a
+  /// monitor crossing. In the behind-the-window arrangement the runner is
+  /// transparent, so the player screen paints black instead while this is
+  /// set - otherwise the desktop shows through the UI until mpv's first frame
+  /// lands in the new swapchain.
+  final ValueNotifier<bool> nativeRendererCycling = ValueNotifier(false);
+
   /// Recreates the renderer so the swapchain negotiates against the display
   /// the window is on now. The same vo cycle as engagement, subtitles carried
   /// across the same way.
@@ -910,6 +917,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
       if (!hdrOutput.isEngaged) return;
 
       sid = await _tryNativeGetProperty(native, 'sid');
+      nativeRendererCycling.value = true;
       await _nativeSetProperty(native, 'vo', 'null');
       await _nativeSetProperty(native, 'vo', 'gpu-next');
       // The renderer can refuse to come back on the new adapter. Without this
@@ -924,12 +932,16 @@ class MediaKitPlayerBackend extends PlayerBackend {
         return;
       }
       await _restoreSubtitleState(native, sid);
+      // current-vo flips as soon as the renderer exists, a little before its
+      // first frame is presented; hold the black over that too.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     } catch (_) {
       await _restoreTexturePath(native, sid: sid);
       if (hdrOutput.isEngaged) {
         hdrOutput.status.value = HdrOutputStatus.failed;
       }
     } finally {
+      nativeRendererCycling.value = false;
       _renegotiating = false;
       if (_renegotiatePending) {
         _renegotiatePending = false;

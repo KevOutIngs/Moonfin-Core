@@ -132,6 +132,11 @@ int64_t HdrVideoWindow::Create() {
     }
     const bool composed =
         hdr_window_support::ApplyTransparencyComposition(top_level_, dwm_mode_);
+    // Shown immediately, black, covering the client area: from here on the
+    // runner is see-through, and Flutter drops its own black background the
+    // moment engagement succeeds - before Dart has claimed this window. With
+    // nothing behind the runner in that gap the desktop shows through.
+    PlaceBehind(true);
     hdr_window_support::Log(
         L"behind Create: hwnd=%p at (%ld,%ld)-(%ld,%ld), composition(%d)=%d",
         window_, screen.left, screen.top, screen.right, screen.bottom,

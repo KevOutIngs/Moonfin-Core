@@ -142,10 +142,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   final HdrOverlayChannel _hdrOverlayChannel = HdrOverlayChannel();
 
   ValueNotifier<HdrOutputStatus>? _hdrStatus;
+  ValueNotifier<bool>? _hdrRendererCycling;
 
   void _onHdrStatusChanged() {
     if (mounted) setState(() {});
   }
+
+  /// Whether the video area must be left transparent for the native window
+  /// to show through. False while the renderer is being recreated for a
+  /// monitor crossing: the runner is see-through then and mpv has no frame
+  /// to put behind it, so the screen paints black rather than the desktop.
+  bool get _videoShowsThrough =>
+      _nativeHdrEngaged && !(_hdrRendererCycling?.value ?? false);
 
   /// The HDR-output line for the playback info sheet, or null on platforms
   /// where there is nothing to say. Reports the outcome and, when it did not
@@ -737,6 +745,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       // not wait for an unrelated rebuild.
       _hdrStatus = hdrBackend.hdrOutput.status
         ..addListener(_onHdrStatusChanged);
+      _hdrRendererCycling = hdrBackend.nativeRendererCycling
+        ..addListener(_onHdrStatusChanged);
       // Only this screen can present the native window; Live TV and the mini
       // player share the backend but can only render the texture.
       hdrBackend.hdrOutput.presenterActive = true;
@@ -927,6 +937,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   void dispose() {
     _trickplayLoadGeneration++;
     _hdrStatus?.removeListener(_onHdrStatusChanged);
+    _hdrRendererCycling?.removeListener(_onHdrStatusChanged);
     final hdrBackend = _hdrBackend;
     if (hdrBackend != null) {
       // Hands the whole native path back: mpv returns to the texture output,
@@ -3768,11 +3779,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       },
       child: Scaffold(
         // Overlay mode: black - the capture sits inside the body, so the
-        // background is not part of it. DWM mode: transparent while engaged -
-        // the video window sits behind a see-through runner window, so any
-        // opaque pixel here would cover it.
+        // background is not part of it. DWM mode: transparent while the video
+        // shows through - the video window sits behind a see-through runner
+        // window, so any opaque pixel here would cover it.
         backgroundColor:
-            HdrComposition.videoBehindFlutter && _nativeHdrEngaged
+            HdrComposition.videoBehindFlutter && _videoShowsThrough
             ? Colors.transparent
             : Colors.black,
         body: Focus(
@@ -3837,7 +3848,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                       // paint it out.
                       Positioned.fill(
                         child: ColoredBox(
-                          color: _nativeHdrEngaged
+                          color: _videoShowsThrough
                               ? Colors.transparent
                               : Colors.black,
                         ),

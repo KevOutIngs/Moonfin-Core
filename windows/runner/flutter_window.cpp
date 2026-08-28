@@ -23,8 +23,10 @@ struct HdrDisplayState {
   bool enabled = false;
 };
 
-#if defined(DISPLAYCONFIG_DEVICE_INFO_GET_ADVANCED_COLOR_INFO) && \
-    defined(DISPLAYCONFIG_DEVICE_INFO_SET_ADVANCED_COLOR_STATE)
+// Deliberately not guarded with `#if defined(DISPLAYCONFIG_DEVICE_INFO_...)`:
+// those names are enumerators, not macros, so such a guard always fails and
+// silently selects a stub. The APIs have been in the SDK since Windows 10
+// 1703, under this project's floor.
 
 bool GetMonitorDeviceNameFromWindow(HWND hwnd, std::wstring* device_name) {
   if (device_name == nullptr) {
@@ -148,21 +150,6 @@ bool SetHdrStateForWindow(HWND hwnd, bool enabled) {
 
   return DisplayConfigSetDeviceInfo(&request.header) == ERROR_SUCCESS;
 }
-
-#else
-
-HdrDisplayState QueryHdrStateForWindow(HWND hwnd) {
-  (void)hwnd;
-  return {};
-}
-
-bool SetHdrStateForWindow(HWND hwnd, bool enabled) {
-  (void)hwnd;
-  (void)enabled;
-  return false;
-}
-
-#endif
 
 }  // namespace
 

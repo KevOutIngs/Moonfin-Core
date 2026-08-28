@@ -372,6 +372,19 @@ class PlatformDetection {
   /// question - keep them apart.
   static bool get playerVolumeIsSystemManaged => isAndroid && isTV;
 
+  /// Whether this platform can give mpv its own window for HDR output.
+  ///
+  /// Deliberately separate from [useNativeVideoSurface] rather than widening
+  /// it with an `isWindows` term: that getter is gated on [isTV], which is
+  /// user-overridable on desktop through [canOverrideInterfaceLayout], so any
+  /// Windows user picking the TV layout would activate this by accident.
+  ///
+  /// This only says the platform is capable. Whether the window is actually
+  /// used is decided per session from the content, the display's HDR state and
+  /// [UserPreferences.nativeHdrOutput] - see `HdrOutputController`. That
+  /// preference is the off switch; there is deliberately no compile-time one.
+  static bool get supportsNativeHdrWindow => isWindows;
+
   /// Apple platforms use the shared AVPlayer-based preview/theme channels
   /// (`moonfin/appletv_preview`, `moonfin/appletv_theme_music`) instead of a
   /// media_kit Player for inline trailers, home-row previews and theme music.

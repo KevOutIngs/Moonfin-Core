@@ -54,6 +54,10 @@ import '../../../util/audio_labels.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/auto_hdr_switcher.dart';
 import '../../../util/episode_playability.dart';
+import '../../../playback/hdr_composition.dart';
+import '../../../playback/hdr_output_controller.dart';
+import '../../../playback/hdr_overlay_channel.dart';
+import 'hdr_overlay_capture.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/play_method_label.dart';
 import '../../../util/platform_detection.dart';
@@ -134,6 +138,53 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final backend = _activeBackend;
     return backend is Media3PlayerBackend ? backend : null;
   }
+
+  final HdrOverlayChannel _hdrOverlayChannel = HdrOverlayChannel();
+
+  ValueNotifier<HdrOutputStatus>? _hdrStatus;
+
+  void _onHdrStatusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// The HDR-output line for the playback info sheet, or null on platforms
+  /// where there is nothing to say. Reports the outcome and, when it did not
+  /// engage, why.
+  String? _hdrOutputRow(AppLocalizations l10n, {bool hdrTonemapped = false}) {
+    final backend = _hdrBackend;
+    if (backend == null) return null;
+    final status = backend.hdrOutput.status.value;
+    // Engaged, but this display is not receiving HDR - the window sits on a
+    // monitor without it.
+    if (status.isActive && hdrTonemapped) {
+      return l10n.hdrOutputActiveTonemapped;
+    }
+    return switch (status) {
+      HdrOutputStatus.active => l10n.hdrOutputActive(
+        HdrOutputController.activeOutputFormat,
+      ),
+      HdrOutputStatus.displayNotInHdrMode => l10n.hdrOutputDisplayNotHdr,
+      HdrOutputStatus.contentIsSdr => l10n.hdrOutputContentSdr,
+      HdrOutputStatus.disabledByPreference => l10n.hdrOutputDisabled,
+      HdrOutputStatus.failed => l10n.hdrOutputFailed,
+    };
+  }
+
+  /// The backend whose HDR output this screen presents, or null on platforms
+  /// without the native window.
+  MediaKitPlayerBackend? get _hdrBackend =>
+      PlatformDetection.supportsNativeHdrWindow
+      ? (_activeMediaKitBackend ?? _backend)
+      : null;
+
+  /// Whether mpv currently renders into its own native window.
+  bool get _nativeHdrEngaged => _hdrBackend?.hdrOutput.isEngaged ?? false;
+
+  /// Whether a route sits above the player - a track picker, the info sheet,
+  /// any dialog. In overlay mode this stops the capture *and* stands the
+  /// video window down, since routes live outside the captured subtree and
+  /// the video would cover them; in DWM mode it does neither.
+  bool get _routeCovered => !(ModalRoute.of(context)?.isCurrent ?? true);
 
   HtmlVideoBackend? get _activeHtmlVideoBackend {
     final backend = _activeBackend;
@@ -679,6 +730,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       releaseImageMemoryForPlayback();
       detachTextInputForPlayback();
     }
+    final hdrBackend = _hdrBackend;
+    if (hdrBackend != null) {
+      // Engagement finishes at the tail of play(), after the last build, and
+      // swaps which video surface this screen shows - listen so the swap does
+      // not wait for an unrelated rebuild.
+      _hdrStatus = hdrBackend.hdrOutput.status
+        ..addListener(_onHdrStatusChanged);
+      // Only this screen can present the native window; Live TV and the mini
+      // player share the backend but can only render the texture.
+      hdrBackend.hdrOutput.presenterActive = true;
+      // play() may have run before this screen mounted and been refused for
+      // lack of a presenter; decide again now that one exists.
+      unawaited(hdrBackend.ensureNativeHdrForPresenter());
+    }
     _screensaverController.setPlaybackActive(true);
     _screensaverPlayingSub = _state.playingStream.listen(
       _screensaverController.setPlaybackActive,
@@ -861,6 +926,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   @override
   void dispose() {
     _trickplayLoadGeneration++;
+    _hdrStatus?.removeListener(_onHdrStatusChanged);
+    final hdrBackend = _hdrBackend;
+    if (hdrBackend != null) {
+      // Hands the whole native path back: mpv returns to the texture output,
+      // the window is destroyed, and the next playback decides afresh. mpv is
+      // a process-lifetime singleton shared with Live TV and the mini player,
+      // which can only render the texture.
+      unawaited(hdrBackend.releaseNativeHdrPresenter());
+      unawaited(_hdrOverlayChannel.hide());
+    }
     if (_isInPiP && GetIt.instance.isRegistered<PlaybackArbiter>()) {
       GetIt.instance<PlaybackArbiter>().pipActive = false;
     }
@@ -1174,6 +1249,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _ensureDesktopOverlayFocus();
   }
 
+  // Fullscreen can be entered without the player ever being asked: F11 and
+  // Alt+Enter are handled by the global shortcut in app.dart, which calls
+  // FullscreenHelper directly, and the title bar, Win+Up and the window menu
+  // bypass the app entirely. Listening to the window itself catches all of
+  // them, so _isDesktopFullscreen and the auto-HDR switch stay in step
+  // whichever route was taken.
+  @override
+  void onWindowEnterFullScreen() {
+    unawaited(_syncDesktopFullscreenState());
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    unawaited(_syncDesktopFullscreenState());
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
     if (lifecycleState != AppLifecycleState.resumed) {
@@ -1408,7 +1499,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     await _pushMedia3UiMetadata();
   }
 
-  List<Map<String, dynamic>> _buildMedia3StreamInfoSections() {
+  /// [hdrTonemapped] is what the display is receiving right now, resolved at
+  /// sheet-open time; callers that never show the HDR row can leave it.
+  List<Map<String, dynamic>> _buildMedia3StreamInfoSections({
+    bool hdrTonemapped = false,
+  }) {
     final l10n = AppLocalizations.of(context);
     final resolution = _manager.currentResolution;
     final playMethod = resolution?.playMethod;
@@ -1596,6 +1691,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           '${width ?? '?'}×${height ?? '?'}${fps != null ? ' @ ${fps.round()}fps' : ''}',
         ),
         row(l10n.hdr, _getHdrType(video)),
+        if (_hdrOutputRow(l10n, hdrTonemapped: hdrTonemapped)
+            case final hdrOutput?)
+          row(l10n.hdrOutput, hdrOutput),
         row(l10n.codec, _formatVideoCodec(video)),
         if (video['BitRate'] != null)
           row(l10n.videoBitrate, _formatBitrate(video['BitRate'] as int?)),
@@ -3669,7 +3767,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _exitPlayback();
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        // Overlay mode: black - the capture sits inside the body, so the
+        // background is not part of it. DWM mode: transparent while engaged -
+        // the video window sits behind a see-through runner window, so any
+        // opaque pixel here would cover it.
+        backgroundColor:
+            HdrComposition.videoBehindFlutter && _nativeHdrEngaged
+            ? Colors.transparent
+            : Colors.black,
         body: Focus(
           focusNode: _overlayFocus,
           autofocus: true,
@@ -3706,13 +3811,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     }
                   }
                 },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const Positioned.fill(
-                      child: ColoredBox(color: Colors.black),
-                    ),
-                    _buildVideoSurface(),
+                // Everything this screen draws is mirrored into the layered
+                // window, not just the chrome - the OSDs, next-up,
+                // skip-segment and the locked overlay are siblings below.
+                // Routes above this screen (pickers, the info sheet) are
+                // outside this subtree and cannot be mirrored; both the
+                // capture and the video window stand down while one is open.
+                //
+                // Wrapped unconditionally so the subtree keeps one element
+                // identity; toggling a wrapper re-parents it and the player
+                // loses its focus node.
+                child: HdrOverlayCapture(
+                  enabled:
+                      // In DWM mode the compositor already draws Flutter over
+                      // the video.
+                      !HdrComposition.videoBehindFlutter &&
+                      _nativeHdrEngaged &&
+                      !_routeCovered,
+                  channel: _hdrOverlayChannel,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Transparent while mpv owns the video window: this
+                      // capture is drawn over the picture, so black here would
+                      // paint it out.
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: _nativeHdrEngaged
+                              ? Colors.transparent
+                              : Colors.black,
+                        ),
+                      ),
+                      _buildVideoSurface(),
                     if (PlatformDetection.isWeb)
                       const Positioned.fill(
                         child: ColoredBox(color: Colors.transparent),
@@ -3727,6 +3857,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     if (_controlsVisible &&
                         !_isOsdLocked &&
                         !hideOsdForPreroll) ...[
+                      // The chrome stays in the tree while mpv owns its own
+                      // window: both native windows are WS_EX_TRANSPARENT, so
+                      // these widgets are still what gets hit-tested - only
+                      // their pixels are re-sent by HdrOverlayCapture.
                       _buildTopOverlay(context),
                       if (!PlatformDetection.useLeanbackUi)
                         Positioned.fill(
@@ -3785,7 +3919,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                             ? _tvNextUpDismissFocus
                             : null,
                       ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -3890,6 +4025,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final mediaKitBackend = _activeMediaKitBackend ?? _backend;
     if (mediaKitBackend == null) {
       return const Positioned.fill(child: ColoredBox(color: Colors.black));
+    }
+
+    // Native HDR output: mpv draws into its own window, so nothing is painted
+    // here - but the rect is measured from the same layout so the window can
+    // follow it.
+    if (mediaKitBackend.hdrOutput.isEngaged) {
+      return Positioned.fill(
+        child: HdrVideoGeometry(
+          key: _videoSurfaceKey,
+          // In overlay mode the video stands down under a route (pickers,
+          // sheets) so Flutter can draw it; in DWM mode Flutter draws over
+          // the video anyway.
+          showVideo: HdrComposition.videoBehindFlutter || !_routeCovered,
+          onGeometry: (rect) =>
+              unawaited(mediaKitBackend.hdrOutput.window.claim(this, rect)),
+          onDetached: () =>
+              unawaited(mediaKitBackend.hdrOutput.window.release(this)),
+        ),
+      );
     }
     final hwDecodingEnabled = _prefs.get(UserPreferences.hardwareDecoding);
     const selectedVo = 'gpu';
@@ -7327,8 +7481,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   void _showStreamInfo() {
+    unawaited(_showStreamInfoAsync());
+  }
+
+  Future<void> _showStreamInfoAsync() async {
+    // Live display state: the session stays "active" on an SDR monitor, so
+    // the row must not claim HDR while the screen shows SDR.
+    final live = await _hdrBackend?.isCurrentOutputHdr();
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    final streamInfoSections = _buildMedia3StreamInfoSections();
+    final streamInfoSections = _buildMedia3StreamInfoSections(
+      hdrTonemapped: live == false,
+    );
     unawaited(
       showStreamInfoDialog(
         context: context,

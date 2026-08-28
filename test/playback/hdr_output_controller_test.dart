@@ -22,6 +22,9 @@ class _FakeWindow implements HdrVideoWindow {
   final ValueNotifier<bool> presenting = ValueNotifier(false);
 
   @override
+  void Function()? onMonitorChanged;
+
+  @override
   Future<int?> create() async {
     createCalls++;
     log.add('create');
@@ -110,6 +113,9 @@ void main() {
       bool displayInHdrMode = true,
       bool mpvAccepts = true,
     }) {
+      // The tests below exercise the gates past the presenter one; without a
+      // presenting screen nothing is ever decided, covered by its own test.
+      controller.presenterActive = true;
       return controller.maybeEngage(
         preferenceEnabled: preferenceEnabled,
         isHdrContent: () async {
@@ -132,6 +138,33 @@ void main() {
         HdrOutputController(window: window).status.value.reason,
         HdrOutputReason.contentIsSdr,
       );
+    });
+
+    test('no presenter, no decision - Live TV must never engage', () async {
+      final controller = HdrOutputController(window: window);
+      final result = await controller.maybeEngage(
+        preferenceEnabled: true,
+        isHdrContent: () async {
+          asked.add('content');
+          return true;
+        },
+        displayInHdrMode: () async {
+          asked.add('display');
+          return true;
+        },
+        engageMpv: (_) async {
+          asked.add('engage');
+          return true;
+        },
+      );
+
+      // The backend is a shared singleton; only the video player screen can
+      // present the native window. Without it, engaging would swap mpv onto a
+      // window nothing shows and black out whoever is actually rendering.
+      expect(result, isNull);
+      expect(asked, isEmpty);
+      expect(window.createCalls, 0);
+      expect(controller.isEngaged, isFalse);
     });
 
     test('the preference is the first gate, and nothing else is asked', () async {

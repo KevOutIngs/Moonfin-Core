@@ -66,6 +66,27 @@ class HdrOutputController {
 
   bool get isEngaged => status.value.reason == HdrOutputReason.active;
 
+  /// Whether a screen able to present the native window currently exists.
+  ///
+  /// The backend is a process-wide singleton shared with Live TV and the mini
+  /// player, which render media_kit's texture and know nothing about the
+  /// native window - engaging under them would swap mpv onto a window nothing
+  /// ever shows and leave a black picture. Only the video player screen sets
+  /// this, and engagement is refused without it.
+  bool presenterActive = false;
+
+  /// One decision at a time. The sticky flags are only written after several
+  /// awaits, so without this two overlapping `play()` calls could both pass
+  /// the gates and run the mpv handover concurrently against the same window.
+  bool _deciding = false;
+
+  /// Back to the undecided state, for when the presenting screen goes away:
+  /// the next playback decides afresh instead of inheriting a sticky
+  /// engagement nothing can present any more.
+  void reset() {
+    status.value = const HdrOutputStatus(HdrOutputReason.contentIsSdr);
+  }
+
   /// Whether a previous attempt failed. Sticky, so a broken configuration is
   /// not retried on every item; the caller uses it to skip the work of even
   /// deciding.
@@ -94,9 +115,28 @@ class HdrOutputController {
     if (isEngaged) {
       return window.handle;
     }
-    if (hasFailed) {
+    if (hasFailed || _deciding || !presenterActive) {
       return null;
     }
+    _deciding = true;
+    try {
+      return await _decide(
+        preferenceEnabled: preferenceEnabled,
+        isHdrContent: isHdrContent,
+        displayInHdrMode: displayInHdrMode,
+        engageMpv: engageMpv,
+      );
+    } finally {
+      _deciding = false;
+    }
+  }
+
+  Future<int?> _decide({
+    required bool preferenceEnabled,
+    required Future<bool> Function() isHdrContent,
+    required Future<bool> Function() displayInHdrMode,
+    required Future<bool> Function(int handle) engageMpv,
+  }) async {
     if (!preferenceEnabled) {
       status.value = const HdrOutputStatus(
         HdrOutputReason.disabledByPreference,

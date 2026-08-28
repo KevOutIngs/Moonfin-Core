@@ -77,6 +77,14 @@ class HdrVideoWindow {
   // Client-area rect of the video, as Dart reports it.
   RECT geometry_ = {};
 
+  // The monitor the runner was on at the last placement. mpv driven through
+  // `wid` negotiates its swapchain colorspace once, against the display it is
+  // created on, and never looks again - standalone mpv's own window
+  // management would, but `wid` mode strips that. On a crossing, PlaceBehind
+  // notifies Dart, which cycles the renderer so the swapchain is recreated
+  // and negotiated against the new display.
+  HMONITOR last_monitor_ = nullptr;
+
   // 0 = child above (the default). 1..4 = top-level behind, with the matching
   // transparency technique applied to the runner window.
   int dwm_mode_ = 0;

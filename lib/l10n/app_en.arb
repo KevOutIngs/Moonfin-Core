@@ -2329,6 +2329,10 @@
       }
     }
   },
+  "hdrOutputActiveTonemapped": "Active — tone-mapped to SDR for this display",
+  "@hdrOutputActiveTonemapped": {
+    "description": "Stream info value when native output is engaged but the window sits on a display without HDR, so the renderer is tone-mapping"
+  },
   "hdrOutputDisplayNotHdr": "Inactive — display is not in HDR mode",
   "@hdrOutputDisplayNotHdr": {
     "description": "Stream info value when the display has not been switched into HDR"

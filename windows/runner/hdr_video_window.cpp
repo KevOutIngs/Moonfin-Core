@@ -233,15 +233,16 @@ void HdrVideoWindow::PlaceBehind(bool show) {
   RECT client = geometry_;
   POINT origin = {client.left, client.top};
   ClientToScreen(top_level_, &origin);
+  const int width = client.right - client.left;
+  const int height = client.bottom - client.top;
   UINT flags = SWP_NOACTIVATE;
   if (show) {
     flags |= SWP_SHOWWINDOW;
   }
+
   SetLastError(0);
-  const BOOL ok =
-      SetWindowPos(window_, top_level_, origin.x, origin.y,
-                   client.right - client.left, client.bottom - client.top,
-                   flags);
+  const BOOL ok = SetWindowPos(window_, top_level_, origin.x, origin.y, width,
+                               height, flags);
   if (ok == FALSE) {
     // This runs on the half-second heartbeat, so only failures are worth a
     // line - a healthy session would otherwise write to disk twice a second.
@@ -250,10 +251,29 @@ void HdrVideoWindow::PlaceBehind(bool show) {
 }
 
 void HdrVideoWindow::SyncPosition() {
-  if (!behind() || window_ == nullptr) {
+  if (window_ == nullptr || top_level_ == nullptr) {
     return;
   }
-  PlaceBehind(false);
+
+  // Monitor-crossing detection lives here, ahead of the arrangement gate,
+  // because the invariant it compensates - mpv in `wid` mode negotiates the
+  // swapchain colorspace once, at creation - holds for the child arrangement
+  // exactly as for the behind one. Dart owns the response: a resize nudge
+  // proved insufficient (ResizeBuffers keeps the colorspace decided at
+  // creation), so the backend recreates the renderer, which is an
+  // mpv-property dance only it can run.
+  const HMONITOR monitor =
+      MonitorFromWindow(top_level_, MONITOR_DEFAULTTONEAREST);
+  if (last_monitor_ != nullptr && monitor != last_monitor_ &&
+      channel_ != nullptr) {
+    channel_->InvokeMethod("monitorChanged", nullptr);
+    hdr_window_support::Log(L"monitor crossed - asked Dart to renegotiate");
+  }
+  last_monitor_ = monitor;
+
+  if (behind()) {
+    PlaceBehind(false);
+  }
 }
 
 void HdrVideoWindow::Destroy() {

@@ -1669,6 +1669,10 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
+  String get hdrOutputActiveTonemapped =>
+      'Active — tone-mapped to SDR for this display';
+
+  @override
   String get hdrOutputDisplayNotHdr => 'Inactive — display is not in HDR mode';
 
   @override

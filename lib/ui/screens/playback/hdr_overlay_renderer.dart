@@ -111,17 +111,21 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture>
     _sinceLastCapture
       ..reset()
       ..start();
+    // Outside the try, so a throw from toByteData - transient readback
+    // failures are exactly what the catch below anticipates - still reaches
+    // the dispose in the finally. Leaving it inside leaked the full native
+    // image backing (~33 MB at 4K) per failed capture.
+    ui.Image? image;
     try {
       // Physical pixels: the layered window is sized in them, and rendering
       // at the logical size would upscale the chrome on a high-DPI display.
       final ratio = MediaQuery.devicePixelRatioOf(context!);
-      final image = await boundary.toImage(pixelRatio: ratio);
+      image = await boundary.toImage(pixelRatio: ratio);
       // rawRgba is premultiplied, which is what AC_SRC_ALPHA wants. The
       // runner swaps RGBA to BGRA so that loop stays off this isolate.
       final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
       final width = image.width;
       final height = image.height;
-      image.dispose();
 
       // `data == null` is a documented outcome of toByteData, and returning
       // here would skip the reschedule below and freeze the overlay on its
@@ -140,6 +144,7 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture>
       // A capture can fail while the tree is being torn down. The next frame
       // either retries or the widget is gone.
     } finally {
+      image?.dispose();
       _capturing = false;
     }
   }

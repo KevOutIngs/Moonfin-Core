@@ -10,7 +10,23 @@ import 'package:flutter/services.dart';
 /// texture path there is no swapchain to tag, which is the whole reason this
 /// exists. See docs/windows-hdr-output-plan.md.
 class HdrVideoWindow {
+  HdrVideoWindow() {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'monitorChanged') {
+        onMonitorChanged?.call();
+      }
+    });
+  }
+
   static const MethodChannel _channel = MethodChannel('moonfin/hdr_video');
+
+  /// Fired by the runner when the window crosses onto another monitor.
+  ///
+  /// mpv negotiates its swapchain colorspace once, at creation, against the
+  /// display it is created on - so a window dragged from an SDR screen to an
+  /// HDR one keeps outputting SDR until the renderer is recreated. The
+  /// backend hooks this to cycle the renderer.
+  void Function()? onMonitorChanged;
 
   int? _handle;
   Rect? _geometry;

@@ -3076,6 +3076,12 @@ abstract class AppLocalizations {
   /// **'Active — {format}'**
   String hdrOutputActive(String format);
 
+  /// Stream info value when native output is engaged but the window sits on a display without HDR, so the renderer is tone-mapping
+  ///
+  /// In en, this message translates to:
+  /// **'Active — tone-mapped to SDR for this display'**
+  String get hdrOutputActiveTonemapped;
+
   /// Stream info value when the display has not been switched into HDR
   ///
   /// In en, this message translates to:

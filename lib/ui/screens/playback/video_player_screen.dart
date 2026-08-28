@@ -151,11 +151,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   /// where there is nothing to say. Reports both the outcome and, when it did
   /// not engage, why — so "my HDR TV is not lighting up" has an answer in the
   /// app rather than needing a log.
-  String? _hdrOutputRow(AppLocalizations l10n) {
+  String? _hdrOutputRow(AppLocalizations l10n, {bool hdrTonemapped = false}) {
     if (!PlatformDetection.supportsNativeHdrWindow) return null;
     final backend = _activeMediaKitBackend ?? _backend;
     if (backend == null) return null;
     final status = backend.hdrOutput.status.value;
+    // Engaged, but this display is not receiving HDR - the window sits on a
+    // monitor without it.
+    if (status.isActive && hdrTonemapped) {
+      return l10n.hdrOutputActiveTonemapped;
+    }
     return switch (status.reason) {
       HdrOutputReason.active => l10n.hdrOutputActive(status.output),
       HdrOutputReason.displayNotInHdrMode => l10n.hdrOutputDisplayNotHdr,
@@ -719,8 +724,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       // and swaps which video surface this screen should be showing. Without
       // this the swap waits for some unrelated rebuild to come along, and
       // until it does mpv is drawing into a window nothing has claimed.
-      _hdrStatus = (_activeMediaKitBackend ?? _backend)?.hdrOutput.status
+      final hdrBackend = _activeMediaKitBackend ?? _backend;
+      _hdrStatus = hdrBackend?.hdrOutput.status
         ?..addListener(_onHdrStatusChanged);
+      if (hdrBackend != null) {
+        // This screen is what makes the native window presentable, so it is
+        // what permits engagement - Live TV and the mini player share the
+        // backend but can only render the texture, and must never trigger it.
+        hdrBackend.hdrOutput.presenterActive = true;
+        // play() may have run before this screen mounted and been refused for
+        // lack of a presenter; decide again now that one exists.
+        unawaited(hdrBackend.ensureNativeHdrForPresenter());
+      }
     }
     _screensaverController.setPlaybackActive(true);
     _screensaverPlayingSub = _state.playingStream.listen(
@@ -911,9 +926,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     // session stays engaged. `release` is keyed on identity, so a successor
     // screen that has already claimed the window is not disturbed.
     _hdrStatus?.removeListener(_onHdrStatusChanged);
-    if (_hdrOverlayActive) {
-      final window = (_activeMediaKitBackend ?? _backend)?.hdrOutput.window;
-      unawaited(window?.release(this));
+    if (PlatformDetection.supportsNativeHdrWindow) {
+      // Hands the whole native path back, not just the window's visibility:
+      // mpv returns to the texture output, the window is destroyed, and the
+      // next playback decides afresh. Live TV and the mini player share this
+      // singleton and can only render the texture - leaving mpv on a window
+      // nothing presents blacked them out for the rest of the process.
+      final hdrBackend = _activeMediaKitBackend ?? _backend;
+      if (hdrBackend != null) {
+        unawaited(hdrBackend.releaseNativeHdrPresenter());
+      }
       unawaited(_hdrOverlayChannel.hide());
     }
     if (_isInPiP && GetIt.instance.isRegistered<PlaybackArbiter>()) {
@@ -1479,7 +1501,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     await _pushMedia3UiMetadata();
   }
 
-  List<Map<String, dynamic>> _buildMedia3StreamInfoSections() {
+  /// [hdrTonemapped] is what the display is receiving right now, resolved at
+  /// sheet-open time; callers that never show the HDR row can leave it.
+  List<Map<String, dynamic>> _buildMedia3StreamInfoSections({
+    bool hdrTonemapped = false,
+  }) {
     final l10n = AppLocalizations.of(context);
     final resolution = _manager.currentResolution;
     final playMethod = resolution?.playMethod;
@@ -1667,7 +1693,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           '${width ?? '?'}×${height ?? '?'}${fps != null ? ' @ ${fps.round()}fps' : ''}',
         ),
         row(l10n.hdr, _getHdrType(video)),
-        if (_hdrOutputRow(l10n) case final hdrOutput?)
+        if (_hdrOutputRow(l10n, hdrTonemapped: hdrTonemapped)
+            case final hdrOutput?)
           row(l10n.hdrOutput, hdrOutput),
         row(l10n.codec, _formatVideoCodec(video)),
         if (video['BitRate'] != null)
@@ -7491,8 +7518,21 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   void _showStreamInfo() {
+    unawaited(_showStreamInfoAsync());
+  }
+
+  Future<void> _showStreamInfoAsync() async {
+    // What this display is actually receiving right now: the session status
+    // stays "active" when the window sits on an SDR monitor, so the row would
+    // otherwise claim HDR while the screen shows SDR. The backend owns the
+    // combination of display state and renderer output.
+    final live =
+        await (_activeMediaKitBackend ?? _backend)?.isCurrentOutputHdr();
+    if (!mounted) return;
     final l10n = AppLocalizations.of(context);
-    final streamInfoSections = _buildMedia3StreamInfoSections();
+    final streamInfoSections = _buildMedia3StreamInfoSections(
+      hdrTonemapped: live == false,
+    );
     unawaited(
       showStreamInfoDialog(
         context: context,

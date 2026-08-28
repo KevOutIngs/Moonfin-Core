@@ -804,6 +804,20 @@ class MediaKitPlayerBackend extends PlayerBackend {
       await _nativeSetProperty(native, 'wid', handle.toString());
       await _nativeSetProperty(native, 'gpu-api', 'd3d11');
       await _nativeSetProperty(native, 'vo', 'gpu-next');
+      // mpv 0.40+ defaults `target-colorspace-hint-mode` to `target`: it reads
+      // the monitor's EDID capabilities through DXGI (peak, black level,
+      // primaries) and adapts the picture to them before encoding PQ. Panels
+      // that cannot really do HDR - DisplayHDR 400, "HDR Ready" - report
+      // figures that leave the picture dim, lifted and desaturated, and then
+      // tone-map it a second time themselves. `source` is the traditional
+      // passthrough: the stream's own metadata, untouched, which is what this
+      // feature promises and what other players send. Older libmpv builds
+      // without the option ignore the write.
+      await _nativeSetProperty(
+        native,
+        'target-colorspace-hint-mode',
+        'source',
+      );
       // The option that actually produces HDR passthrough. It tags the
       // swapchain, so it only does anything on a context that owns one -
       // which is exactly what the native window just provided.
@@ -1412,6 +1426,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // Only the contexts that own their swapchain (d3d11, winvk, wayland) act on
     // it, so it is inert on the Flutter texture path and harmless to allow.
     'target-colorspace-hint',
+    'target-colorspace-hint-mode',
     'hdr-compute-peak',
     // gpu-api and gpu-context deliberately stay OUT of this list: they belong
     // to the unsafe-advanced tier, and listing them here would bypass that

@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "hdr_window_support.h"
 
 namespace {
 
@@ -188,13 +189,14 @@ bool FlutterWindow::OnCreate() {
   hdr_video_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
       flutter_controller_->engine()->GetRegistrarForPlugin("HdrVideo"));
   hdr_video_ = std::make_unique<HdrVideoWindow>(
-      flutter_controller_->engine()->messenger(), hdr_video_registrar_.get());
+      flutter_controller_->engine()->messenger(), hdr_video_registrar_.get(),
+      GetHandle());
 
   hdr_overlay_registrar_ = std::make_unique<flutter::PluginRegistrarWindows>(
       flutter_controller_->engine()->GetRegistrarForPlugin("HdrOverlay"));
   hdr_overlay_ = std::make_unique<HdrOverlayWindow>(
-      flutter_controller_->engine()->messenger(),
-      hdr_overlay_registrar_.get());
+      flutter_controller_->engine()->messenger(), hdr_overlay_registrar_.get(),
+      GetHandle());
 
   if (!g_hdr_display_channel) {
     g_hdr_display_channel =
@@ -246,6 +248,10 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // Half-second heartbeat for the HDR windows' position sync - see the
+  // WM_TIMER note in MessageHandler.
+  SetTimer(GetHandle(), 0x4844, 500, nullptr);  // 'HD'
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -273,6 +279,26 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Ahead of the plugin dispatch below, deliberately. The registered-delegate
+  // route stops at the first plugin that claims a message and window_manager
+  // registers before these windows exist, so a sync hung on a delegate was
+  // measured never to fire: the runner moved +80,+40 and the video window
+  // stayed put. This is our own window proc - nothing runs earlier.
+  //
+  // The timer is both fallback and diagnostic: it arrives through this same
+  // proc, so if the timer-driven sync works while the move-driven one does
+  // not, the proc is reached and WM_WINDOWPOSCHANGED specifically is being
+  // lost - and if neither works, something has subclassed the window and this
+  // proc is out of the loop entirely.
+  if (message == WM_WINDOWPOSCHANGED || message == WM_TIMER) {
+    if (hdr_overlay_) {
+      hdr_overlay_->SyncPosition();
+    }
+    if (hdr_video_) {
+      hdr_video_->SyncPosition();
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =
@@ -292,11 +318,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     // top-level window positioned in screen space, and Flutter does not
     // rebuild when the window is merely dragged. WM_WINDOWPOSCHANGED rather
     // than WM_SIZE, because a move is exactly the case that needs it.
-    case WM_WINDOWPOSCHANGED:
-      if (hdr_overlay_) {
-        hdr_overlay_->SyncPosition();
-      }
-      break;
+    // The HDR windows track the runner through their own registered window
+    // proc delegates rather than a case here: this switch is skipped whenever
+    // a plugin claims the message, and window_manager claims plenty.
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

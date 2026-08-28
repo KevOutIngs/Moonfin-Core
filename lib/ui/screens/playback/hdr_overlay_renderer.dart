@@ -229,15 +229,23 @@ class _HdrVideoGeometryState extends State<HdrVideoGeometry> {
 
   @override
   Widget build(BuildContext context) {
-    // Once per layout, not once per frame. An earlier version re-asserted on
-    // every frame to survive the dispose/build race between two player-screen
-    // states - `localToGlobal` walks the whole ancestor chain, so that was
-    // several microseconds and a few hundred bytes of garbage per frame for
-    // the length of a film. The race is closed properly now, by
+    // A LayoutBuilder rather than a bare box, deliberately: its builder runs
+    // again whenever the incoming constraints change, which is what a pure
+    // resize does - maximise, fullscreen, a window drag on an edge. A plain
+    // build-scheduled report missed those: nothing rebuilds on a relayout, so
+    // the video window kept its old size while the runner grew around it.
+    //
+    // Still once per layout, not once per frame. An earlier version
+    // re-asserted every frame to survive the dispose/build race between two
+    // player-screen states; that race is closed properly now, by
     // HdrVideoWindow.claim/release taking ownership by identity.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _report();
-    });
-    return const SizedBox.expand();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _report();
+        });
+        return const SizedBox.expand();
+      },
+    );
   }
 }

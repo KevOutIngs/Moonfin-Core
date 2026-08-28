@@ -10,14 +10,38 @@ namespace {
 
 constexpr const wchar_t kWindowClassName[] = L"MOONFIN_HDR_VIDEO";
 
+// Where a hidden video window is parked instead of SW_HIDE. Hiding a window
+// with a live D3D11 swapchain stalls mpv's presentation queue, and mpv paces
+// audio against video, so the whole file goes silent - parking off-screen
+// clips the window away while presentation carries on.
+constexpr int kParkedOrigin = -32000;
+
+int ReadDwmMode() {
+  wchar_t value[8] = {};
+  const DWORD length = GetEnvironmentVariableW(
+      L"MOONFIN_HDR_DWM", value, static_cast<DWORD>(std::size(value)));
+  if (length == 0 || length >= std::size(value)) {
+    return 0;
+  }
+  const int mode = _wtoi(value);
+  return (mode >= 1 && mode <= 4) ? mode : 0;
+}
+
 }  // namespace
 
 HdrVideoWindow::HdrVideoWindow(flutter::BinaryMessenger* messenger,
-                               flutter::PluginRegistrarWindows* registrar) {
+                               flutter::PluginRegistrarWindows* registrar,
+                               HWND top_level)
+    : top_level_(top_level), dwm_mode_(ReadDwmMode()) {
+  hdr_window_support::Log(L"HdrVideoWindow ctor: dwm_mode=%d top_level=%p",
+                          dwm_mode_, top_level_);
   if (registrar != nullptr && registrar->GetView() != nullptr) {
     flutter_view_ = registrar->GetView()->GetNativeWindow();
   }
-  top_level_ = hdr_window_support::TopLevelOf(registrar);
+
+  // Position sync is driven from the head of FlutterWindow::MessageHandler
+  // plus its heartbeat timer - not from a registered window-proc delegate,
+  // whose chain stops at the first plugin that claims a message.
 
   channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "moonfin/hdr_video",
@@ -83,6 +107,41 @@ int64_t HdrVideoWindow::Create() {
     return 0;
   }
 
+  // Dart has not laid anything out yet when this runs - the handle is needed
+  // before the widget that would measure the video rect can exist - so fall
+  // back to the whole client area rather than the empty default. A zero-area
+  // window would be handed straight to mpv as `wid`, and its D3D11 context
+  // fails CreateSwapChainForHwnd on one, which marks the session permanently
+  // failed before the first frame.
+  if (geometry_.right <= geometry_.left || geometry_.bottom <= geometry_.top) {
+    GetClientRect(top_level_, &geometry_);
+  }
+
+  if (behind()) {
+    // A top-level window directly behind the runner window, which is given
+    // per-pixel DWM transparency so the Flutter frame composites over the
+    // video with real alpha. WS_EX_NOACTIVATE keeps focus on the runner,
+    // WS_EX_TOOLWINDOW keeps it out of the taskbar and alt-tab.
+    const RECT screen =
+        hdr_window_support::ClientRectInScreenSpace(top_level_);
+    window_ = CreateWindowEx(
+        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kWindowClassName, L"", WS_POPUP,
+        screen.left, screen.top, screen.right - screen.left,
+        screen.bottom - screen.top, nullptr, nullptr, GetModuleHandle(nullptr),
+        nullptr);
+    if (window_ == nullptr) {
+      hdr_window_support::Log(L"behind Create failed: %lu", GetLastError());
+      return 0;
+    }
+    const bool composed =
+        hdr_window_support::ApplyTransparencyComposition(top_level_, dwm_mode_);
+    hdr_window_support::Log(
+        L"behind Create: hwnd=%p at (%ld,%ld)-(%ld,%ld), composition(%d)=%d",
+        window_, screen.left, screen.top, screen.right, screen.bottom,
+        dwm_mode_, composed);
+    return reinterpret_cast<int64_t>(window_);
+  }
+
   // Without WS_CLIPSIBLINGS on the Flutter view, its swapchain present paints
   // straight over any overlapping sibling and nothing ever sends the sibling a
   // WM_PAINT to put it back. That silently produced a full round of false
@@ -96,16 +155,6 @@ int64_t HdrVideoWindow::Create() {
                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
                        SWP_FRAMECHANGED);
     }
-  }
-
-  // Dart has not laid anything out yet when this runs - the handle is needed
-  // before the widget that would measure the video rect can exist - so fall
-  // back to the whole client area rather than the empty default. A zero-area
-  // window would be handed straight to mpv as `wid`, and its D3D11 context
-  // fails CreateSwapChainForHwnd on one, which marks the session permanently
-  // failed before the first frame.
-  if (geometry_.right <= geometry_.left || geometry_.bottom <= geometry_.top) {
-    GetClientRect(top_level_, &geometry_);
   }
 
   // WS_EX_TRANSPARENT and the shared window proc's HTTRANSPARENT keep this
@@ -133,6 +182,10 @@ void HdrVideoWindow::SetGeometry(int x, int y, int width, int height) {
   if (window_ == nullptr || width <= 0 || height <= 0) {
     return;
   }
+  if (behind()) {
+    PlaceBehind(false);
+    return;
+  }
   SetWindowPos(window_, HWND_TOP, x, y, width, height, SWP_NOACTIVATE);
 }
 
@@ -142,28 +195,72 @@ void HdrVideoWindow::SetVisible(bool visible) {
   }
 
   if (visible) {
-    ShowWindow(window_, SW_SHOWNOACTIVATE);
-    SetWindowPos(window_, HWND_TOP, geometry_.left, geometry_.top,
-                 geometry_.right - geometry_.left,
-                 geometry_.bottom - geometry_.top, SWP_NOACTIVATE);
+    if (behind()) {
+      // No separate ShowWindow: showing a popup hoists it over the runner and
+      // only PlaceBehind's insert-after puts it back, so the one call that
+      // does both atomically is the one to use.
+      PlaceBehind(true);
+    } else {
+      ShowWindow(window_, SW_SHOWNOACTIVATE);
+      SetWindowPos(window_, HWND_TOP, geometry_.left, geometry_.top,
+                   geometry_.right - geometry_.left,
+                   geometry_.bottom - geometry_.top, SWP_NOACTIVATE);
+    }
     return;
   }
 
-  // Parked off-screen rather than hidden.
-  //
-  // SW_HIDE under a live D3D11 swapchain stalls mpv's presentation queue, and
-  // because mpv paces audio against video the whole file stops - silence, not
-  // just a frozen picture. Moving the window outside the parent's client area
-  // clips it away just as effectively while leaving it WS_VISIBLE, so mpv
-  // keeps presenting into a surface nobody can see. The size is kept so the
-  // swapchain is not reallocated on the way back.
-  SetWindowPos(window_, HWND_TOP, -32000, -32000,
+  // Parked off-screen rather than hidden - see kParkedOrigin.
+  SetWindowPos(window_, nullptr, kParkedOrigin, kParkedOrigin,
                geometry_.right - geometry_.left,
-               geometry_.bottom - geometry_.top, SWP_NOACTIVATE);
+               geometry_.bottom - geometry_.top,
+               SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void HdrVideoWindow::PlaceBehind(bool show) {
+  if (window_ == nullptr || top_level_ == nullptr) {
+    return;
+  }
+  // Minimised: the client rect is meaningless, so park until restore.
+  if (IsIconic(top_level_)) {
+    SetWindowPos(window_, nullptr, kParkedOrigin, kParkedOrigin, 0, 0,
+                 SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    return;
+  }
+
+  // The video rect Dart reports is in client coordinates; a top-level window
+  // is positioned in screen space, and inserted directly below the runner so
+  // nothing can slot between them.
+  RECT client = geometry_;
+  POINT origin = {client.left, client.top};
+  ClientToScreen(top_level_, &origin);
+  UINT flags = SWP_NOACTIVATE;
+  if (show) {
+    flags |= SWP_SHOWWINDOW;
+  }
+  SetLastError(0);
+  const BOOL ok =
+      SetWindowPos(window_, top_level_, origin.x, origin.y,
+                   client.right - client.left, client.bottom - client.top,
+                   flags);
+  if (ok == FALSE) {
+    // This runs on the half-second heartbeat, so only failures are worth a
+    // line - a healthy session would otherwise write to disk twice a second.
+    hdr_window_support::Log(L"PlaceBehind failed: err=%lu", GetLastError());
+  }
+}
+
+void HdrVideoWindow::SyncPosition() {
+  if (!behind() || window_ == nullptr) {
+    return;
+  }
+  PlaceBehind(false);
 }
 
 void HdrVideoWindow::Destroy() {
   if (window_ != nullptr) {
+    if (behind()) {
+      hdr_window_support::RevertTransparencyComposition(top_level_);
+    }
     DestroyWindow(window_);
     window_ = nullptr;
   }

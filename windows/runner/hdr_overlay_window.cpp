@@ -10,10 +10,10 @@ constexpr const wchar_t kWindowClassName[] = L"MOONFIN_HDR_OVERLAY";
 
 }  // namespace
 
-HdrOverlayWindow::HdrOverlayWindow(
-    flutter::BinaryMessenger* messenger,
-    flutter::PluginRegistrarWindows* registrar) {
-  top_level_ = hdr_window_support::TopLevelOf(registrar);
+HdrOverlayWindow::HdrOverlayWindow(flutter::BinaryMessenger* messenger,
+                                   flutter::PluginRegistrarWindows* registrar,
+                                   HWND top_level)
+    : top_level_(top_level) {
 
   channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "moonfin/hdr_overlay",

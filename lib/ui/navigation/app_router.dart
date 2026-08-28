@@ -174,7 +174,13 @@ CustomTransitionPage<T> _opaqueFullScreenPage<T>({
     // go_router only auto-names builder-based routes, not pageBuilder ones.
     name: state.name ?? state.uri.path,
     opaque: true,
-    barrierColor: Colors.black,
+    // No barrier on Windows. The route is opaque with a zero-length
+    // transition, so the barrier is never visible there anyway - but it
+    // paints an opaque black ModalBarrier *under* the page, which defeats any
+    // attempt to make the player screen genuinely transparent for native HDR
+    // output: a capture above the player measured rgba(0,0,0,255) where the
+    // video should show through, and this was the layer painting it.
+    barrierColor: PlatformDetection.isWindows ? null : Colors.black,
     transitionDuration: Duration.zero,
     reverseTransitionDuration: Duration.zero,
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>

@@ -335,3 +335,36 @@ Open any video. The player screen goes transparent, so the test pattern shows wh
 Flutter UI does not paint. Look at the scrim behind the top bar and the bottom controls:
 a smooth fade means pass, a hard edge or a flat wash means fail. `MOONFIN_HDR_Q4=0` or
 unset restores normal rendering.
+
+---
+
+## Addendum — the DWM architecture works, and Q4's "opaque surface" was wrong
+
+Validated end to end on hardware with `MOONFIN_HDR_DWM=2`: mpv in a top-level window
+**behind** the runner window, the runner given per-pixel DWM transparency
+(`SetWindowCompositionAttribute`, `ACCENT_ENABLE_TRANSPARENTGRADIENT`, gradient colour 0 —
+flutter_acrylic's exact call), and Flutter drawing **everything natively over the video**:
+controls, subtitle and audio pickers over the picture, volume OSD, dialogs, at full frame
+rate, with real alpha, no capture, no readback.
+
+Two findings unlocked it, both worth remembering:
+
+**Every Phase 0 transparency test was invalid.** Each one sampled over opaque Flutter
+content — the home screen's poster backdrop, or the player route's `barrierColor:
+Colors.black` ModalBarrier painting under the page. The conclusion "the Flutter surface on
+Windows is opaque" was never actually tested against a transparent frame, and it is false.
+
+**The runner handle was wrong from the start.** The HDR windows are constructed during
+`FlutterWindow::OnCreate`, *before* `SetChildContent` parents the Flutter view into the
+runner — at that moment `GetAncestor(view, GA_ROOT)` returns the view itself. Everything
+hung off that handle failed silently and differently: DWM transparency applied to a child
+window (returns FALSE), z-order inserted relative to a child (the video landed *above* the
+runner, covering the whole interface), position sync against the wrong rect. The child-mode
+overlay arrangement worked by coincidence, because parenting to the view is visually
+equivalent to parenting to the client area. The fix is passing `GetHandle()` explicitly.
+
+The overlay-capture architecture remains the default and the fallback. Before the DWM
+arrangement can replace it: engage it by default (and keep capture as the automatic
+fallback when composition fails), teach Live TV and the mini player the same path, forward
+the zoom modes to mpv, and re-verify the HDR swapchain still negotiates 10-bit PQ with the
+transparent runner composited above it.

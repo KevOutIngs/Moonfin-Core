@@ -30,8 +30,11 @@
 // between the bands, so it needs the player's own layout refactored first.
 class HdrOverlayWindow {
  public:
+  // |top_level| passed explicitly for the same reason as HdrVideoWindow: at
+  // construction time the Flutter view is not yet parented into the runner,
+  // so deriving the root from the registrar lands on the view itself.
   HdrOverlayWindow(flutter::BinaryMessenger* messenger,
-                   flutter::PluginRegistrarWindows* registrar);
+                   flutter::PluginRegistrarWindows* registrar, HWND top_level);
   ~HdrOverlayWindow();
 
   HdrOverlayWindow(const HdrOverlayWindow&) = delete;

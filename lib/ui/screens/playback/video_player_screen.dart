@@ -54,6 +54,7 @@ import '../../../util/audio_labels.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/auto_hdr_switcher.dart';
 import '../../../util/episode_playability.dart';
+import '../../../playback/hdr_composition.dart';
 import '../../../playback/hdr_output_controller.dart';
 import '../../../playback/hdr_overlay_channel.dart';
 import 'hdr_overlay_renderer.dart';
@@ -3741,11 +3742,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _exitPlayback();
       },
       child: Scaffold(
-        // Stays black. The capture below sits inside this Scaffold's body, so
-        // the background is not part of it - a capture taken above this point
-        // sweeps up an opaque backdrop and paints the video out, which is
-        // exactly what happened twice while finding the right level.
-        backgroundColor: Colors.black,
+        // Overlay mode: stays black. The capture sits inside this Scaffold's
+        // body, so the background is not part of it - and a capture taken
+        // above this point sweeps up an opaque backdrop and paints the video
+        // out, which is exactly what happened twice while finding the level.
+        //
+        // DWM mode: transparent while engaged. There is no capture at all -
+        // the video window sits behind a see-through runner window, so every
+        // opaque pixel Flutter draws here would cover the picture itself.
+        backgroundColor:
+            HdrComposition.videoBehindFlutter && _hdrOverlayActive
+            ? Colors.transparent
+            : Colors.black,
         body: Focus(
           focusNode: _overlayFocus,
           autofocus: true,
@@ -3800,6 +3808,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                 // loses its focus node.
                 child: HdrOverlayCapture(
                   enabled:
+                      // In DWM mode Flutter is drawn over the video by the
+                      // compositor itself; mirroring it again would fight
+                      // that.
+                      !HdrComposition.videoBehindFlutter &&
                       _hdrOverlayActive &&
                       (ModalRoute.of(context)?.isCurrent ?? true),
                   channel: _hdrOverlayChannel,
@@ -4031,7 +4043,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           // A picker or sheet above this screen is drawn by Flutter, which the
           // video window covers. Standing it down for the few seconds one is
           // open is what makes those menus reachable at all.
-          showVideo: ModalRoute.of(context)?.isCurrent ?? true,
+          // In DWM mode dialogs are drawn by Flutter over the video, so the
+          // video never has to stand down for them.
+          showVideo:
+              HdrComposition.videoBehindFlutter ||
+              (ModalRoute.of(context)?.isCurrent ?? true),
           onGeometry: (rect) =>
               unawaited(mediaKitBackend.hdrOutput.window.claim(this, rect)),
           onDetached: () =>

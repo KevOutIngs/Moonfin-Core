@@ -23,12 +23,35 @@ namespace hdr_window_support {
 int GetInt(const flutter::EncodableMap& map, const char* key, int fallback);
 bool GetBool(const flutter::EncodableMap& map, const char* key, bool fallback);
 
-// The top-level runner window that owns the Flutter view, or null.
-HWND TopLevelOf(flutter::PluginRegistrarWindows* registrar);
-
 // Registers |name| against |proc| once per process. Returns false only if the
 // registration itself failed.
 bool EnsureWindowClass(const wchar_t* name, WNDPROC proc);
+
+// The top-level window's client area in screen coordinates - what a
+// behind-the-window companion has to cover to line up with the Flutter view.
+RECT ClientRectInScreenSpace(HWND top_level);
+
+// Makes the top-level window composite with per-pixel alpha against whatever
+// sits behind it, per `technique`:
+//   1  DwmExtendFrameIntoClientArea(-1) - the classic sheet-of-glass call
+//   2  SetWindowCompositionAttribute ACCENT_ENABLE_TRANSPARENTGRADIENT
+//   3  both
+//   4  accent state 6, past the documented enum - flutter_native_view's call
+//
+// Phase 0 concluded none of these worked, but every one of those tests
+// sampled over opaque Flutter content - the home screen's poster backdrop, or
+// the player route's black ModalBarrier - so the question was never actually
+// asked. flutter_acrylic ships transparent Flutter windows on Windows with
+// these same calls, which is why they get a second, valid test.
+bool ApplyTransparencyComposition(HWND top_level, int technique);
+
+// Puts the window back to normal opaque composition.
+void RevertTransparencyComposition(HWND top_level);
+
+// Appends a printf-style line to %TEMP%\moonfin_hdr_dwm.log. The runner is
+// detached from any console, so this is the only way to see what the native
+// half actually did while the DWM experiment runs.
+void Log(const wchar_t* format, ...);
 
 // The window procedure both companions use.
 //

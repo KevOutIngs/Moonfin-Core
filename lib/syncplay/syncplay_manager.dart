@@ -95,6 +95,10 @@ class SyncPlayManager extends ChangeNotifier {
   String? _lastCommandKey;
   int _lastSyncPositionMs = 0;
   int _lastSyncTimeMs = 0;
+  /// Where the last Seek command sent the group, and when it reached us, so
+  /// a local seek back to that same spot can be told apart from a new one.
+  int _lastGroupSeekTargetMs = 0;
+  int _lastGroupSeekAtMs = 0;
   bool _isBuffering = false;
   /// A Buffering report went out, so the server is holding the group for us
   /// and is owed a Ready when the stall ends. Without one it is not: the
@@ -316,11 +320,17 @@ class SyncPlayManager extends ChangeNotifier {
     _driftTimer?.cancel();
     _driftTimer = null;
     _lastCommandKey = null;
-    _lastSyncPositionMs = 0;
-    _lastSyncTimeMs = 0;
-    _syncCorrection.reset();
+    _forgetSyncPoint();
     _clearLocalCorrections();
     notifyListeners();
+  }
+
+  void _forgetSyncPoint() {
+    _lastSyncPositionMs = 0;
+    _lastSyncTimeMs = 0;
+    _lastGroupSeekTargetMs = 0;
+    _lastGroupSeekAtMs = 0;
+    _syncCorrection.reset();
   }
 
   void _startTimeSync() {
@@ -763,6 +773,8 @@ class SyncPlayManager extends ChangeNotifier {
     final positionMs = _clampedPositionMs(adjusted);
     _lastSyncPositionMs = positionMs;
     _lastSyncTimeMs = serverNow;
+    _lastGroupSeekTargetMs = _clampedPositionMs(raw);
+    _lastGroupSeekAtMs = DateTime.now().millisecondsSinceEpoch;
     // The server has moved the group into Waiting: every other client is
     // paused at the target until all have reported Ready, and the Unpause
     // that follows carries that same position. A client that keeps playing
@@ -797,9 +809,7 @@ class SyncPlayManager extends ChangeNotifier {
     _driftTimer?.cancel();
     _driftTimer = null;
     _state.groupState = SyncPlayGroupState.idle;
-    _lastSyncPositionMs = 0;
-    _lastSyncTimeMs = 0;
-    _syncCorrection.reset();
+    _forgetSyncPoint();
     notifyListeners();
   }
 
@@ -892,6 +902,12 @@ class SyncPlayManager extends ChangeNotifier {
     return issued;
   }
 
+  /// The backend's own worst-case seek cost, or the policy's allowance when
+  /// no backend is up.
+  int get _maxSeekLatencyMs =>
+      _playbackManager.backend?.maxSeekLatency.inMilliseconds ??
+      SyncCorrectionPolicy.maxSeekLatencyAllowanceMs;
+
   bool _needsSeek(int targetMs) {
     final currentMs = _playbackManager.state.position.inMilliseconds;
     return (currentMs - targetMs).abs() > _seekToleranceMs;
@@ -903,11 +919,7 @@ class SyncPlayManager extends ChangeNotifier {
   /// that is every corrective skip.
   void _armBufferingSuppression({bool forSeek = false}) {
     final windowMs = forSeek
-        ? math.max(
-            _bufferingSuppressionMs,
-            _playbackManager.backend?.maxSeekLatency.inMilliseconds ??
-                SyncCorrectionPolicy.maxSeekLatencyAllowanceMs,
-          )
+        ? math.max(_bufferingSuppressionMs, _maxSeekLatencyMs)
         : _bufferingSuppressionMs;
     _suppressBufferingUntilMs =
         DateTime.now().millisecondsSinceEpoch + windowMs;
@@ -1001,8 +1013,7 @@ class SyncPlayManager extends ChangeNotifier {
       extraTimeOffsetMs: extraTimeOffset,
       typicalSeekLatencyMs: backend?.typicalSeekLatency.inMilliseconds ??
           SyncCorrectionPolicy.defaultTypicalSeekLatencyMs,
-      maxSeekLatencyMs: backend?.maxSeekLatency.inMilliseconds ??
-          SyncCorrectionPolicy.maxSeekLatencyAllowanceMs,
+      maxSeekLatencyMs: _maxSeekLatencyMs,
     );
   }
 
@@ -1144,7 +1155,10 @@ class SyncPlayManager extends ChangeNotifier {
         await requestPause();
         return true;
       case TransportAction.seek:
-        _scheduleSeekRequest(position ?? _playbackManager.state.position);
+        final target = position ?? _playbackManager.state.position;
+        // Swallowed either way: under SyncPlay the player only moves on the
+        // group's command.
+        if (!_isEchoOfGroupSeek(target)) _scheduleSeekRequest(target);
         return true;
       case TransportAction.stop:
         await requestStop();
@@ -1156,6 +1170,23 @@ class SyncPlayManager extends ChangeNotifier {
         await requestPrevious();
         return true;
     }
+  }
+
+  /// Whether a local seek only asks for where the group's last Seek already
+  /// sent everyone: an auto-skip re-fired by a landing just short of a
+  /// segment end (see `MediaSegmentService._autoSkipped`). The group is
+  /// already there, so dropping it loses nothing. A seek the user makes back
+  /// to that spot once playback has moved past it still goes through.
+  bool _isEchoOfGroupSeek(Duration target) {
+    if (_lastGroupSeekAtMs == 0) return false;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastGroupSeekAtMs > _maxSeekLatencyMs) return false;
+    final targetMs = target.inMilliseconds;
+    if ((targetMs - _lastGroupSeekTargetMs).abs() > _seekToleranceMs) {
+      return false;
+    }
+    final currentMs = _playbackManager.state.position.inMilliseconds;
+    return currentMs <= targetMs + _seekToleranceMs;
   }
 
   void _scheduleSeekRequest(Duration position) {

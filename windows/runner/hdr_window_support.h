@@ -24,8 +24,16 @@ int GetInt(const flutter::EncodableMap& map, const char* key, int fallback);
 bool GetBool(const flutter::EncodableMap& map, const char* key, bool fallback);
 
 // Registers |name| against |proc| once per process. Returns false only if the
-// registration itself failed.
-bool EnsureWindowClass(const wchar_t* name, WNDPROC proc);
+// registration itself failed. |background| becomes the class brush: the video
+// window passes black, so any moment mpv is not covering it - the renderer
+// cycle on a monitor crossing, above all - reads as a brief black blink
+// rather than the desktop showing through the transparent runner (behind
+// arrangement) or a stale strip (child arrangement, where black is simply the
+// letterbox colour). The overlay passes null; UpdateLayeredWindow owns its
+// every pixel. Any class registered with a real brush must create its windows
+// with WS_CLIPCHILDREN, or the erase paints straight over mpv's child during
+// playback.
+bool EnsureWindowClass(const wchar_t* name, WNDPROC proc, HBRUSH background);
 
 // The top-level window's client area in screen coordinates - what a
 // behind-the-window companion has to cover to line up with the Flutter view.

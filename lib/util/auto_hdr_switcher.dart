@@ -12,17 +12,30 @@ class AutoHdrSwitcher {
   /// tagging a swapchain BT.2020/PQ against an SDR display just makes mpv
   /// tone-map twice. Shared with [sync] rather than duplicated so there is one
   /// path to the platform channel.
-  static Future<bool> isDisplayHdrEnabled() async {
+  static Future<bool> isDisplayHdrEnabled() async =>
+      await displayHdrState() ?? false;
+
+  /// Tri-state variant of [isDisplayHdrEnabled]: null when the answer could
+  /// not be determined.
+  ///
+  /// The distinction matters to the monitor-crossing renegotiation skip: the
+  /// display query can legitimately fail mid-topology-change - exactly when a
+  /// crossing fires - and a failure read as "SDR" would wrongly skip the
+  /// cycle and stick playback on the old colorspace with no retry.
+  /// Engagement keeps the collapsed bool, where unknown conservatively means
+  /// "do not engage".
+  static Future<bool?> displayHdrState() async {
     if (!PlatformDetection.isWindows) return false;
     try {
       final state = await _channel.invokeMapMethod<String, dynamic>(
         'getHdrState',
       );
-      return state?['enabled'] == true;
+      if (state == null) return null;
+      return state['enabled'] == true;
     } on MissingPluginException {
       return false;
     } catch (_) {
-      return false;
+      return null;
     }
   }
 

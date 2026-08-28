@@ -60,9 +60,6 @@ class HdrOverlayWindow {
   // Drops the cached GDI objects. They are rebuilt on the next push.
   void ReleaseSurface();
 
-  static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wparam,
-                                  LPARAM lparam) noexcept;
-
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
   HWND top_level_ = nullptr;
   HWND window_ = nullptr;

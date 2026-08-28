@@ -92,8 +92,9 @@ bool HdrOverlayWindow::Push(const RECT& rect,
   ClientToScreen(top_level_, &origin);
 
   if (window_ == nullptr) {
-    if (!hdr_window_support::EnsureWindowClass(kWindowClassName,
-                                               HdrOverlayWindow::WndProc)) {
+    if (!hdr_window_support::EnsureWindowClass(
+            kWindowClassName, hdr_window_support::ClickThroughWndProc,
+            nullptr)) {
       return false;
     }
     // WS_EX_TRANSPARENT keeps the overlay out of hit-testing, so clicks pass
@@ -218,10 +219,3 @@ void HdrOverlayWindow::ReleaseSurface() {
   height_ = 0;
 }
 
-// static
-LRESULT CALLBACK HdrOverlayWindow::WndProc(HWND window, UINT message,
-                                           WPARAM wparam,
-                                           LPARAM lparam) noexcept {
-  return hdr_window_support::ClickThroughWndProc(window, message, wparam,
-                                                 lparam);
-}

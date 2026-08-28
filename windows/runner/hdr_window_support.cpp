@@ -33,7 +33,7 @@ bool GetBool(const flutter::EncodableMap& map, const char* key, bool fallback) {
   return fallback;
 }
 
-bool EnsureWindowClass(const wchar_t* name, WNDPROC proc) {
+bool EnsureWindowClass(const wchar_t* name, WNDPROC proc, HBRUSH background) {
   static std::set<std::wstring> registered;
   if (registered.count(name) != 0) {
     return true;
@@ -43,10 +43,7 @@ bool EnsureWindowClass(const wchar_t* name, WNDPROC proc) {
   window_class.hInstance = GetModuleHandle(nullptr);
   window_class.lpszClassName = name;
   window_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
-  // Neither window ever wants a background brush: mpv paints every pixel of
-  // one through its own swapchain, and UpdateLayeredWindow owns the whole
-  // surface of the other. A brush would only be a flash of the wrong colour.
-  window_class.hbrBackground = nullptr;
+  window_class.hbrBackground = background;
   if (RegisterClass(&window_class) == 0) {
     return false;
   }
@@ -159,9 +156,10 @@ void RevertTransparencyComposition(HWND top_level) {
 LRESULT CALLBACK ClickThroughWndProc(HWND window, UINT message, WPARAM wparam,
                                      LPARAM lparam) noexcept {
   switch (message) {
-    // Both windows own every pixel they show, so erasing only flickers.
-    case WM_ERASEBKGND:
-      return 1;
+    // WM_ERASEBKGND is deliberately unhandled: DefWindowProc erases with the
+    // class brush, which is where the two windows differ - see
+    // EnsureWindowClass.
+
     // Send the hit test on to the window underneath - see the header.
     case WM_NCHITTEST:
       return HTTRANSPARENT;

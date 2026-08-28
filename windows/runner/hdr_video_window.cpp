@@ -103,7 +103,8 @@ int64_t HdrVideoWindow::Create() {
     return 0;
   }
   if (!hdr_window_support::EnsureWindowClass(
-          kWindowClassName, hdr_window_support::ClickThroughWndProc)) {
+          kWindowClassName, hdr_window_support::ClickThroughWndProc,
+          static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)))) {
     return 0;
   }
 
@@ -124,11 +125,13 @@ int64_t HdrVideoWindow::Create() {
     // WS_EX_TOOLWINDOW keeps it out of the taskbar and alt-tab.
     const RECT screen =
         hdr_window_support::ClientRectInScreenSpace(top_level_);
+    // WS_CLIPCHILDREN keeps the class's black erase away from mpv's child,
+    // so the black shows only in genuine gaps and playback never flickers.
     window_ = CreateWindowEx(
-        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kWindowClassName, L"", WS_POPUP,
-        screen.left, screen.top, screen.right - screen.left,
-        screen.bottom - screen.top, nullptr, nullptr, GetModuleHandle(nullptr),
-        nullptr);
+        WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kWindowClassName, L"",
+        WS_POPUP | WS_CLIPCHILDREN, screen.left, screen.top,
+        screen.right - screen.left, screen.bottom - screen.top, nullptr,
+        nullptr, GetModuleHandle(nullptr), nullptr);
     if (window_ == nullptr) {
       hdr_window_support::Log(L"behind Create failed: %lu", GetLastError());
       return 0;
@@ -160,12 +163,14 @@ int64_t HdrVideoWindow::Create() {
   // WS_EX_TRANSPARENT and the shared window proc's HTTRANSPARENT keep this
   // window out of hit-testing, so clicks fall through to the Flutter view
   // underneath where the player's widgets are still laid out. That is what
-  // lets input, focus and keyboard keep working untouched.
+  // lets input, focus and keyboard keep working untouched. WS_CLIPCHILDREN
+  // keeps the class's black erase away from mpv's child during playback.
   window_ = CreateWindowEx(
       WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY, kWindowClassName, L"",
-      WS_CHILD | WS_CLIPSIBLINGS, geometry_.left, geometry_.top,
-      geometry_.right - geometry_.left, geometry_.bottom - geometry_.top,
-      top_level_, nullptr, GetModuleHandle(nullptr), nullptr);
+      WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, geometry_.left,
+      geometry_.top, geometry_.right - geometry_.left,
+      geometry_.bottom - geometry_.top, top_level_, nullptr,
+      GetModuleHandle(nullptr), nullptr);
   if (window_ == nullptr) {
     return 0;
   }
@@ -194,6 +199,7 @@ void HdrVideoWindow::SetVisible(bool visible) {
     return;
   }
 
+  parked_ = !visible;
   if (visible) {
     if (behind()) {
       // No separate ShowWindow: showing a popup hoists it over the runner and
@@ -271,7 +277,7 @@ void HdrVideoWindow::SyncPosition() {
   }
   last_monitor_ = monitor;
 
-  if (behind()) {
+  if (behind() && !parked_) {
     PlaceBehind(false);
   }
 }

@@ -259,7 +259,13 @@ class MediaKitPlayerBackend extends PlayerBackend {
     try {
       final dynamic dyn = native;
       final value = await Future.value(dyn.getProperty(key));
-      return value.toString();
+      // media_kit stringifies an unset property into '' or the literal
+      // 'null'. Normalised here once: every call site in this file wants
+      // "unset" as null, and the ones that remembered to guard for the
+      // literals had already started to drift apart.
+      final text = value.toString();
+      if (text.isEmpty || text == 'null') return null;
+      return text;
     } catch (_) {
       return null;
     }
@@ -713,14 +719,23 @@ class MediaKitPlayerBackend extends PlayerBackend {
   Future<void> releaseNativeHdrPresenter() async {
     hdrOutput.presenterActive = false;
     _monitorSettleTimer?.cancel();
+    _renegotiatePending = false;
     if (!hdrOutput.isEngaged) return;
+    // Forgetting the session first flips isEngaged, which is what an
+    // in-flight monitor cycle checks between its awaits - so it aborts
+    // instead of writing vo=gpu-next straight over the restore below.
+    hdrOutput.reset();
+    // And wait the cycle out (bounded) so the property writes cannot
+    // interleave even if it was already past its last check.
+    for (var i = 0; i < 40 && _renegotiating; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
     final native = _player.platform;
     if (native is NativePlayer) {
       final sid = await _tryNativeGetProperty(native, 'sid');
       await _restoreTexturePath(native, sid: sid);
     }
     await hdrOutput.window.destroy();
-    hdrOutput.reset();
   }
 
   /// What this display is actually receiving right now, as opposed to what
@@ -738,16 +753,28 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (!hdrOutput.isEngaged) return null;
     final native = _player.platform;
     if (native is! NativePlayer) return null;
-    // Independent reads: one is a display-config enumeration, the other an
-    // mpv property, so they run together.
+    final (displayHdr, outputtingHdr) = await _readHdrOutputState(native);
+    if (displayHdr == false) return false;
+    if (displayHdr == null) return null;
+    return outputtingHdr ?? true;
+  }
+
+  /// The two halves of "is HDR really reaching the screen": the monitor's own
+  /// state, and what mpv actually negotiated - each null when it could not be
+  /// read. Kept separate because the two consumers need different shapes: the
+  /// info row collapses them with the display as authority, while the
+  /// monitor-crossing skip compares them for equality and must skip only when
+  /// both are known. Independent reads, so they run together.
+  Future<(bool?, bool?)> _readHdrOutputState(NativePlayer native) async {
     final (displayHdr, gamma) = await (
-      AutoHdrSwitcher.isDisplayHdrEnabled(),
+      AutoHdrSwitcher.displayHdrState(),
       _tryNativeGetProperty(native, 'target-params/gamma'),
     ).wait;
-    if (!displayHdr) return false;
-    if (gamma == null || gamma.isEmpty || gamma == 'null') return true;
-    // primaries deliberately null: wide gamut alone is not HDR output.
-    return isHdrVideoParams(gamma: gamma, primaries: null);
+    final bool? outputtingHdr = gamma == null
+        ? null
+        // primaries deliberately null: wide gamut alone is not HDR output.
+        : isHdrVideoParams(gamma: gamma, primaries: null);
+    return (displayHdr, outputtingHdr);
   }
 
   /// What mpv actually decoded, rather than what the server claimed.
@@ -844,7 +871,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
       // swap resets it again.
       await _nativeSetProperty(native, 'sub-ass', 'yes');
       await _nativeSetProperty(native, 'sub-visibility', 'yes');
-      if (sid != null && sid.isNotEmpty && sid != 'no' && sid != 'null') {
+      if (sid != null && sid != 'no') {
         await _nativeSetProperty(native, 'sid', sid);
       }
     } catch (_) {
@@ -857,6 +884,12 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// two cannot overlap.
   bool _renegotiating = false;
 
+  /// A crossing landed while a cycle was running. Without this it was simply
+  /// dropped, leaving the swapchain negotiated for a display the window is no
+  /// longer on; instead one more cycle runs after the current one finishes,
+  /// against wherever the window ended up.
+  bool _renegotiatePending = false;
+
   /// Debounces monitor-crossing renegotiation - see the assignment in
   /// [_handOverToNativeWindow].
   Timer? _monitorSettleTimer;
@@ -865,12 +898,34 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// the window is on now. The same vo cycle as engagement, subtitles carried
   /// across the same way.
   Future<void> _renegotiateForDisplay() async {
-    if (!hdrOutput.isEngaged || _renegotiating) return;
+    if (!hdrOutput.isEngaged) return;
+    if (_renegotiating) {
+      _renegotiatePending = true;
+      return;
+    }
     final native = _player.platform;
     if (native is! NativePlayer) return;
     _renegotiating = true;
     String? sid;
     try {
+      // Only when the answer would change. A crossing between two SDR screens
+      // or two HDR screens renegotiates to the same result, and the cycle is
+      // a visible blink - skipping it makes those crossings seamless. Skip
+      // only when BOTH sides are known: a failed display query mid-topology
+      // change must not read as "SDR", and an unreadable mpv output must not
+      // read as anything. When in doubt, cycle.
+      final (displayHdr, outputtingHdr) = await _readHdrOutputState(native);
+      if (displayHdr != null &&
+          outputtingHdr != null &&
+          outputtingHdr == displayHdr) {
+        return;
+      }
+
+      // The presenting screen can go away during the reads above; its release
+      // restores the texture path, and cycling now would write vo=gpu-next
+      // straight over it.
+      if (!hdrOutput.isEngaged) return;
+
       sid = await _tryNativeGetProperty(native, 'sid');
       await _nativeSetProperty(native, 'vo', 'null');
       await _nativeSetProperty(native, 'vo', 'gpu-next');
@@ -880,15 +935,31 @@ class MediaKitPlayerBackend extends PlayerBackend {
       final vo = await _tryNativeGetProperty(native, 'current-vo');
       if (vo != 'gpu-next') {
         await _restoreTexturePath(native, sid: sid);
-        hdrOutput.status.value = const HdrOutputStatus(HdrOutputReason.failed);
+        if (hdrOutput.isEngaged) {
+          hdrOutput.status.value = const HdrOutputStatus(
+            HdrOutputReason.failed,
+          );
+        }
         return;
       }
       await _restoreSubtitleState(native, sid);
     } catch (_) {
       await _restoreTexturePath(native, sid: sid);
-      hdrOutput.status.value = const HdrOutputStatus(HdrOutputReason.failed);
+      if (hdrOutput.isEngaged) {
+        hdrOutput.status.value = const HdrOutputStatus(HdrOutputReason.failed);
+      }
     } finally {
       _renegotiating = false;
+      if (_renegotiatePending) {
+        _renegotiatePending = false;
+        if (hdrOutput.isEngaged) {
+          _monitorSettleTimer?.cancel();
+          _monitorSettleTimer = Timer(
+            const Duration(milliseconds: 100),
+            () => unawaited(_renegotiateForDisplay()),
+          );
+        }
+      }
     }
   }
 

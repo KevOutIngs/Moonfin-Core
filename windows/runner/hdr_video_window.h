@@ -77,6 +77,13 @@ class HdrVideoWindow {
   // Client-area rect of the video, as Dart reports it.
   RECT geometry_ = {};
 
+  // Set while the window is parked off-screen (SetVisible(false)). Without
+  // it, the half-second heartbeat's PlaceBehind dragged the parked window
+  // right back over the runner during the asynchronous teardown after the
+  // player screen leaves - a black rect through the still-transparent runner
+  // until destroy lands.
+  bool parked_ = false;
+
   // The monitor the runner was on at the last placement. mpv driven through
   // `wid` negotiates its swapchain colorspace once, against the display it is
   // created on, and never looks again - standalone mpv's own window

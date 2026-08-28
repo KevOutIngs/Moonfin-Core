@@ -2292,6 +2292,14 @@
   "@playbackInformation": {
     "description": "Title for stream info sheet"
   },
+  "showMpvStats": "Show mpv Statistics (Shift+I)",
+  "@showMpvStats": {
+    "description": "Button in the stream info sheet that shows mpv's own statistics overlay; Shift+I is the keyboard shortcut"
+  },
+  "hideMpvStats": "Hide mpv Statistics (Shift+I)",
+  "@hideMpvStats": {
+    "description": "Button in the stream info sheet that hides mpv's own statistics overlay; Shift+I is the keyboard shortcut"
+  },
   "playback": "Playback",
   "@playback": {
     "description": "Section header in stream info"

@@ -709,6 +709,9 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// texture, so leaving mpv on a window nothing presents would black them
   /// out for the rest of the process.
   Future<void> releaseNativeHdrPresenter() async {
+    // Same lifetime as the native path: the overlay must not follow mpv into
+    // Live TV or the mini player.
+    await _hideMpvStats();
     hdrOutput.presenterActive = false;
     _monitorSettleTimer?.cancel();
     _renegotiatePending = false;
@@ -751,6 +754,45 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (displayHdr == false) return false;
     if (displayHdr == null) return null;
     return outputtingHdr ?? true;
+  }
+
+  /// Whether this libmpv build ships the `stats` script. Verified on the
+  /// Windows DLL (LuaJIT + stats.lua); Linux distro builds and the Android
+  /// libs probably do too, but stay off until checked on a device.
+  bool get supportsMpvStats => PlatformDetection.isWindows;
+
+  /// Whether mpv's built-in statistics overlay is showing.
+  bool _mpvStatsVisible = false;
+  bool get mpvStatsVisible => _mpvStatsVisible;
+
+  /// Toggles mpv's own statistics overlay (mpv's Shift+I). It draws inside
+  /// mpv's output, so it works on the native HDR window and the texture path.
+  ///
+  /// media_kit starts mpv with `osd-level=0`, which hides the OSD the stats
+  /// script draws with, so the level is raised only while the overlay is up.
+  Future<void> toggleMpvStats() async {
+    final native = _player.platform;
+    if (native is! NativePlayer || !supportsMpvStats) return;
+    final show = !_mpvStatsVisible;
+    if (show) {
+      await _nativeSetProperty(native, 'osd-level', '1');
+    }
+    final ok = await _tryNativeCommand(native, [
+      'script-binding',
+      'stats/display-stats-toggle',
+    ]);
+    if (ok) {
+      _mpvStatsVisible = show;
+    }
+    if (!_mpvStatsVisible) {
+      await _nativeSetProperty(native, 'osd-level', '0');
+    }
+  }
+
+  Future<void> _hideMpvStats() async {
+    if (_mpvStatsVisible) {
+      await toggleMpvStats();
+    }
   }
 
   /// The two halves of "is HDR really reaching the screen": the monitor's own
@@ -804,20 +846,12 @@ class MediaKitPlayerBackend extends PlayerBackend {
       await _nativeSetProperty(native, 'wid', handle.toString());
       await _nativeSetProperty(native, 'gpu-api', 'd3d11');
       await _nativeSetProperty(native, 'vo', 'gpu-next');
-      // mpv 0.40+ defaults `target-colorspace-hint-mode` to `target`: it reads
-      // the monitor's EDID capabilities through DXGI (peak, black level,
-      // primaries) and adapts the picture to them before encoding PQ. Panels
-      // that cannot really do HDR - DisplayHDR 400, "HDR Ready" - report
-      // figures that leave the picture dim, lifted and desaturated, and then
-      // tone-map it a second time themselves. `source` is the traditional
-      // passthrough: the stream's own metadata, untouched, which is what this
-      // feature promises and what other players send. Older libmpv builds
-      // without the option ignore the write.
-      await _nativeSetProperty(
-        native,
-        'target-colorspace-hint-mode',
-        'source',
-      );
+      // mpv 0.40+ defaults this to `target` (adapts the picture to the
+      // monitor's reported EDID peak, black level and primaries), which
+      // leaves weak-HDR panels dim and double-tone-mapped. `source` is plain
+      // passthrough of the stream's own metadata. Older libmpv builds without
+      // the option ignore the write.
+      await _nativeSetProperty(native, 'target-colorspace-hint-mode', 'source');
       // The option that actually produces HDR passthrough. It tags the
       // swapchain, so it only does anything on a context that owns one -
       // which is exactly what the native window just provided.

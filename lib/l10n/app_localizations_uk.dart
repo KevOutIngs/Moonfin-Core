@@ -1660,6 +1660,12 @@ class AppLocalizationsUk extends AppLocalizations {
   String get playbackInformation => 'Інформація про відтворення';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Відтворення';
 
   @override

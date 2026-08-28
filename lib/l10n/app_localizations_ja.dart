@@ -1613,6 +1613,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get playbackInformation => '再生情報';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => '再生';
 
   @override

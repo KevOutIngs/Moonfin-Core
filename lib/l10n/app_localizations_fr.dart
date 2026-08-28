@@ -1666,6 +1666,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get playbackInformation => 'Informations de lecture';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Lecture';
 
   @override

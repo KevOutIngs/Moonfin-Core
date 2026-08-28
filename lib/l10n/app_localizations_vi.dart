@@ -1652,6 +1652,12 @@ class AppLocalizationsVi extends AppLocalizations {
   String get playbackInformation => 'Thông tin phát lại';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Phát lại';
 
   @override

@@ -1659,6 +1659,12 @@ class AppLocalizationsTl extends AppLocalizations {
   String get playbackInformation => 'Impormasyon sa Pag-playback';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Pag-playback';
 
   @override

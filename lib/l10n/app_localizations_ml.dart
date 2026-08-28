@@ -1657,6 +1657,12 @@ class AppLocalizationsMl extends AppLocalizations {
   String get playbackInformation => 'പ്ലേബാക്ക് വിവരങ്ങൾ';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'പ്ലേബാക്ക്';
 
   @override

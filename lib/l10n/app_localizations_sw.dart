@@ -1658,6 +1658,12 @@ class AppLocalizationsSw extends AppLocalizations {
   String get playbackInformation => 'Maelezo ya Uchezaji';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Uchezaji';
 
   @override

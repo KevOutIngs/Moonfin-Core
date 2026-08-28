@@ -1659,6 +1659,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get playbackInformation => 'Información de reproducción';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Reproducción';
 
   @override

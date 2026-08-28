@@ -1606,6 +1606,12 @@ class AppLocalizationsYue extends AppLocalizations {
   String get playbackInformation => '播放訊息';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => '回放';
 
   @override

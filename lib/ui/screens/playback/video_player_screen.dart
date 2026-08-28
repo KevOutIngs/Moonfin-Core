@@ -134,6 +134,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     return backend is MediaKitPlayerBackend ? backend : null;
   }
 
+  /// The backend whose mpv statistics overlay this screen can toggle, or null
+  /// where that libmpv build has none. Resolved like [_hdrBackend].
+  MediaKitPlayerBackend? get _mpvStatsBackend {
+    final backend = _activeMediaKitBackend ?? _backend;
+    return backend is MediaKitPlayerBackend && backend.supportsMpvStats
+        ? backend
+        : null;
+  }
+
   Media3PlayerBackend? get _activeMedia3Backend {
     final backend = _activeBackend;
     return backend is Media3PlayerBackend ? backend : null;
@@ -267,8 +276,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   MediaSegment? _skipSegment;
   Duration? _skipTo;
+
   /// True when the auto-hide setting is on for the current segment.
   bool _skipSegmentAutoHideEnabled = false;
+
   /// True while the auto-hide cooldown is still running.
   bool _skipSegmentAutoHidePending = false;
   Timer? _skipSegmentAutoHideTimer;
@@ -514,7 +525,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       results = await withProgressSnackBar(
         messenger,
         AppLocalizations.of(context).searchingSubtitles,
-        () => client.itemsApi.searchRemoteSubtitles(item.id, language: language),
+        () =>
+            client.itemsApi.searchRemoteSubtitles(item.id, language: language),
       );
     } catch (error) {
       if (!mounted) return;
@@ -2930,7 +2942,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     // While a released commit is still converging, the pending target is
     // already null but _state.position still reads pre-seek - basing a quick
     // follow-up press on it would jump back to the old position.
-    final basePosition = _pendingScrubSeekTarget ??
+    final basePosition =
+        _pendingScrubSeekTarget ??
         (_isSeeking ? _lastScrubCommitTarget : null) ??
         _state.position;
     final target = basePosition + Duration(milliseconds: ms);
@@ -3711,6 +3724,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         _stepPlaybackSpeed(1);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.keyI:
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          // Shift+I: mpv's own statistics overlay, same key as in mpv.
+          final backend = _mpvStatsBackend;
+          if (backend == null) return KeyEventResult.ignored;
+          if (event is! KeyRepeatEvent) unawaited(backend.toggleMpvStats());
+          return KeyEventResult.handled;
+        }
         _showStreamInfo();
         _showControls();
         return KeyEventResult.handled;
@@ -3782,8 +3802,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         // background is not part of it. DWM mode: transparent while the video
         // shows through - the video window sits behind a see-through runner
         // window, so any opaque pixel here would cover it.
-        backgroundColor:
-            HdrComposition.videoBehindFlutter && _videoShowsThrough
+        backgroundColor: HdrComposition.videoBehindFlutter && _videoShowsThrough
             ? Colors.transparent
             : Colors.black,
         body: Focus(
@@ -3854,82 +3873,84 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                         ),
                       ),
                       _buildVideoSurface(),
-                    if (PlatformDetection.isWeb)
-                      const Positioned.fill(
-                        child: ColoredBox(color: Colors.transparent),
-                      ), // Workaround for a Flutter web issue where the video surface can block pointer events.
-                    _buildTrickplayVideoCover(),
-                    _buildBringupOverlay(context),
-                    if (_isRestoringPosition)
-                      const Positioned.fill(
-                        child: ColoredBox(color: Colors.black),
-                      ),
-                    _buildPausedDescriptionOverlay(),
-                    if (_controlsVisible &&
-                        !_isOsdLocked &&
-                        !hideOsdForPreroll) ...[
-                      // The chrome stays in the tree while mpv owns its own
-                      // window: both native windows are WS_EX_TRANSPARENT, so
-                      // these widgets are still what gets hit-tested - only
-                      // their pixels are re-sent by HdrOverlayCapture.
-                      _buildTopOverlay(context),
-                      if (!PlatformDetection.useLeanbackUi)
-                        Positioned.fill(
-                          child: Center(child: _buildCenterTransportControls()),
+                      if (PlatformDetection.isWeb)
+                        const Positioned.fill(
+                          child: ColoredBox(color: Colors.transparent),
+                        ), // Workaround for a Flutter web issue where the video surface can block pointer events.
+                      _buildTrickplayVideoCover(),
+                      _buildBringupOverlay(context),
+                      if (_isRestoringPosition)
+                        const Positioned.fill(
+                          child: ColoredBox(color: Colors.black),
                         ),
-                      _buildBottomOverlay(context),
-                    ],
-                    _buildBufferingIndicator(),
-                    _buildVolumeOverlay(),
-                    if (PlatformDetection.useMobileUi)
-                      _buildBrightnessOverlay(),
-                    if (PlatformDetection.useMobileUi)
-                      _buildDoubleTapSkipOverlay(),
-                    if (_isOsdLocked && !hideOsdForPreroll)
-                      _buildLockedOverlay(),
-                    if (_isSkipSegmentButtonVisible)
-                      SkipSegmentOverlay(
-                        segment: _skipSegment!,
-                        onSkip: _skipCurrentSegment,
-                        focusNode: PlatformDetection.isTV
-                            ? _tvSkipSegmentFocus
-                            : null,
-                        onDismiss: _clearSkipSegment,
-                        positionStream: _state.positionStream,
-                        initialPosition: _state.position,
-                      ),
-                    if (_showNextUp && _nextUpItem != null)
-                      NextUpOverlay(
-                        nextItem: _nextUpItem!,
-                        isMinimal:
-                            _prefs.get(UserPreferences.nextUpBehavior) ==
-                            NextUpBehavior.minimal,
-                        imageUrl:
-                            _nextUpItem!.primaryImageTag != null &&
-                                _prefs.get(UserPreferences.nextUpBehavior) !=
-                                    NextUpBehavior.minimal
-                            ? _clientForItem(
-                                _nextUpItem!,
-                              ).imageApi.getPrimaryImageUrl(
-                                _nextUpItem!.id,
-                                maxWidth: 400,
-                                tag: _nextUpItem!.primaryImageTag,
-                              )
-                            : null,
-                        timeoutMs: _prefs.get(UserPreferences.nextUpTimeout),
-                        onPlayNext: _handleNextUpPlay,
-                        onDismiss: _handleNextUpCancel,
-                        onTimeout:
-                            _prefs.get(UserPreferences.autoplayNextEpisode)
-                            ? _handleNextUpPlay
-                            : _handleNextUpCancel,
-                        focusNode: PlatformDetection.isTV
-                            ? _tvNextUpPlayFocus
-                            : null,
-                        dismissFocusNode: PlatformDetection.isTV
-                            ? _tvNextUpDismissFocus
-                            : null,
-                      ),
+                      _buildPausedDescriptionOverlay(),
+                      if (_controlsVisible &&
+                          !_isOsdLocked &&
+                          !hideOsdForPreroll) ...[
+                        // The chrome stays in the tree while mpv owns its own
+                        // window: both native windows are WS_EX_TRANSPARENT, so
+                        // these widgets are still what gets hit-tested - only
+                        // their pixels are re-sent by HdrOverlayCapture.
+                        _buildTopOverlay(context),
+                        if (!PlatformDetection.useLeanbackUi)
+                          Positioned.fill(
+                            child: Center(
+                              child: _buildCenterTransportControls(),
+                            ),
+                          ),
+                        _buildBottomOverlay(context),
+                      ],
+                      _buildBufferingIndicator(),
+                      _buildVolumeOverlay(),
+                      if (PlatformDetection.useMobileUi)
+                        _buildBrightnessOverlay(),
+                      if (PlatformDetection.useMobileUi)
+                        _buildDoubleTapSkipOverlay(),
+                      if (_isOsdLocked && !hideOsdForPreroll)
+                        _buildLockedOverlay(),
+                      if (_isSkipSegmentButtonVisible)
+                        SkipSegmentOverlay(
+                          segment: _skipSegment!,
+                          onSkip: _skipCurrentSegment,
+                          focusNode: PlatformDetection.isTV
+                              ? _tvSkipSegmentFocus
+                              : null,
+                          onDismiss: _clearSkipSegment,
+                          positionStream: _state.positionStream,
+                          initialPosition: _state.position,
+                        ),
+                      if (_showNextUp && _nextUpItem != null)
+                        NextUpOverlay(
+                          nextItem: _nextUpItem!,
+                          isMinimal:
+                              _prefs.get(UserPreferences.nextUpBehavior) ==
+                              NextUpBehavior.minimal,
+                          imageUrl:
+                              _nextUpItem!.primaryImageTag != null &&
+                                  _prefs.get(UserPreferences.nextUpBehavior) !=
+                                      NextUpBehavior.minimal
+                              ? _clientForItem(
+                                  _nextUpItem!,
+                                ).imageApi.getPrimaryImageUrl(
+                                  _nextUpItem!.id,
+                                  maxWidth: 400,
+                                  tag: _nextUpItem!.primaryImageTag,
+                                )
+                              : null,
+                          timeoutMs: _prefs.get(UserPreferences.nextUpTimeout),
+                          onPlayNext: _handleNextUpPlay,
+                          onDismiss: _handleNextUpCancel,
+                          onTimeout:
+                              _prefs.get(UserPreferences.autoplayNextEpisode)
+                              ? _handleNextUpPlay
+                              : _handleNextUpCancel,
+                          focusNode: PlatformDetection.isTV
+                              ? _tvNextUpPlayFocus
+                              : null,
+                          dismissFocusNode: PlatformDetection.isTV
+                              ? _tvNextUpDismissFocus
+                              : null,
+                        ),
                     ],
                   ),
                 ),
@@ -4009,10 +4030,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
     if (PlatformDetection.isIOS || PlatformDetection.isMacOS) {
       return Positioned.fill(
-        child: AetherVideoView(
-          key: _videoSurfaceKey,
-          zoomMode: _zoomMode.name,
-        ),
+        child: AetherVideoView(key: _videoSurfaceKey, zoomMode: _zoomMode.name),
       );
     }
 
@@ -5045,7 +5063,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     required double trackWidth,
     required bool showTimeLabel,
   }) {
-    final timeLabel = showTimeLabel ? formatPlaybackDuration(seekPosition) : null;
+    final timeLabel = showTimeLabel
+        ? formatPlaybackDuration(seekPosition)
+        : null;
     final scalePercent = _prefs.get(
       UserPreferences.trickPlayPreviewScalePercent,
     );
@@ -5054,7 +5074,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     );
 
     final resolvedBottomMargin =
-        _bottomOverlayHeight ?? TrickplayPreviewLayout.verticalTravelBottomMargin;
+        _bottomOverlayHeight ??
+        TrickplayPreviewLayout.verticalTravelBottomMargin;
     final resolvedTopMargin =
         _topOverlayHeight ?? TrickplayPreviewLayout.verticalTravelTopMargin;
 
@@ -6388,8 +6409,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     ),
                     _controlButton(
                       seekBackIcon(_prefs.get(UserPreferences.skipBackLength)),
-                      onPressed: () =>
-                          _seekRelative(-_prefs.get(UserPreferences.skipBackLength)),
+                      onPressed: () => _seekRelative(
+                        -_prefs.get(UserPreferences.skipBackLength),
+                      ),
                       size: 46,
                       extent: 78,
                       tooltip: _tooltipMessage(
@@ -6419,9 +6441,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _controlButton(
-                      seekForwardIcon(_prefs.get(UserPreferences.skipForwardLength)),
-                      onPressed: () =>
-                          _seekRelative(_prefs.get(UserPreferences.skipForwardLength)),
+                      seekForwardIcon(
+                        _prefs.get(UserPreferences.skipForwardLength),
+                      ),
+                      onPressed: () => _seekRelative(
+                        _prefs.get(UserPreferences.skipForwardLength),
+                      ),
                       size: 46,
                       extent: 78,
                       tooltip: _tooltipMessage(
@@ -7504,11 +7529,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     final streamInfoSections = _buildMedia3StreamInfoSections(
       hdrTonemapped: live == false,
     );
+    // mpv's own statistics overlay, the Shift+I one, offered as a button so
+    // it can be found without knowing the key.
+    final mediaKit = _mpvStatsBackend;
     unawaited(
       showStreamInfoDialog(
         context: context,
         title: l10n.playbackInformation,
         streamInfoSections: streamInfoSections,
+        action: mediaKit == null
+            ? null
+            : (
+                label: mediaKit.mpvStatsVisible
+                    ? l10n.hideMpvStats
+                    : l10n.showMpvStats,
+                onPressed: () {
+                  // Close first: in the overlay-capture arrangement a route
+                  // above the player stands the video down.
+                  Navigator.of(context, rootNavigator: true).pop();
+                  unawaited(mediaKit.toggleMpvStats());
+                },
+              ),
       ),
     );
     _showControls();

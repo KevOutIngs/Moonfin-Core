@@ -1615,6 +1615,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get playbackInformation => '재생정보';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => '재생';
 
   @override

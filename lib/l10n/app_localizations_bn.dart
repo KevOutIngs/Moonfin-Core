@@ -1643,6 +1643,12 @@ class AppLocalizationsBn extends AppLocalizations {
   String get playbackInformation => 'প্লেব্যাক তথ্য';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'প্লেব্যাক';
 
   @override

@@ -1650,6 +1650,12 @@ class AppLocalizationsId extends AppLocalizations {
   String get playbackInformation => 'Informasi Pemutaran';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Pemutaran';
 
   @override

@@ -1652,6 +1652,12 @@ class AppLocalizationsTe extends AppLocalizations {
   String get playbackInformation => 'ప్లేబ్యాక్ సమాచారం';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'ప్లేబ్యాక్';
 
   @override

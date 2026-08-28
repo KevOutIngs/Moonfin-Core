@@ -3028,6 +3028,18 @@ abstract class AppLocalizations {
   /// **'Playback Information'**
   String get playbackInformation;
 
+  /// Button in the stream info sheet that shows mpv's own statistics overlay; Shift+I is the keyboard shortcut
+  ///
+  /// In en, this message translates to:
+  /// **'Show mpv Statistics (Shift+I)'**
+  String get showMpvStats;
+
+  /// Button in the stream info sheet that hides mpv's own statistics overlay; Shift+I is the keyboard shortcut
+  ///
+  /// In en, this message translates to:
+  /// **'Hide mpv Statistics (Shift+I)'**
+  String get hideMpvStats;
+
   /// Section header in stream info
   ///
   /// In en, this message translates to:

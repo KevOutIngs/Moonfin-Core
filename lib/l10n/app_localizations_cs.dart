@@ -1659,6 +1659,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get playbackInformation => 'Informace o přehrávání';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Přehrávání';
 
   @override

@@ -1652,6 +1652,12 @@ class AppLocalizationsKn extends AppLocalizations {
   String get playbackInformation => 'ಪ್ಲೇಬ್ಯಾಕ್ ಮಾಹಿತಿ';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'ಪ್ಲೇಬ್ಯಾಕ್';
 
   @override

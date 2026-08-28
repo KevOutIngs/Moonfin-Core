@@ -1651,6 +1651,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get playbackInformation => 'Toistotiedot';
 
   @override
+  String get showMpvStats => 'Show mpv Statistics (Shift+I)';
+
+  @override
+  String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
   String get playback => 'Toisto';
 
   @override

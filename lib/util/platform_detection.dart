@@ -365,6 +365,13 @@ class PlatformDetection {
 
   static bool get useNativeVideoSurface => isAndroid && isTV;
 
+  /// Volume is driven by the remote through AudioTrack, so the player's own
+  /// mixer should stay wide open rather than restoring a saved level.
+  ///
+  /// The same expression as [useNativeVideoSurface] today, but a different
+  /// question - keep them apart.
+  static bool get playerVolumeIsSystemManaged => isAndroid && isTV;
+
   /// Apple platforms use the shared AVPlayer-based preview/theme channels
   /// (`moonfin/appletv_preview`, `moonfin/appletv_theme_music`) instead of a
   /// media_kit Player for inline trailers, home-row previews and theme music.

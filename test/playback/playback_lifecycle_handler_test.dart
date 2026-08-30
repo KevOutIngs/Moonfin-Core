@@ -58,6 +58,9 @@ void main() {
       ),
     ).thenAnswer((_) async {});
     when(() => manager.resume()).thenAnswer((_) async {});
+    when(() => manager.pause()).thenAnswer((_) async {});
+    when(() => manager.seekTo(any())).thenAnswer((_) async {});
+    when(() => manager.hasTransportInterceptor).thenReturn(false);
     handler = PlaybackLifecycleHandler(manager);
   });
 
@@ -287,6 +290,58 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 1));
       verify(() => manager.stopForBackground(any())).called(1);
+    });
+  });
+  group('under SyncPlay', () {
+    // The shape of a group starting a new item while the web tab is hidden:
+    // the position we saved on hide is far past where the new item begins.
+    Future<void> hideThenLoadNewItemAtZero(WidgetTester tester) async {
+      queue.setQueue(<dynamic>[item('Episode')]);
+      playerState.setPlaying(true);
+      playerState.setPosition(const Duration(minutes: 20));
+
+      handler.didChangeAppLifecycleState(AppLifecycleState.hidden);
+      playerState.setPosition(Duration.zero);
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+
+    testWidgets('a hidden tab never seeks the group back to its old position', (
+      tester,
+    ) async {
+      when(() => manager.hasTransportInterceptor).thenReturn(true);
+
+      await hideThenLoadNewItemAtZero(tester);
+
+      verifyNever(() => manager.seekTo(any()));
+    });
+
+    testWidgets('resuming never pauses or seeks the group', (tester) async {
+      when(() => manager.hasTransportInterceptor).thenReturn(true);
+
+      await hideThenLoadNewItemAtZero(tester);
+      // The group paused for its handshake while we were hidden.
+      playerState.setPlaying(false);
+      handler.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      verifyNever(() => manager.seekTo(any()));
+      verifyNever(() => manager.pause());
+    });
+
+    testWidgets('the corrections still run for a player of its own', (
+      tester,
+    ) async {
+      await hideThenLoadNewItemAtZero(tester);
+
+      verify(
+        () => manager.seekTo(const Duration(minutes: 20)),
+      ).called(greaterThanOrEqualTo(1));
+
+      // Resuming ends the background correction ticks.
+      handler.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
     });
   });
 }

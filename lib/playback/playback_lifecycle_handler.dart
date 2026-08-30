@@ -195,6 +195,13 @@ class PlaybackLifecycleHandler with WidgetsBindingObserver {
       _stopBgCorrection();
       return;
     }
+    // Under SyncPlay the group moves the player, and on web the tab being
+    // hidden is exactly when a group starts a new item at a lower position.
+    // A corrective seek here would go to the whole group as a request.
+    if (_manager.hasTransportInterceptor) {
+      _stopBgCorrection();
+      return;
+    }
     if (_bgSeekInFlight) return;
 
     final currentPos = _manager.backend?.position ?? _manager.state.position;
@@ -259,6 +266,9 @@ class PlaybackLifecycleHandler with WidgetsBindingObserver {
 
     if (savedPos == null || wasPlaying == null) return;
     if (_manager.queueService.currentItem == null) return;
+    // The group may well have unpaused or seeked while we were hidden;
+    // restoring what we saved would pause or seek every member back.
+    if (_manager.hasTransportInterceptor) return;
 
     try {
       if (!wasPlaying && _manager.state.isPlaying) {

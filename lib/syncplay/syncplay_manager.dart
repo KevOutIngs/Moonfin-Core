@@ -376,6 +376,10 @@ class SyncPlayManager extends ChangeNotifier {
     _startTimeSync();
     _startPingLoop();
     _attachPlaybackObservers();
+    // On web the tab is hidden whenever the user looks at another window,
+    // including the device that is starting the video. Anything the group
+    // did meanwhile that no command reaches us for is picked up here.
+    unawaited(_refreshCurrentGroupStateAfterReconnect());
   }
 
   void handleRealtimeConnected() {
@@ -728,11 +732,15 @@ class SyncPlayManager extends ChangeNotifier {
 
   void _handleUnpause(SyncPlayCommand command) {
     _stopReadyHandshake();
-    final tsm = _timeSync;
-    if (tsm == null) return;
-    final serverNow = tsm.getServerTimeNow();
     final targetMs = command.whenUtcMs;
-    final delayMs = targetMs - serverNow;
+    // Time sync is stopped while the app is in the background, which on web
+    // means whenever the tab is hidden. An Unpause that arrives then is still
+    // the group's decision: dropping it leaves this client paused in Waiting
+    // while everyone else plays. Without a server clock the scheduled start
+    // cannot be honoured, so it is applied now and drift correction takes
+    // over once the clock is back.
+    final serverNow = _timeSync?.getServerTimeNow();
+    final delayMs = serverNow == null ? 0 : targetMs - serverNow;
 
     final positionMs =
         _clampedPositionMs(SyncPlayUtils.ticksToMs(command.positionTicks));

@@ -663,6 +663,13 @@ class PlaybackManager implements AudioOwnable {
     _transportInterceptor = interceptor;
   }
 
+  /// Whether transport actions are being routed to a coordinator (SyncPlay)
+  /// instead of reaching the player directly. Housekeeping that would seek
+  /// or pause on its own initiative must stand down while this is set: the
+  /// coordinator owns the position, and such a seek or pause would be sent
+  /// to every member of the group as if the user had asked for it.
+  bool get hasTransportInterceptor => _transportInterceptor != null;
+
   Future<bool> _maybeIntercept(
     TransportAction action, {
     Duration? position,

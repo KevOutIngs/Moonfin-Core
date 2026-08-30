@@ -184,6 +184,35 @@ void main() {
       expect(window.createCalls, 0);
     });
 
+    test(
+      'an SDR verdict is not sticky: the next decision starts over',
+      () async {
+        final controller = HdrOutputController(window: window);
+        // mpv had not reported video-params yet when this was asked - a 4K
+        // remux over the network can take longer than the bounded wait - so
+        // the content read as SDR.
+        await decide(controller, isHdrContent: false);
+        expect(controller.status.value.isRevisitable, isTrue);
+        asked.clear();
+
+        // Once the params arrive the backend asks again, and this time every
+        // gate must be re-run rather than the old answer returned.
+        expect(await decide(controller), 4242);
+        expect(controller.status.value, HdrOutputStatus.active);
+        expect(asked, ['content', 'display', 'engage 4242']);
+      },
+    );
+
+    test('only the expensive gates are revisitable', () {
+      expect(HdrOutputStatus.contentIsSdr.isRevisitable, isTrue);
+      expect(HdrOutputStatus.displayNotInHdrMode.isRevisitable, isTrue);
+      // The preference is the user's choice, and a failure is deliberately
+      // sticky so a broken setup is not retried on every video-params event.
+      expect(HdrOutputStatus.disabledByPreference.isRevisitable, isFalse);
+      expect(HdrOutputStatus.failed.isRevisitable, isFalse);
+      expect(HdrOutputStatus.active.isRevisitable, isFalse);
+    });
+
     test('an SDR display stops before the window is created', () async {
       final controller = HdrOutputController(window: window);
       expect(await decide(controller, displayInHdrMode: false), isNull);

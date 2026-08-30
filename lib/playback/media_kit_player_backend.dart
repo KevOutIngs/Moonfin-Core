@@ -232,6 +232,14 @@ class MediaKitPlayerBackend extends PlayerBackend {
   StreamSubscription<dynamic>? _ccTracksSub;
   final _tracksChangedController = StreamController<void>.broadcast();
 
+  /// What mpv reported decoding for the file `play()` last opened, or null
+  /// until it has. Kept here rather than read from `Player.state.videoParams`
+  /// because media_kit never clears that on `open` - it only pushes an empty
+  /// event down the stream - so straight after opening the next title the
+  /// state still describes the previous one.
+  VideoParams? _decodedVideoParams;
+  StreamSubscription<VideoParams>? _videoParamsSub;
+
   late final Stream<bool> _playingStream = _mergeWithStale<bool>(
     _player.stream.playing,
     () => _isStale ? false : _player.state.playing,
@@ -415,6 +423,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     _ccTracksSub = _player.stream.tracks.listen(
       (_) => unawaited(_refreshEmbeddedCaptionTracks()),
     );
+    _videoParamsSub = _player.stream.videoParams.listen(_onVideoParams);
   }
 
   factory MediaKitPlayerBackend(
@@ -662,6 +671,9 @@ class MediaKitPlayerBackend extends PlayerBackend {
 
     final media = Media(url);
     final openPaused = !autoPlay || startPosition > Duration.zero;
+    // Whatever mpv reported for the previous title must not answer for this
+    // one; the listener repopulates it once this file is loaded.
+    _decodedVideoParams = null;
     await _player.open(media, play: !openPaused);
     _updateStaleState();
     await _applyLinuxHwdecFallbackIfNeeded(media, openPaused: openPaused);
@@ -691,6 +703,29 @@ class MediaKitPlayerBackend extends PlayerBackend {
       displayInHdrMode: AutoHdrSwitcher.isDisplayHdrEnabled,
       engageMpv: (handle) => _handOverToNativeWindow(native, handle),
     );
+  }
+
+  /// Tracks what mpv decoded, and reopens the HDR decision when the facts it
+  /// depends on arrive after it was made.
+  ///
+  /// The decision runs at two fixed moments - the tail of `play()` and the
+  /// presenting screen's mount - and waits a bounded time for mpv's
+  /// `video-params`. A 4K remux over the network regularly takes longer than
+  /// that to demux and decode its first frame, and when it does the wait
+  /// times out, the title is filed as SDR, and nothing would ever ask again.
+  /// mpv reporting PQ or HLG for the current file is the moment the question
+  /// can actually be answered, so that is when it is asked again. Cheap when
+  /// nothing changed: the controller refuses without a presenter, and an
+  /// engaged, failed or disabled session is not revisited.
+  void _onVideoParams(VideoParams params) {
+    final loaded = params.gamma != null || params.primaries != null;
+    _decodedVideoParams = loaded ? params : null;
+    if (!loaded || !PlatformDetection.supportsNativeHdrWindow) return;
+    if (!hdrOutput.status.value.isRevisitable) return;
+    if (!isHdrVideoParams(gamma: params.gamma, primaries: params.primaries)) {
+      return;
+    }
+    unawaited(_maybeEngageNativeHdr());
   }
 
   /// Re-runs the engagement decision for the presenting screen.
@@ -819,16 +854,20 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// [Player.stream.videoParams], so this waits on that stream rather than
   /// polling properties over FFI. It reacts the moment mpv reports instead of
   /// on a 100 ms granularity, and costs nothing while it waits.
+  ///
+  /// Only params reported for the current file count - see
+  /// [_decodedVideoParams]. The wait is bounded because this is also reached
+  /// for audio, where params never come; when a video simply takes longer,
+  /// [_onVideoParams] reopens the decision on arrival, so a timeout here is
+  /// a deferral rather than a verdict.
   Future<bool> _isHdrContent() async {
-    var params = _player.state.videoParams;
-    if (params.gamma == null && params.primaries == null) {
-      params = await _player.stream.videoParams
-          .firstWhere((p) => p.gamma != null || p.primaries != null)
-          .timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => const VideoParams(),
-          );
-    }
+    var params = _decodedVideoParams;
+    params ??= await _player.stream.videoParams
+        .firstWhere((p) => p.gamma != null || p.primaries != null)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => const VideoParams(),
+        );
     return isHdrVideoParams(gamma: params.gamma, primaries: params.primaries);
   }
 
@@ -2250,6 +2289,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     _isDisposed = true;
     _prefs.removeListener(_onPreferencesChanged);
     _ccTracksSub?.cancel();
+    _videoParamsSub?.cancel();
     _tracksChangedController.close();
     _player.dispose();
   }

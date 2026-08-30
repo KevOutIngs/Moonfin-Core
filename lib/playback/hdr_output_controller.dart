@@ -16,6 +16,16 @@ enum HdrOutputStatus {
   failed;
 
   bool get isActive => this == active;
+
+  /// Whether the answer came from one of the two expensive checks and may
+  /// have been given too early, so a later fact is allowed to reopen it.
+  ///
+  /// Both are questions whose true answer can arrive after they were asked:
+  /// mpv reports what it decoded only once the file is loaded, and a big
+  /// remux over the network can take longer than any bounded wait; the
+  /// display is switched by the auto-HDR preference asynchronously. The
+  /// preference and a failure, by contrast, are settled for the session.
+  bool get isRevisitable => this == contentIsSdr || this == displayNotInHdrMode;
 }
 
 /// Decides whether mpv gets its own window, and owns that window's lifetime.
@@ -88,6 +98,11 @@ class HdrOutputController {
   /// Returns the HWND to hand mpv as `wid`, or null to stay on the texture
   /// path. Every cheap gate - engaged, failed, no presenter, preference off -
   /// is answered before either callback runs.
+  ///
+  /// A "no" from either expensive check is not sticky (see
+  /// [HdrOutputStatus.isRevisitable]): calling again decides afresh, which is
+  /// how the backend reopens the question once mpv reports HDR params that
+  /// were not there yet when the first decision was made.
   ///
   /// [isHdrContent] and [displayInHdrMode] are callbacks rather than values
   /// because both are expensive and neither is needed unless everything ahead

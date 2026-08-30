@@ -225,6 +225,18 @@ class SyncPlayManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// One line per SyncPlay event, at debug level, so a stuck handshake can be
+  /// read off a log rather than guessed at. Debug builds only.
+  void _trace(String message) {
+    final ps = _playbackManager.state;
+    _logger.d(
+      'SyncPlay: $message [group ${_state.groupState.name}, player '
+      '${ps.isPlaying ? 'playing' : 'paused'}'
+      '${ps.isBuffering ? '/buffering' : ''} at '
+      '${ps.position.inMilliseconds}ms]',
+    );
+  }
+
   Future<void> fetchGroups() async {
     if (!syncPlayEnabled) {
       _availableGroups = const [];
@@ -460,11 +472,20 @@ class SyncPlayManager extends ChangeNotifier {
         currentItemId != null &&
         currentItemId.isNotEmpty &&
         command.playlistItemId != currentItemId) {
+      _trace(
+        'dropped ${command.command.name} for item ${command.playlistItemId}, '
+        'ours is $currentItemId',
+      );
       return;
     }
     final key = command.dedupeKey;
     if (key == _lastCommandKey) return;
     _lastCommandKey = key;
+    _trace(
+      'command ${command.command.name} to '
+      '${SyncPlayUtils.ticksToMs(command.positionTicks)}ms at '
+      '${command.whenUtcMs}, server now ${_timeSync?.getServerTimeNow()}',
+    );
 
     switch (command.command) {
       case SyncPlayCommandType.unpause:
@@ -530,6 +551,7 @@ class SyncPlayManager extends ChangeNotifier {
       case SyncPlayGroupUpdateType.stateUpdate:
         final payload = update.payload as SyncPlayStateUpdatePayload;
         _state.groupState = payload.update.state;
+        _trace('state update ${payload.update.state.name}');
         if (_startedPausedForHandshake &&
             _state.groupState == SyncPlayGroupState.playing) {
           _startedPausedForHandshake = false;
@@ -617,6 +639,11 @@ class SyncPlayManager extends ChangeNotifier {
     final hasActivePlayer = _playbackManager.currentResolution != null;
     final needsRemoteLoad = targetItemId != null &&
         (targetItemId != localCurrentItemId || !hasActivePlayer);
+    _trace(
+      'queue ${reason.name} item $targetItemId ($targetPlaylistItemId) from '
+      '${startMs}ms isPlaying ${update.isPlaying} autoPlay $shouldAutoPlay '
+      'reload $needsRemoteLoad',
+    );
     if (needsRemoteLoad) {
       unawaited(_loadRemoteQueueLocally(
         update: update,
@@ -910,6 +937,7 @@ class SyncPlayManager extends ChangeNotifier {
   /// Every seek SyncPlay itself issues goes through here, so the buffering
   /// edge the seek raises is never mistaken for a stall to report.
   void _seekPlayer(int positionMs) {
+    _trace('seeking player to ${positionMs}ms');
     _applyingRemoteCommand = true;
     try {
       _armBufferingSuppression(forSeek: true);
@@ -1170,6 +1198,7 @@ class SyncPlayManager extends ChangeNotifier {
   }) async {
     if (!_state.enabled || !syncPlayEnabled) return false;
     if (_applyingRemoteCommand) return false;
+    _trace('local ${action.name} intercepted');
     switch (action) {
       case TransportAction.resume:
         await requestUnpause();
@@ -1246,6 +1275,7 @@ class SyncPlayManager extends ChangeNotifier {
 
   void _onBuffering(bool buffering) {
     if (!_state.enabled) return;
+    _trace('player buffering $buffering');
     if (buffering && !_isBuffering) {
       _isBuffering = true;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -1339,8 +1369,14 @@ class SyncPlayManager extends ChangeNotifier {
   /// Buffering report out that the server is right to wait on, and the recovery
   /// that ends it queues a Ready of its own.
   void _reportReadyIfSettled({bool force = false}) {
-    if (_playbackManager.currentResolution == null) return;
-    if (!force && (_playbackManager.state.isBuffering || _isBuffering)) return;
+    if (_playbackManager.currentResolution == null) {
+      _trace('not ready: no player yet');
+      return;
+    }
+    if (!force && (_playbackManager.state.isBuffering || _isBuffering)) {
+      _trace('not ready: still buffering');
+      return;
+    }
     _queueReadyReport();
   }
 
@@ -1408,6 +1444,7 @@ class SyncPlayManager extends ChangeNotifier {
       final pm = _playbackManager;
       final positionTicks =
           SyncPlayUtils.msToTicks(pm.state.position.inMilliseconds);
+      _trace('sending Buffering for $playlistItemId, attempt $attempt');
       try {
         await api.sendBuffering(
           isPlaying: pm.state.isPlaying,
@@ -1442,6 +1479,7 @@ class SyncPlayManager extends ChangeNotifier {
       final pm = _playbackManager;
       final positionTicks =
           SyncPlayUtils.msToTicks(pm.state.position.inMilliseconds);
+      _trace('sending Ready for $playlistItemId, attempt $attempt');
       try {
         await api.sendReady(
           isPlaying: pm.state.isPlaying,
@@ -1463,6 +1501,7 @@ class SyncPlayManager extends ChangeNotifier {
   Future<void> requestPause() async {
     if (!_state.enabled || !syncPlayEnabled) return;
     try {
+      _trace('requesting Pause');
       await _api?.sendPause();
     } catch (_) {}
   }
@@ -1470,12 +1509,14 @@ class SyncPlayManager extends ChangeNotifier {
   Future<void> requestUnpause() async {
     if (!_state.enabled || !syncPlayEnabled) return;
     try {
+      _trace('requesting Unpause');
       await _api?.sendUnpause();
     } catch (_) {}
   }
 
   Future<void> requestSeek(Duration position) async {
     if (!_state.enabled || !syncPlayEnabled) return;
+    _trace('requesting Seek to ${position.inMilliseconds}ms');
     try {
       await _api?.sendSeek(SyncPlayUtils.msToTicks(position.inMilliseconds));
     } catch (_) {}
@@ -1631,6 +1672,9 @@ class SyncPlayManager extends ChangeNotifier {
     final positionTicks =
         SyncPlayUtils.msToTicks(pm.state.position.inMilliseconds);
     try {
+      _trace(
+        'sending our queue of ${ids.length} from ${positionTicks ~/ 10000}ms',
+      );
       await _api?.setNewQueue(
         itemIds: ids,
         startIndex: clamped,

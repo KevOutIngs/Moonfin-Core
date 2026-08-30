@@ -490,6 +490,16 @@ class SyncPlayManager extends ChangeNotifier {
         _state.participants = info.participants;
         _state.lastUpdateAt = info.lastUpdatedAt;
         if (info.state != null) _state.groupState = info.state!;
+        // A join to a playing or paused group puts the group into Waiting
+        // on the server, which then holds every member for this session's
+        // Ready. But the joiner is told only the state from before the
+        // join, and gets no state update for the switch, so the handshake
+        // has to be entered here or the whole group hangs on a Ready that
+        // never comes.
+        if (_state.groupState == SyncPlayGroupState.playing ||
+            _state.groupState == SyncPlayGroupState.paused) {
+          _state.groupState = SyncPlayGroupState.waiting;
+        }
         _startTimeSync();
         _startPingLoop();
         _attachPlaybackObservers();
@@ -620,7 +630,18 @@ class SyncPlayManager extends ChangeNotifier {
       if (!shouldAutoPlay && _playbackManager.state.isPlaying) {
         _applyLocalPause();
       }
+      _answerWaitingAfterQueueChange();
     });
+  }
+
+  /// A queue change made while the group waits is one the server holds the
+  /// group on until this session reports Ready. After a join that wait was
+  /// never announced by a state update, so the handshake would not start on
+  /// its own; started here it retries until the player is up and settled.
+  void _answerWaitingAfterQueueChange() {
+    if (!_state.enabled) return;
+    if (_state.groupState != SyncPlayGroupState.waiting) return;
+    _startReadyHandshake();
   }
 
   Future<void> _loadRemoteQueueLocally({
@@ -674,6 +695,7 @@ class SyncPlayManager extends ChangeNotifier {
     } finally {
       _applyingRemoteCommand = false;
     }
+    _answerWaitingAfterQueueChange();
   }
 
   void _ensurePlayerRouteForItem(AggregatedItem item) {

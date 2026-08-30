@@ -1179,6 +1179,10 @@ class PlaybackManager implements AudioOwnable {
     bool enableDirectPlay = true,
     bool enableDirectStream = true,
     bool enableTranscoding = true,
+    // False loads the item and leaves it paused at [startPosition]: a
+    // SyncPlay handshake wants the player at the group's position without a
+    // frame of playback until the group's own Unpause.
+    bool autoPlay = true,
   }) async {
     _clearPendingItemOverrides();
     _vetoedAudioCodecs.clear();
@@ -1236,6 +1240,7 @@ class PlaybackManager implements AudioOwnable {
       enableDirectPlay: enableDirectPlay,
       enableDirectStream: enableDirectStream,
       enableTranscoding: enableTranscoding,
+      autoPlay: autoPlay,
     );
   }
 

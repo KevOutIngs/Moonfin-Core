@@ -712,12 +712,17 @@ class SyncPlayManager extends ChangeNotifier {
     _applyingRemoteCommand = true;
     try {
       _armBufferingSuppression();
+      // Loaded paused when the group is not playing: the bring-up's own
+      // resume after its start seek would otherwise undo the pause below,
+      // and a joiner playing through the handshake reports Ready from past
+      // the group, is seeked back, plays on, and reports again, forever.
       await _playbackManager.playItems(
         items,
         startIndex: startIndex,
         startPosition: Duration(milliseconds: startMs),
+        autoPlay: shouldAutoPlay,
       );
-      if (!shouldAutoPlay) {
+      if (!shouldAutoPlay && _playbackManager.state.isPlaying) {
         await _playbackManager.pause();
       }
       _ensurePlayerRouteForItem(items[startIndex]);
@@ -836,10 +841,12 @@ class SyncPlayManager extends ChangeNotifier {
     // paused at the target until all have reported Ready, and the Unpause
     // that follows carries that same position. A client that keeps playing
     // through the handshake is dragged back to it by that Unpause, which is
-    // a visible jump backwards on every group seek.
+    // a visible jump backwards on every group seek. Whatever the group state
+    // looks like from here: a Seek is also how the server corrects a Ready
+    // reported from the wrong position, and a player left playing after
+    // that correction reports from the wrong position again.
     _clearLocalCorrections();
-    if (_state.groupState == SyncPlayGroupState.playing &&
-        _playbackManager.state.isPlaying) {
+    if (_playbackManager.state.isPlaying) {
       _applyLocalPause();
     }
     final fromMs = _playbackManager.state.position.inMilliseconds;

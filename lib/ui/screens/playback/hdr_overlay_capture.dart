@@ -4,7 +4,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../../playback/hdr_composition.dart';
 import '../../../playback/hdr_overlay_channel.dart';
+import '../../../util/platform_detection.dart';
 
 /// Mirrors part of the player chrome into a layered window above the HDR
 /// video window.
@@ -33,6 +35,16 @@ class HdrOverlayCapture extends StatefulWidget {
 
   final HdrOverlayChannel channel;
   final Widget child;
+
+  /// Whether this build can ever mirror the chrome into the layered window.
+  ///
+  /// False off Windows, and false on Windows in the default arrangement where
+  /// the compositor draws Flutter over the video. Both settle at startup, so
+  /// the widget hands its child straight back rather than wrapping every
+  /// player on every platform in a boundary only this path reads.
+  static bool get canCapture =>
+      PlatformDetection.supportsNativeHdrWindow &&
+      !HdrComposition.videoBehindFlutter;
 
   @override
   State<HdrOverlayCapture> createState() => _HdrOverlayCaptureState();
@@ -172,8 +184,9 @@ class _HdrOverlayCaptureState extends State<HdrOverlayCapture>
 
   @override
   Widget build(BuildContext context) {
-    // The boundary is always present, so toggling [enabled] never forces a
-    // relayout of the chrome underneath it.
+    if (!HdrOverlayCapture.canCapture) return widget.child;
+    // Where it does run, the boundary stays up whatever [enabled] says, so
+    // toggling it never relayouts the chrome underneath.
     return RepaintBoundary(key: _boundaryKey, child: widget.child);
   }
 }

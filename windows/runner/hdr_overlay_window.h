@@ -8,6 +8,7 @@
 #include <flutter/method_channel.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -28,7 +29,10 @@ class HdrOverlayWindow {
   // passed explicitly for the same reason as HdrVideoWindow: at construction
   // time the Flutter view is not yet parented into the runner, so deriving
   // the root from a registrar would land on the view itself.
-  HdrOverlayWindow(flutter::BinaryMessenger* messenger, HWND top_level);
+  // |on_window_changed| fires whenever the overlay appears or goes away. See
+  // the same parameter on HdrVideoWindow.
+  HdrOverlayWindow(flutter::BinaryMessenger* messenger, HWND top_level,
+                   std::function<void()> on_window_changed);
   ~HdrOverlayWindow();
 
   HdrOverlayWindow(const HdrOverlayWindow&) = delete;
@@ -38,6 +42,10 @@ class HdrOverlayWindow {
   // given. The overlay is top-level, so it is positioned in screen space and
   // does not follow the runner window on its own when that window is dragged.
   void SyncPosition();
+
+  // A hidden overlay has no position to keep, so it does not need the
+  // runner's heartbeat.
+  bool NeedsPositionSync() const { return window_ != nullptr && visible_; }
 
  private:
   void HandleMethod(
@@ -55,6 +63,7 @@ class HdrOverlayWindow {
   void ReleaseSurface();
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
+  std::function<void()> on_window_changed_;
   HWND top_level_ = nullptr;
   HWND window_ = nullptr;
   bool visible_ = false;

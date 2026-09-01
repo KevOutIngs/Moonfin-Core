@@ -12,8 +12,10 @@ constexpr const wchar_t kWindowClassName[] = L"MOONFIN_HDR_OVERLAY";
 }  // namespace
 
 HdrOverlayWindow::HdrOverlayWindow(flutter::BinaryMessenger* messenger,
-                                   HWND top_level)
-    : top_level_(top_level) {
+                                   HWND top_level,
+                                   std::function<void()> on_window_changed)
+    : on_window_changed_(std::move(on_window_changed)),
+      top_level_(top_level) {
   channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "moonfin/hdr_overlay",
       &flutter::StandardMethodCodec::GetInstance());
@@ -63,6 +65,7 @@ void HdrOverlayWindow::HandleMethod(
       result->Error("push_failed", "could not update the overlay window");
       return;
     }
+    if (on_window_changed_) on_window_changed_();
     result->Success();
     return;
   }
@@ -194,6 +197,7 @@ void HdrOverlayWindow::Hide() {
   }
   ShowWindow(window_, SW_HIDE);
   visible_ = false;
+  if (on_window_changed_) on_window_changed_();
 }
 
 void HdrOverlayWindow::ReleaseSurface() {

@@ -193,10 +193,11 @@ bool FlutterWindow::OnCreate() {
       flutter_controller_->engine()->GetRegistrarForPlugin("HdrVideo"));
   hdr_video_ = std::make_unique<HdrVideoWindow>(
       flutter_controller_->engine()->messenger(), hdr_video_registrar_.get(),
-      GetHandle());
+      GetHandle(), [this]() { UpdateHdrSyncTimer(); });
 
   hdr_overlay_ = std::make_unique<HdrOverlayWindow>(
-      flutter_controller_->engine()->messenger(), GetHandle());
+      flutter_controller_->engine()->messenger(), GetHandle(),
+      [this]() { UpdateHdrSyncTimer(); });
 
   if (!g_hdr_display_channel) {
     g_hdr_display_channel =
@@ -248,10 +249,6 @@ bool FlutterWindow::OnCreate() {
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  // Half-second heartbeat for the HDR windows' position sync - see the
-  // WM_TIMER note in MessageHandler.
-  SetTimer(GetHandle(), kHdrSyncTimerId, kHdrSyncIntervalMs, nullptr);
-
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -264,8 +261,26 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+void FlutterWindow::UpdateHdrSyncTimer() {
+  const bool needed =
+      (hdr_video_ != nullptr && hdr_video_->NeedsPositionSync()) ||
+      (hdr_overlay_ != nullptr && hdr_overlay_->NeedsPositionSync());
+  if (needed == hdr_sync_timer_running_) {
+    return;
+  }
+  if (needed) {
+    // Half-second heartbeat for the HDR windows' position sync - see the
+    // WM_TIMER note in MessageHandler.
+    SetTimer(GetHandle(), kHdrSyncTimerId, kHdrSyncIntervalMs, nullptr);
+  } else {
+    KillTimer(GetHandle(), kHdrSyncTimerId);
+  }
+  hdr_sync_timer_running_ = needed;
+}
+
 void FlutterWindow::OnDestroy() {
   KillTimer(GetHandle(), kHdrSyncTimerId);
+  hdr_sync_timer_running_ = false;
   hdr_overlay_ = nullptr;
   hdr_video_ = nullptr;
 

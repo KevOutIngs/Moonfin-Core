@@ -21,8 +21,10 @@ constexpr int kParkedOrigin = -32000;
 
 HdrVideoWindow::HdrVideoWindow(flutter::BinaryMessenger* messenger,
                                flutter::PluginRegistrarWindows* registrar,
-                               HWND top_level)
-    : top_level_(top_level) {
+                               HWND top_level,
+                               std::function<void()> on_window_changed)
+    : on_window_changed_(std::move(on_window_changed)),
+      top_level_(top_level) {
   if (registrar != nullptr && registrar->GetView() != nullptr) {
     flutter_view_ = registrar->GetView()->GetNativeWindow();
   }
@@ -63,6 +65,7 @@ void HdrVideoWindow::HandleMethod(
       result->Error("create_failed", "could not create the video window");
       return;
     }
+    if (on_window_changed_) on_window_changed_();
     result->Success(flutter::EncodableValue(handle));
     return;
   }
@@ -284,11 +287,11 @@ void HdrVideoWindow::SyncPosition() {
 }
 
 void HdrVideoWindow::Destroy() {
-  if (window_ != nullptr) {
-    if (behind()) {
-      hdr_window_support::RevertTransparencyComposition(top_level_);
-    }
-    DestroyWindow(window_);
-    window_ = nullptr;
+  if (window_ == nullptr) return;
+  if (behind()) {
+    hdr_window_support::RevertTransparencyComposition(top_level_);
   }
+  DestroyWindow(window_);
+  window_ = nullptr;
+  if (on_window_changed_) on_window_changed_();
 }

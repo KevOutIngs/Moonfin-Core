@@ -37,6 +37,10 @@ class FlutterWindow : public Win32Window {
   int size_depth_ = 0;
   bool nested_size_ = false;
 
+  // Starts and stops the position heartbeat with the HDR windows, so a
+  // session that never plays HDR never pays for it.
+  void UpdateHdrSyncTimer();
+
   // The project to run.
   flutter::DartProject project_;
 
@@ -48,6 +52,8 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::PluginRegistrarWindows> hdr_video_registrar_;
   std::unique_ptr<HdrVideoWindow> hdr_video_;
   std::unique_ptr<HdrOverlayWindow> hdr_overlay_;
+
+  bool hdr_sync_timer_running_ = false;
 
   // Native retro-game playback.
   std::unique_ptr<flutter::PluginRegistrarWindows> native_game_registrar_;

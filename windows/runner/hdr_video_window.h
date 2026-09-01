@@ -8,6 +8,7 @@
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 
+#include <functional>
 #include <memory>
 
 // The window mpv renders HDR video into, on Windows.
@@ -38,8 +39,12 @@ class HdrVideoWindow {
   // FlutterWindow::OnCreate, before SetChildContent parents the Flutter view
   // into the runner, so at that point GetAncestor(view, GA_ROOT) is the view
   // itself and anything derived from the registrar lands on the wrong window.
+  // |on_window_changed| fires whenever the native window appears or goes
+  // away, so the runner only pays for its position heartbeat while there is
+  // something to keep in position.
   HdrVideoWindow(flutter::BinaryMessenger* messenger,
-                 flutter::PluginRegistrarWindows* registrar, HWND top_level);
+                 flutter::PluginRegistrarWindows* registrar, HWND top_level,
+                 std::function<void()> on_window_changed);
   ~HdrVideoWindow();
 
   HdrVideoWindow(const HdrVideoWindow&) = delete;
@@ -50,6 +55,8 @@ class HdrVideoWindow {
   // WM_WINDOWPOSCHANGED, so it follows moves, resizes and z-order changes.
   // No-op in the child arrangement, where the window follows for free.
   void SyncPosition();
+
+  bool NeedsPositionSync() const { return window_ != nullptr; }
 
  private:
   void HandleMethod(
@@ -66,6 +73,7 @@ class HdrVideoWindow {
   void PlaceBehind(bool show);
 
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
+  std::function<void()> on_window_changed_;
 
   HWND top_level_ = nullptr;
   HWND flutter_view_ = nullptr;

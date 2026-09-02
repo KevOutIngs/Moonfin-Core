@@ -733,7 +733,12 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// `play()` usually runs before the video player screen has mounted, and
   /// engagement is refused without a presenter - so the screen calls this
   /// once it exists. No-ops when already engaged, failed, or disabled.
-  Future<void> ensureNativeHdrForPresenter() => _maybeEngageNativeHdr();
+  ///
+  /// Claims by identity - see [HdrOutputController.presenter].
+  Future<void> ensureNativeHdrForPresenter(Object presenter) {
+    hdrOutput.presenter = presenter;
+    return _maybeEngageNativeHdr();
+  }
 
   /// Hands the native HDR path back when the presenting screen goes away.
   ///
@@ -743,30 +748,39 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// and the mini player share this singleton and can only render the
   /// texture, so leaving mpv on a window nothing presents would black them
   /// out for the rest of the process.
-  Future<void> releaseNativeHdrPresenter() async {
+  Future<void> releaseNativeHdrPresenter(Object presenter) async {
+    // A release from a screen that already handed over is not a release.
+    if (!identical(hdrOutput.presenter, presenter)) return;
     // Same lifetime as the native path: the overlay must not follow mpv into
     // Live TV or the mini player.
     await _hideMpvStats();
-    hdrOutput.presenterActive = false;
-    _monitorSettleTimer?.cancel();
+    hdrOutput.presenter = null;
+    _renegotiateSettleTimer?.cancel();
+    _renegotiateSettleTimer = null;
+    // A leftover deadline would make the next real trigger look covered.
+    _renegotiateDue = null;
     _renegotiatePending = false;
     // A crossing that lands after this point must not re-arm the timer.
     hdrOutput.window.onMonitorChanged = null;
-    if (!hdrOutput.isEngaged) return;
-    // Forgetting the session first flips isEngaged, which is what an
-    // in-flight monitor cycle checks between its awaits - so it aborts
-    // instead of writing vo=gpu-next straight over the restore below.
-    hdrOutput.reset();
-    // And wait the cycle out (bounded) so the property writes cannot
-    // interleave even if it was already past its last check.
-    for (var i = 0; i < 40 && _renegotiating; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (hdrOutput.isEngaged) {
+      // Forgetting the session first flips isEngaged, which is what an
+      // in-flight renegotiation checks between its awaits - so it aborts
+      // instead of writing vo=gpu-next straight over the restore below.
+      hdrOutput.reset();
+      // And wait the cycle out (bounded) so the property writes cannot
+      // interleave even if it was already past its last check.
+      for (var i = 0; i < 40 && _renegotiating; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      final native = _player.platform;
+      if (native is NativePlayer) {
+        final sid = await _tryNativeGetProperty(native, 'sid');
+        await _restoreTexturePath(native, sid: sid);
+      }
     }
-    final native = _player.platform;
-    if (native is NativePlayer) {
-      final sid = await _tryNativeGetProperty(native, 'sid');
-      await _restoreTexturePath(native, sid: sid);
-    }
+    // Unconditional, and outside the engaged branch: a failed renegotiation
+    // leaves the window up with status=failed, and skipping this would leave
+    // the runner composited transparent for the rest of the process.
     await hdrOutput.window.destroy();
   }
 
@@ -882,19 +896,17 @@ class MediaKitPlayerBackend extends PlayerBackend {
     try {
       sid = await _tryNativeGetProperty(native, 'sid');
 
+      // Before the first write: these are process-wide, and Live TV and the
+      // mini player go on using them after the native path hands back.
+      await _captureNativeRenderState(native);
+
       await _nativeSetProperty(native, 'wid', handle.toString());
       await _nativeSetProperty(native, 'gpu-api', 'd3d11');
+      // Before `vo`, not after: the swapchain colorspace is negotiated at
+      // creation. Named rather than a literal because engagement is gated on
+      // the display being in HDR mode (HdrOutputController._decide).
+      await _applyPassthroughHint(native, displayHdr: true);
       await _nativeSetProperty(native, 'vo', 'gpu-next');
-      // mpv 0.40+ defaults this to `target` (adapts the picture to the
-      // monitor's reported EDID peak, black level and primaries), which
-      // leaves weak-HDR panels dim and double-tone-mapped. `source` is plain
-      // passthrough of the stream's own metadata. Older libmpv builds without
-      // the option ignore the write.
-      await _nativeSetProperty(native, 'target-colorspace-hint-mode', 'source');
-      // The option that actually produces HDR passthrough. It tags the
-      // swapchain, so it only does anything on a context that owns one -
-      // which is exactly what the native window just provided.
-      await _nativeSetProperty(native, 'target-colorspace-hint', 'yes');
       await _applyDesktopRenderQuality(native);
       // The quality overrides above replace keys a custom mpv.conf may also
       // set, and the conf was applied before this. Re-apply it so the user's
@@ -917,11 +929,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
         // Trailing-edge debounce: a drag along the boundary between two
         // screens fires a crossing per flip, and each cycle is a full renderer
         // recreation.
-        _monitorSettleTimer?.cancel();
-        _monitorSettleTimer = Timer(
-          const Duration(milliseconds: 400),
-          () => unawaited(_renegotiateForDisplay()),
-        );
+        _scheduleDisplayRenegotiation(const Duration(milliseconds: 400));
       };
       return true;
     } catch (_) {
@@ -952,7 +960,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     }
   }
 
-  /// Whether a renderer cycle for a monitor change is already under way, so
+  /// Whether a renderer cycle is already under way, so
   /// two cannot overlap.
   bool _renegotiating = false;
 
@@ -960,12 +968,48 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// the current one, against wherever the window ended up.
   bool _renegotiatePending = false;
 
-  /// Debounces monitor-crossing renegotiation - see the assignment in
-  /// [_handOverToNativeWindow].
-  Timer? _monitorSettleTimer;
+  /// Debounces renegotiation - see [_scheduleDisplayRenegotiation].
+  Timer? _renegotiateSettleTimer;
+
+  /// When the pending [_renegotiateSettleTimer] is due, so a later reason to
+  /// renegotiate cannot shorten an earlier one's settle.
+  DateTime? _renegotiateDue;
+
+  /// Queues one pass, [delay] from now. Shared by every reason to
+  /// renegotiate, and only ever pushes the deadline out: firing on a shorter
+  /// delay reads the display before the longer reason's event landed, and a
+  /// stale read makes the pass skip itself - a lost cycle, not a late one.
+  void _scheduleDisplayRenegotiation(Duration delay) {
+    final due = DateTime.now().add(delay);
+    final pending = _renegotiateDue;
+    if (_renegotiateSettleTimer != null &&
+        pending != null &&
+        pending.isAfter(due)) {
+      return;
+    }
+    _renegotiateSettleTimer?.cancel();
+    _renegotiateDue = due;
+    _renegotiateSettleTimer = Timer(delay, () {
+      _renegotiateDue = null;
+      unawaited(_renegotiateForDisplay());
+    });
+  }
+
+  /// Re-checks the display after the auto-HDR switcher changed its mode with
+  /// no window move. Both directions: a drop to SDR strands mpv on a PQ
+  /// swapchain, a rise to HDR is the fact a revisitable "no" was missing.
+  ///
+  /// Call only when the mode actually moved - a pass costs a display sweep and
+  /// an mpv read - and the settle is long because Windows applies mode changes
+  /// slowly. A display changed behind the app's back is not covered; that
+  /// needs watching, which belongs on the runner's position heartbeat.
+  void refreshNativeHdrForDisplayState() {
+    if (!hdrOutput.isEngaged && !hdrOutput.status.value.isRevisitable) return;
+    _scheduleDisplayRenegotiation(const Duration(milliseconds: 1500));
+  }
 
   /// True while the native renderer is being torn down and recreated for a
-  /// monitor crossing. In the behind-the-window arrangement the runner is
+  /// renegotiation. In the behind-the-window arrangement the runner is
   /// transparent, so the player screen paints black instead while this is
   /// set - otherwise the desktop shows through the UI until mpv's first frame
   /// lands in the new swapchain.
@@ -975,7 +1019,14 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// the window is on now. The same vo cycle as engagement, subtitles carried
   /// across the same way.
   Future<void> _renegotiateForDisplay() async {
-    if (!hdrOutput.isEngaged) return;
+    if (!hdrOutput.isEngaged) {
+      // A revisitable "no" and a display that may have just come up to HDR.
+      // The controller re-runs its own gates and settles back if not.
+      if (hdrOutput.status.value.isRevisitable) {
+        await _maybeEngageNativeHdr();
+      }
+      return;
+    }
     if (_renegotiating) {
       _renegotiatePending = true;
       return;
@@ -1006,7 +1057,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
       sid = await _tryNativeGetProperty(native, 'sid');
       nativeRendererCycling.value = true;
       await _nativeSetProperty(native, 'vo', 'null');
+      await _applyPassthroughHint(native, displayHdr: displayHdr);
       await _nativeSetProperty(native, 'vo', 'gpu-next');
+      // The hint is in the mpv.conf allowlist and was just overwritten. The
+      // handover re-applies the conf for the same reason.
+      await _applyCustomMpvConfIfEnabled(force: true);
       // The renderer can refuse to come back on the new adapter. Without this
       // check vo stays null and the session keeps claiming HDR over a black
       // picture - the same verification the original handover does.
@@ -1033,11 +1088,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
       if (_renegotiatePending) {
         _renegotiatePending = false;
         if (hdrOutput.isEngaged) {
-          _monitorSettleTimer?.cancel();
-          _monitorSettleTimer = Timer(
-            const Duration(milliseconds: 100),
-            () => unawaited(_renegotiateForDisplay()),
-          );
+          _scheduleDisplayRenegotiation(const Duration(milliseconds: 100));
         }
       }
     }
@@ -1053,11 +1104,80 @@ class MediaKitPlayerBackend extends PlayerBackend {
   Future<void> _restoreTexturePath(NativePlayer native, {String? sid}) async {
     try {
       await _nativeSetProperty(native, 'wid', '0');
+      // Survives the vo swap, so clear it rather than promise passthrough
+      // into media_kit's 8-bit texture.
+      await _applyPassthroughHint(native, displayHdr: false);
       await _nativeSetProperty(native, 'vo', 'libmpv');
+      // gpu-api and the desktop quality overrides are process-wide. Left
+      // behind, one HDR title would pin d3d11 on a context that is the
+      // OpenGL render API again, for Live TV and every later SDR title.
+      await _restoreNativeRenderState(native);
       await _restoreSubtitleState(native, sid);
     } catch (_) {
       // Nothing further to try; the diagnostics row reports the failure.
     }
+  }
+
+  /// Everything the native handover overwrites that outlives it: `gpu-api`
+  /// plus the keys [_applyDesktopRenderQuality] replaces.
+  static const List<String> _nativeRenderStateKeys = [
+    'gpu-api',
+    'dither',
+    'dither-depth',
+    'scale',
+    'dscale',
+    'cscale',
+    'sigmoid-upscaling',
+    'hdr-compute-peak',
+    'tone-mapping',
+  ];
+
+  /// What those keys held before the handover, so handing back puts them back.
+  final Map<String, String> _preNativeRenderState = {};
+
+  Future<void> _captureNativeRenderState(NativePlayer native) async {
+    _preNativeRenderState.clear();
+    for (final key in _nativeRenderStateKeys) {
+      final value = await _tryNativeGetProperty(native, key);
+      if (value != null) _preNativeRenderState[key] = value;
+    }
+  }
+
+  Future<void> _restoreNativeRenderState(NativePlayer native) async {
+    if (_preNativeRenderState.isEmpty) return;
+    final saved = Map<String, String>.from(_preNativeRenderState);
+    _preNativeRenderState.clear();
+    for (final entry in saved.entries) {
+      await _nativeSetProperty(native, entry.key, entry.value);
+    }
+  }
+
+  /// Whether the hint currently says passthrough, so a failed display query
+  /// can hold the last answer instead of guessing.
+  bool _passthroughHintOn = false;
+
+  /// The single owner of `target-colorspace-hint`, which suppresses
+  /// tone-mapping - right only where the display is in HDR mode. DXGI accepts
+  /// G2084 on an SDR swapchain on plenty of drivers, so leaving it on hands PQ
+  /// to a display that reads it as sRGB and washes out to white. A null
+  /// [displayHdr] is a failed query, not an answer, and holds the last answer.
+  ///
+  /// Written while `vo` is unset: the swapchain colorspace is negotiated once.
+  Future<void> _applyPassthroughHint(
+    NativePlayer native, {
+    required bool? displayHdr,
+  }) async {
+    final on = displayHdr ?? _passthroughHintOn;
+    _passthroughHintOn = on;
+    // mpv 0.40+ defaults the mode to `target`, which adapts to the monitor's
+    // EDID and leaves weak-HDR panels dim and double-tone-mapped. `source`
+    // passes the stream's own metadata. Older builds ignore the write.
+    await _nativeSetProperty(native, 'target-colorspace-hint-mode', 'source');
+    await _nativeSetProperty(
+      native,
+      'target-colorspace-hint',
+      on ? 'yes' : 'no',
+    );
   }
 
   /// Undoes the defaults media_kit applies to every native platform.

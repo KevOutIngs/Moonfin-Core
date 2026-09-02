@@ -72,14 +72,21 @@ class HdrOutputController {
   /// not retried on every item.
   bool get hasFailed => status.value == HdrOutputStatus.failed;
 
-  /// Whether a screen able to present the native window currently exists.
+  /// Whoever is currently presenting, or null.
   ///
   /// The backend is a process-wide singleton shared with Live TV and the mini
   /// player, which render media_kit's texture and know nothing about the
   /// native window - engaging under them would swap mpv onto a window nothing
   /// ever shows and leave a black picture. Only the video player screen sets
   /// this, and engagement is refused without it.
-  bool presenterActive = false;
+  ///
+  /// Held by identity, for the same reason [HdrVideoWindow] holds its own: the
+  /// player screen is rebuilt on route changes and the incoming state mounts
+  /// before the outgoing one disposes, so a departing screen must not stand
+  /// down a session its successor has already taken over.
+  Object? presenter;
+
+  bool get presenterActive => presenter != null;
 
   /// One decision at a time. The sticky flags are only written after several
   /// awaits, so without this two overlapping `play()` calls could both pass

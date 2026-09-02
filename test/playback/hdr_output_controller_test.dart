@@ -108,7 +108,7 @@ void main() {
     }) {
       // The tests below exercise the gates past the presenter one; without a
       // presenting screen nothing is ever decided, covered by its own test.
-      controller.presenterActive = true;
+      controller.presenter = Object();
       return controller.maybeEngage(
         preferenceEnabled: preferenceEnabled,
         isHdrContent: () async {

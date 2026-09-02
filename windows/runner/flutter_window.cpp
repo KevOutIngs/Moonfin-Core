@@ -19,7 +19,7 @@ std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
 constexpr UINT kResyncViewMessage = WM_APP + 2;
 
 // Heartbeat that keeps the HDR companion windows in position - see the
-// WM_TIMER note in MessageHandler. The id is 'HD', chosen not to collide with
+// WM_TIMER note in RouteMessage. The id is 'HD', chosen not to collide with
 // timers plugins set against the same window.
 constexpr UINT_PTR kHdrSyncTimerId = 0x4844;
 constexpr UINT kHdrSyncIntervalMs = 500;

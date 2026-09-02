@@ -732,11 +732,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   Future<void> _syncAutoHdrSwitching() async {
     if (!PlatformDetection.isWindows) return;
     final behavior = _prefs.get(UserPreferences.autoHdrSwitchingBehavior);
-    await _autoHdrSwitcher.sync(
+    final switched = await _autoHdrSwitcher.sync(
       behavior: behavior,
       isHdrContent: _isHdrPlaybackContent(),
       isDesktopFullscreen: _isDesktopFullscreen,
     );
+    // Only on a real mode change: the window did not move, so nothing else
+    // tells the native path.
+    if (switched) {
+      _hdrBackend?.refreshNativeHdrForDisplayState();
+    }
   }
 
   @override
@@ -760,11 +765,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       _hdrRendererCycling = hdrBackend.nativeRendererCycling
         ..addListener(_onHdrStatusChanged);
       // Only this screen can present the native window; Live TV and the mini
-      // player share the backend but can only render the texture.
-      hdrBackend.hdrOutput.presenterActive = true;
-      // play() may have run before this screen mounted and been refused for
-      // lack of a presenter; decide again now that one exists.
-      unawaited(hdrBackend.ensureNativeHdrForPresenter());
+      // player share the backend but can only render the texture. play() may
+      // have run before this screen mounted and been refused for lack of a
+      // presenter; decide again now that one exists.
+      unawaited(hdrBackend.ensureNativeHdrForPresenter(this));
     }
     _screensaverController.setPlaybackActive(true);
     _screensaverPlayingSub = _state.playingStream.listen(
@@ -956,7 +960,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       // the window is destroyed, and the next playback decides afresh. mpv is
       // a process-lifetime singleton shared with Live TV and the mini player,
       // which can only render the texture.
-      unawaited(hdrBackend.releaseNativeHdrPresenter());
+      unawaited(hdrBackend.releaseNativeHdrPresenter(this));
       unawaited(_hdrOverlayChannel.hide());
     }
     if (_isInPiP && GetIt.instance.isRegistered<PlaybackArbiter>()) {

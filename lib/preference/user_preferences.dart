@@ -1600,7 +1600,7 @@ class UserPreferences extends ChangeNotifier {
   /// engaged when the display is already in HDR mode and the content is HDR.
   static final nativeHdrOutput = Preference(
     key: 'native_hdr_output',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static final preferExoPlayerFfmpeg = Preference(

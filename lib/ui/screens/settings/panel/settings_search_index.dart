@@ -1204,6 +1204,13 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       ),
     if (PlatformDetection.isWindows)
       video.leaf('auto_hdr_switching_behavior', l10n.autoHdrSwitching),
+    if (PlatformDetection.supportsNativeHdrWindow)
+      video.leaf(
+        'native_hdr_output',
+        l10n.nativeHdrOutput,
+        subtitle: l10n.nativeHdrOutputDescription,
+        keywords: ['hdr10', 'passthrough', 'tone mapping'],
+      ),
     video.leaf(
       'pref_live_direct',
       l10n.settingsLiveTvDirect,

@@ -18,6 +18,7 @@ import '../../data/services/push_messaging_service.dart';
 import '../../data/services/seerr_notification_service.dart';
 import '../../data/services/socket_handler.dart';
 import '../../data/services/storage_path_service.dart';
+import '../../platform/auto_download_background_binding.dart';
 import '../../playback/server_transcode_capabilities.dart';
 import '../../preference/user_preferences.dart';
 
@@ -108,10 +109,14 @@ void setActiveServerClient(MediaServerClient client) {
 /// The auto-download service of the signed-in account, on platforms that
 /// have the feature; nothing is registered elsewhere, so "registered" means
 /// "available" for every caller. Replaced when the account changes.
+AutoDownloadBackgroundBinding? _autoDownloadBinding;
+
 void _replaceAutoDownloadService(
   MediaServerClient client,
   DownloadService downloadService,
 ) {
+  _autoDownloadBinding?.detach();
+  _autoDownloadBinding = null;
   if (_getIt.isRegistered<AutoDownloadService>()) {
     _getIt<AutoDownloadService>().dispose();
     _getIt.unregister<AutoDownloadService>();
@@ -134,6 +139,10 @@ void _replaceAutoDownloadService(
     playingItemId: _playingItemId,
   )..start();
   _getIt.registerSingleton<AutoDownloadService>(service);
+  _autoDownloadBinding = AutoDownloadBackgroundBinding(
+    service: service,
+    prefs: _getIt<UserPreferences>(),
+  )..attach();
 
   unawaited(
     recovered.whenComplete(() {

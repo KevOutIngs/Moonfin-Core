@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:convert';
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:server_core/server_core.dart' hide ImageType;
@@ -298,6 +299,11 @@ class UserPreferences extends ChangeNotifier {
     'detailButtonOrderMobile',
     'detailButtonOrderTv',
     'download_default_quality',
+    'auto_download_enabled',
+    'auto_download_keep_unwatched',
+    'auto_download_delete_after_hours',
+    'auto_download_background_refresh',
+    'auto_download_last_run',
     'download_report_as_activity',
     'download_storage_limit_mb',
     'download_wifi_only',
@@ -2638,10 +2644,7 @@ class UserPreferences extends ChangeNotifier {
   /// kept out of the synced fields so a new device asks rather than inheriting
   /// somebody else's answer.
   static Preference<int> setupWizardVersionForServer(String serverKey) =>
-      Preference(
-        key: 'pref_setup_wizard_version_$serverKey',
-        defaultValue: 0,
-      );
+      Preference(key: 'pref_setup_wizard_version_$serverKey', defaultValue: 0);
 
   /// Bumped only when a release adds a step that earns its place. Everything
   /// already answered stays answered.
@@ -2847,13 +2850,12 @@ class UserPreferences extends ChangeNotifier {
     values: LibraryScrollDirection.values,
   );
 
-  static EnumPreference<LibraryGroupBy> libraryGroupBy(
-    String libraryId,
-  ) => EnumPreference(
-    key: 'library_group_by_$libraryId',
-    defaultValue: LibraryGroupBy.none,
-    values: LibraryGroupBy.values,
-  );
+  static EnumPreference<LibraryGroupBy> libraryGroupBy(String libraryId) =>
+      EnumPreference(
+        key: 'library_group_by_$libraryId',
+        defaultValue: LibraryGroupBy.none,
+        values: LibraryGroupBy.values,
+      );
 
   static final allGenresImageType = EnumPreference(
     key: 'all_genres_image_type',
@@ -2890,6 +2892,41 @@ class UserPreferences extends ChangeNotifier {
   static final downloadWifiOnly = Preference(
     key: 'download_wifi_only',
     defaultValue: false,
+  );
+
+  /// Master switch for auto-download subscriptions. Off pauses every
+  /// subscription without forgetting it.
+  static final autoDownloadEnabled = Preference(
+    key: 'auto_download_enabled',
+    defaultValue: true,
+  );
+
+  /// How many unwatched episodes a subscription keeps downloaded or in
+  /// flight at once. 0 means no cap.
+  static final autoDownloadKeepUnwatched = Preference(
+    key: 'auto_download_keep_unwatched',
+    defaultValue: 3,
+  );
+
+  /// Hours after an auto-downloaded episode was watched before it is
+  /// deleted: 0 right away, -1 never (see [AutoDownloadDeleteAfter]).
+  static final autoDownloadDeleteAfterHours = Preference(
+    key: 'auto_download_delete_after_hours',
+    defaultValue: -1,
+  );
+
+  /// Let the OS wake the app in the background to run subscription checks
+  /// (iOS Background App Refresh).
+  static final autoDownloadBackgroundRefresh = Preference(
+    key: 'auto_download_background_refresh',
+    defaultValue: true,
+  );
+
+  /// JSON summary of the most recent subscription check, for the settings
+  /// screen. Written by AutoDownloadService.
+  static final autoDownloadLastRun = Preference(
+    key: 'auto_download_last_run',
+    defaultValue: '',
   );
 
   // Android TV only: the detail page keeps its download, delete, and
@@ -3056,7 +3093,10 @@ class UserPreferences extends ChangeNotifier {
     return SeriesTrackPreference.fromRawString(raw);
   }
 
-  Future<void> setSeriesAudioPreference(String seriesId, SeriesTrackPreference pref) async {
+  Future<void> setSeriesAudioPreference(
+    String seriesId,
+    SeriesTrackPreference pref,
+  ) async {
     final key = Preference(
       key: 'pref_series_audio_lang_$seriesId',
       defaultValue: '',

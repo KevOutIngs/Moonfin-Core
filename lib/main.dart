@@ -18,8 +18,10 @@ import 'data/models/aggregated_item.dart';
 import 'background/watch_next_background.dart' as watch_next_bg;
 import 'data/services/carplay_service.dart';
 import 'data/services/cast/airplay_command_bridge.dart';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import 'data/services/auto_download_service.dart';
 import 'data/services/background_download_coordinator.dart';
 import 'data/services/download_notification_service.dart';
 import 'data/services/push_messaging_service.dart';
@@ -420,9 +422,7 @@ Future<void> _retryDisplayHdrOffLaunchPath() async {
 Future<Map<String, dynamic>?> _queryCodecCaps(MethodChannel channel) async {
   final raw = await channel.invokeMethod<Map<dynamic, dynamic>>(
     'mediaCodecCapabilities',
-    <String, dynamic>{
-      'includeSoftwareDecoders': !PlatformDetection.isTV,
-    },
+    <String, dynamic>{'includeSoftwareDecoders': !PlatformDetection.isTV},
   );
   return raw?.map((key, value) => MapEntry(key.toString(), value));
 }
@@ -648,8 +648,7 @@ Future<void> _detectAndApplyAudioCapabilities(UserPreferences prefs) async {
   } catch (_) {}
 }
 
-Future<void> _retryAudioCapsOffLaunchPath() =>
-    _retryOffLaunchPath(() async {
+Future<void> _retryAudioCapsOffLaunchPath() => _retryOffLaunchPath(() async {
       final profile = await AudioCapabilityProbe.query();
       if (profile == null || AudioCapabilityProbe.looksEmpty(profile)) {
         return false;
@@ -662,6 +661,17 @@ void _sweepImageCache(UserPreferences prefs, {bool throttle = false}) {
   final mb = prefs.get(UserPreferences.imageCacheLimitMb);
   unawaited(enforceImageCacheBudget(mb * 1024 * 1024, throttle: throttle));
   unawaited(enforceGameArtworkCacheBudget(throttle: throttle));
+}
+
+/// Runs an auto-download check when the app comes back to the foreground;
+/// the service throttles resumes that follow a recent check.
+class _AutoDownloadResumeObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!GetIt.instance.isRegistered<AutoDownloadService>()) return;
+    GetIt.instance<AutoDownloadService>().onAppResumed();
+  }
 }
 
 class _ImageCacheSweepObserver with WidgetsBindingObserver {
@@ -766,7 +776,8 @@ class _PreferenceWriteFlushObserver with WidgetsBindingObserver {
 }
 
 @pragma('vm:entry-point')
-Future<void> watchNextBackgroundMain() => watch_next_bg.watchNextBackgroundMain();
+Future<void> watchNextBackgroundMain() =>
+    watch_next_bg.watchNextBackgroundMain();
 
 void main() async {
   configureHttpOverrides();
@@ -857,10 +868,12 @@ void main() async {
 
   if (PlatformDetection.isMobile) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       systemNavigationBarColor: Colors.transparent,
-    ));
+      ),
+    );
 
     // Registered before runApp so a background/terminated push can be handled.
     // The handler itself is a no-op; the OS draws these notifications.
@@ -874,7 +887,8 @@ void main() async {
 
   // Registered before runApp so a CarPlay-only launch (no window scene, no
   // widgets) can browse and start playback.
-  if (PlatformDetection.isIOS && !GetIt.instance.isRegistered<CarPlayService>()) {
+  if (PlatformDetection.isIOS &&
+      !GetIt.instance.isRegistered<CarPlayService>()) {
     try {
       final carPlayService = CarPlayService(
         browse: GetIt.instance<MediaBrowseService>(),
@@ -889,10 +903,12 @@ void main() async {
   WidgetsBinding.instance.addObserver(_PreferenceWriteFlushObserver(prefs));
   WidgetsBinding.instance.addObserver(_ImageCacheSweepObserver(prefs));
   WidgetsBinding.instance.addObserver(_CapabilityRefreshObserver());
+  WidgetsBinding.instance.addObserver(_AutoDownloadResumeObserver());
   WidgetsBinding.instance.addPostFrameCallback((_) => _sweepImageCache(prefs));
 
   GetIt.instance<PlaybackManager>().queueService.queueChangedStream.listen((_) {
-    final activeItem = GetIt.instance<PlaybackManager>().queueService.currentItem;
+    final activeItem =
+        GetIt.instance<PlaybackManager>().queueService.currentItem;
     if (activeItem is AggregatedItem) {
       prefs.unhideFromContinueWatching(activeItem.id);
       if (activeItem.seriesId != null && activeItem.seriesId!.isNotEmpty) {
@@ -904,9 +920,8 @@ void main() async {
 
   // Register Theme Store themes before the active theme is resolved so a
   // store-saved theme applies on launch.
-  await ThemeStoreService(
-    GetIt.instance<StoragePathService>(),
-  ).loadAndRegister();
+  await ThemeStoreService(GetIt.instance<StoragePathService>())
+      .loadAndRegister();
 
   if (PlatformDetection.isDesktop) {
     await _restoreWindowGeometry();
@@ -956,7 +971,9 @@ Future<void> _initDeferredStartupServices(UserPreferences prefs) async {
         clientFactory: GetIt.instance<MediaServerClientFactory>(),
       );
     } catch (e, st) {
-      debugPrint('initAudioService failed (lock-screen controls disabled): $e\n$st');
+      debugPrint(
+        'initAudioService failed (lock-screen controls disabled): $e\n$st',
+      );
     }
   }
 
@@ -1008,12 +1025,14 @@ Future<void> _initDeferredStartupServices(UserPreferences prefs) async {
   if (PlatformDetection.isAndroid) {
     try {
       final session = await AudioSession.instance;
-      await session.configure(AudioSessionConfiguration(
+      await session.configure(
+        AudioSessionConfiguration(
         androidAudioAttributes: AndroidAudioAttributes(
           contentType: AndroidAudioContentType.music,
           usage: AndroidAudioUsage.media,
         ),
-      ));
+        ),
+      );
       session.becomingNoisyEventStream.listen((_) {
         GetIt.instance<PlaybackManager>().pause();
       });

@@ -74,7 +74,8 @@ class AggregatedItem {
   double? get primaryImageAspectRatio =>
       (rawData['PrimaryImageAspectRatio'] as num?)?.toDouble();
 
-  List<String> get backdropImageTags => _toListOfStrings(rawData['BackdropImageTags']);
+  List<String> get backdropImageTags =>
+      _toListOfStrings(rawData['BackdropImageTags']);
 
   String? get parentBackdropItemId =>
       rawData['ParentBackdropItemId']?.toString();
@@ -86,8 +87,7 @@ class AggregatedItem {
       (rawData['ImageTags'] as Map?)?['Logo'] as String?;
 
   // Series logo is delivered as the parent logo; servers send no SeriesLogoImageTag.
-  String? get seriesLogoImageTag =>
-      rawData['ParentLogoImageTag'] as String?;
+  String? get seriesLogoImageTag => rawData['ParentLogoImageTag'] as String?;
 
   Map? get _userData => rawData['UserData'] as Map?;
 
@@ -152,8 +152,8 @@ class AggregatedItem {
       final artist = (albumArtist ?? '').trim().isNotEmpty
           ? albumArtist!.trim()
           : (albumArtists.isNotEmpty
-              ? (albumArtists.first['Name'] as String?)?.trim()
-              : (artists.isNotEmpty ? artists.first.trim() : ''));
+                ? (albumArtists.first['Name'] as String?)?.trim()
+                : (artists.isNotEmpty ? artists.first.trim() : ''));
       final year = productionYear;
       if (artist != null && artist.isNotEmpty) {
         if (year != null) {
@@ -196,6 +196,18 @@ class AggregatedItem {
     return v != null ? DateTime.tryParse(v) : null;
   }
 
+  /// When the user last played the item, per the server.
+  DateTime? get lastPlayedDate {
+    final v = _userData?['LastPlayedDate'] as String?;
+    return v != null ? DateTime.tryParse(v) : null;
+  }
+
+  /// When the server added the item to its library.
+  DateTime? get dateCreated {
+    final v = rawData['DateCreated'] as String?;
+    return v != null ? DateTime.tryParse(v) : null;
+  }
+
   DateTime? get endDate {
     final v = rawData['EndDate'] as String?;
     return v != null ? DateTime.tryParse(v) : null;
@@ -227,8 +239,10 @@ class AggregatedItem {
     return result;
   }
 
-  String? get tmdbId => providerIds['Tmdb'] ?? providerIds['tmdb'] ?? providerIds['TMDB'];
-  String? get imdbId => providerIds['Imdb'] ?? providerIds['imdb'] ?? providerIds['IMDB'];
+  String? get tmdbId =>
+      providerIds['Tmdb'] ?? providerIds['tmdb'] ?? providerIds['TMDB'];
+  String? get imdbId =>
+      providerIds['Imdb'] ?? providerIds['imdb'] ?? providerIds['IMDB'];
 
   List<Map<String, dynamic>> get people => _toListOfMaps(rawData['People']);
 
@@ -265,17 +279,19 @@ class AggregatedItem {
     // A books library holds readable books next to audio, so a Book that is
     // not audio stays a book whatever the collection says below.
     if (t == 'book' && mediaType != 'audio') return false;
-    final collectionType =
-        (rawData['CollectionType'] as String? ?? '').toLowerCase();
+    final collectionType = (rawData['CollectionType'] as String? ?? '')
+        .toLowerCase();
     if (collectionType == 'audiobooks' || collectionType == 'books') {
       return true;
     }
     final parentCollectionType =
         (rawData['ParentCollectionType'] as String? ?? '').toLowerCase();
-    if (parentCollectionType == 'audiobooks' || parentCollectionType == 'books') {
+    if (parentCollectionType == 'audiobooks' ||
+        parentCollectionType == 'books') {
       return true;
     }
-    if (mediaType == 'audio' && (rawData['Chapters'] as List?)?.isNotEmpty == true) {
+    if (mediaType == 'audio' &&
+        (rawData['Chapters'] as List?)?.isNotEmpty == true) {
       // Audio items with chapter metadata are very likely audiobooks.
       final runtimeTicks = runTimeTicks ?? 0;
       // Treat anything over 30 minutes with chapters as an audiobook.
@@ -393,8 +409,19 @@ class AggregatedItem {
       : null;
 
   static const _losslessCodecs = {
-    'flac', 'alac', 'wav', 'ape', 'wavpack', 'wv', 'tak', 'tta',
-    'dsd', 'dsf', 'mlp', 'truehd', 'pcm',
+    'flac',
+    'alac',
+    'wav',
+    'ape',
+    'wavpack',
+    'wv',
+    'tak',
+    'tta',
+    'dsd',
+    'dsf',
+    'mlp',
+    'truehd',
+    'pcm',
   };
 
   bool get isLosslessAudio {

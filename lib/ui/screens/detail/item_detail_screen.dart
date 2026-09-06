@@ -5,6 +5,7 @@ import '../../widgets/bounded_network_image.dart';
 import '../../widgets/offline_aware_image.dart';
 import '../../widgets/identify_dialog.dart';
 import '../../widgets/focus/context_action.dart' show canIdentifyItemType;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,7 @@ import '../../../data/repositories/item_mutation_repository.dart';
 import '../../../data/repositories/mdblist_repository.dart';
 import '../../../data/repositories/tmdb_repository.dart';
 import '../../../data/services/background_service.dart';
+import '../../../data/services/auto_download_service.dart';
 import '../../../data/services/download_service.dart';
 import '../../../data/models/download_quality.dart';
 import '../../../data/database/offline_database.dart';
@@ -3510,9 +3512,8 @@ class _DetailContentState extends State<_DetailContent> {
   }) {
     final l10n = AppLocalizations.of(context);
     if (tracks.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.noItemsLoaded(itemLabel))));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.noItemsLoaded(itemLabel))));
       return;
     }
 
@@ -3532,9 +3533,8 @@ class _DetailContentState extends State<_DetailContent> {
     final l10n = AppLocalizations.of(context);
     final tracks = viewModel.tracks.where(_isAudioItem).toList(growable: false);
     if (tracks.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.noTracksLoaded)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l10n.noTracksLoaded)));
       return;
     }
 
@@ -5885,11 +5885,8 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     final painter = TextPainter(
       text: TextSpan(
         text: label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          height: 1.1,
-        ),
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(fontWeight: FontWeight.bold, fontSize: 13, height: 1.1),
       ),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -8359,10 +8356,8 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         mediaType == 'Audio';
 
     PlaybackLaunchSession? launchSession;
-    Future<bool> preparePlayback() => _runWithDolbyVisionStartupFallbackPrompt(
-      context,
-      manager,
-      () async {
+    Future<bool>
+    preparePlayback() => _runWithDolbyVisionStartupFallbackPrompt(context, manager, () async {
         switch (item.type) {
           case 'Series':
             const episodeQueueFields = 'Overview,RunTimeTicks,UserData';
@@ -8381,9 +8376,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      AppLocalizations.of(context).noEpisodesLoaded,
-                    ),
+                  content: Text(AppLocalizations.of(context).noEpisodesLoaded),
                   ),
                 );
               }
@@ -8466,9 +8459,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             final epSubtitleStreams = epMediaStreams
                 .where((s) => s['Type'] == 'Subtitle')
                 .toList();
-            final epAudioStreamIndex = _effectiveAudioStreamIndex(
-              epAudioStreams,
-            );
+          final epAudioStreamIndex = _effectiveAudioStreamIndex(epAudioStreams);
             final epSubtitleStreamIndex = _effectiveSubtitleStreamIndex(
               epSubtitleStreams,
               epAudioStreams,
@@ -8536,9 +8527,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             final epSubtitleStreams = epMediaStreams
                 .where((s) => s['Type'] == 'Subtitle')
                 .toList();
-            final epAudioStreamIndex = _effectiveAudioStreamIndex(
-              epAudioStreams,
-            );
+          final epAudioStreamIndex = _effectiveAudioStreamIndex(epAudioStreams);
             final epSubtitleStreamIndex = _effectiveSubtitleStreamIndex(
               epSubtitleStreams,
               epAudioStreams,
@@ -8574,10 +8563,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
                     seasonId: seasonId,
                     fields: episodeQueueFields,
                   );
-                  episodes = _mapRawItemsForServer(
-                    data['Items'],
-                    item.serverId,
-                  );
+                episodes = _mapRawItemsForServer(data['Items'], item.serverId);
                 } catch (_) {}
               }
             }
@@ -8598,8 +8584,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               playableEpisodes[idx] = selectedEpisode;
               ensureLaunchStillWanted(launchSession);
 
-              final episodeQueue =
-                  await _truncateQueueIfImmediateNextUnplayable(
+            final episodeQueue = await _truncateQueueIfImmediateNextUnplayable(
                     playableEpisodes,
                     startIndex: idx,
                   );
@@ -8655,9 +8640,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      AppLocalizations.of(context).noEpisodesLoaded,
-                    ),
+                  content: Text(AppLocalizations.of(context).noEpisodesLoaded),
                   ),
                 );
               }
@@ -8676,9 +8659,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
             final dvForceTranscode =
                 context.mounted &&
-                await _shouldForceTranscodeForDolbyVision(context, [
-                  targetItem,
-                ]);
+              await _shouldForceTranscodeForDolbyVision(context, [targetItem]);
             final directAllowed = !dvForceTranscode && !forceTranscode;
 
             final epMediaStreams = _mediaStreamsForCurrentSelection(targetItem);
@@ -8688,9 +8669,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
             final epSubtitleStreams = epMediaStreams
                 .where((s) => s['Type'] == 'Subtitle')
                 .toList();
-            final epAudioStreamIndex = _effectiveAudioStreamIndex(
-              epAudioStreams,
-            );
+          final epAudioStreamIndex = _effectiveAudioStreamIndex(epAudioStreams);
             final epSubtitleStreamIndex = _effectiveSubtitleStreamIndex(
               epSubtitleStreams,
               epAudioStreams,
@@ -8803,9 +8782,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
             // Start at the first unwatched item, or resume the one left partway
             // through, instead of always restarting from the top.
-            final (startIndex, startPosition) = _resolveQueueResumeStart(
-              tracks,
-            );
+          final (startIndex, startPosition) = _resolveQueueResumeStart(tracks);
 
             // Playlists can contain video, so honor the Dolby Vision
             // force-transcode check before allowing direct play/stream.
@@ -8946,13 +8923,11 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
               subtitleStreamIndex: subtitleStreamIndex,
               mediaSourceId: selectedMediaSourceId,
               audioSelectionExplicit: viewModel.selectedAudioIndex != null,
-              subtitleSelectionExplicit:
-                  viewModel.selectedSubtitleIndex != null,
+            subtitleSelectionExplicit: viewModel.selectedSubtitleIndex != null,
               directAllowed: directAllowed,
             );
         }
-      },
-    );
+    });
 
     await _pushPlayerRouteWhileStartingPlayback(
       context,
@@ -9806,17 +9781,15 @@ Future<_DolbyVisionPlayDecision?> _showDolbyVisionFallbackDecisionDialog(
               FocusableButton(
                 autofocus: true,
                 onPressed: () {
-                  Navigator.of(
-                    dialogContext,
-                  ).pop(DolbyVisionFallbackBehavior.hdr10Fallback);
+                  Navigator.of(dialogContext)
+                      .pop(DolbyVisionFallbackBehavior.hdr10Fallback);
                 },
                 child: Text(l10n.playHdr10Fallback),
               ),
               FocusableButton(
                 onPressed: () {
-                  Navigator.of(
-                    dialogContext,
-                  ).pop(DolbyVisionFallbackBehavior.transcode);
+                  Navigator.of(dialogContext)
+                      .pop(DolbyVisionFallbackBehavior.transcode);
                 },
                 child: Text(l10n.requestTranscode),
               ),
@@ -10237,9 +10210,8 @@ class _DownloadButtonState extends State<_DownloadButton> {
 
     final sizeLabel = label(formatBytes(totalBytes));
     if (knownCount == items.length) return sizeLabel;
-    final unknown = AppLocalizations.of(
-      context,
-    ).downloadEstimateUnknownCount(items.length - knownCount);
+    final unknown = AppLocalizations.of(context)
+        .downloadEstimateUnknownCount(items.length - knownCount);
     return '$sizeLabel ($unknown)';
   }
 
@@ -10369,9 +10341,8 @@ class _DownloadButtonState extends State<_DownloadButton> {
             activeColor: const Color(0xFFD32F2F),
             onPressed: () {
               if (downloadError.isNotEmpty) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(downloadError)));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(downloadError)));
               }
               _showDownloadOptions(context, downloadService);
             },
@@ -10390,14 +10361,26 @@ class _DownloadButtonState extends State<_DownloadButton> {
   static bool _isBatchType(String? type) =>
       type == 'Season' || type == 'Series' || type == 'BoxSet';
 
+  /// One line of context under a sheet title.
+  Widget _sheetNote(BuildContext sheetContext, String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        color: PlatformDetection.isTV
+            ? null
+            : Colors.white.withValues(alpha: 0.6),
+      ),
+    ),
+  );
+
   Widget _sheetTitle(BuildContext sheetContext, String text) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
     child: Text(
       text,
-      style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(sheetContext).textTheme.titleMedium
+          ?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
     ),
   );
 
@@ -10443,6 +10426,16 @@ class _DownloadButtonState extends State<_DownloadButton> {
             return null;
           },
         );
+
+    final autoDownloads =
+        item.type == 'Series' &&
+            GetIt.instance.isRegistered<AutoDownloadService>()
+        ? GetIt.instance<AutoDownloadService>()
+        : null;
+
+    // Set by the auto-download row before it closes the sheet.
+    var autoChosen = false;
+    AutoDownloadSubscription? subscription;
 
     final chosen =
         await showFocusRestoringModalBottomSheet<List<AggregatedItem>>(
@@ -10511,6 +10504,16 @@ class _DownloadButtonState extends State<_DownloadButton> {
                       );
                     },
                   ),
+                  if (autoDownloads != null)
+                    _autoDownloadRow(
+                      sheetContext,
+                      autoDownloads,
+                      onSubscription: (current) => subscription = current,
+                      onTap: () {
+                        autoChosen = true;
+                        Navigator.pop(sheetContext);
+                      },
+                    ),
                   const SizedBox(height: 8),
                 ],
               ),
@@ -10519,8 +10522,95 @@ class _DownloadButtonState extends State<_DownloadButton> {
         );
     // Opened only after the scope sheet is gone, so the quality picker
     // restores focus to the Download button rather than to a disposed row.
-    if (chosen == null || !mounted) return;
+    if (!mounted) return;
+    if (autoChosen) {
+      await _toggleAutoDownload(autoDownloads!, existing: subscription);
+      return;
+    }
+    if (chosen == null) return;
     _showQualityPicker(this.context, service, items: chosen);
+  }
+
+  /// Follows or unfollows the series. Following asks for a quality first so
+  /// the subscription records one.
+  Future<void> _toggleAutoDownload(
+    AutoDownloadService autoDownloads, {
+    required AutoDownloadSubscription? existing,
+  }) async {
+    final item = widget.item;
+    final l10n = AppLocalizations.of(context);
+    if (existing != null) {
+      await autoDownloads.unsubscribe(item.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.autoDownloadStoppedFor(item.name))),
+      );
+      return;
+    }
+    final quality = await _pickQuality(
+      context,
+      title: l10n.autoDownloadQualityTitle,
+      // iOS background checks skip transcoded subscriptions; Android's
+      // worker can run them, so the note is an iOS matter.
+      note: PlatformDetection.isIOS
+          ? l10n.autoDownloadTranscodedForegroundNote
+          : null,
+    );
+    if (quality == null || !mounted) return;
+    unawaited(autoDownloads.subscribe(item, quality: quality));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(l10n.autoDownloadEnabledFor(item.name))),
+    );
+  }
+
+  /// Third row of a series' scope sheet: subscribe to new episodes, or stop.
+  /// Reports the current subscription through [onSubscription] so the
+  /// caller knows which of the two [onTap] meant.
+  Widget _autoDownloadRow(
+    BuildContext sheetContext,
+    AutoDownloadService autoDownloads, {
+    required void Function(AutoDownloadSubscription?) onSubscription,
+    required VoidCallback onTap,
+  }) {
+    final l10n = AppLocalizations.of(sheetContext);
+    final isTV = PlatformDetection.isTV;
+    final keep = GetIt.instance<UserPreferences>().get(
+      UserPreferences.autoDownloadKeepUnwatched,
+    );
+    return StreamBuilder<AutoDownloadSubscription?>(
+      stream: autoDownloads.watchSubscription(widget.item.id),
+      builder: (_, snapshot) {
+        final subscription = snapshot.data;
+        onSubscription(subscription);
+        final quality = subscription == null
+            ? null
+            : DownloadQuality.fromName(subscription.qualityPreset);
+        return DpadListTile(
+          autofocus: false,
+          leading: AdaptiveIcon(
+            subscription == null ? Icons.autorenew : Icons.stop_circle_outlined,
+            color: isTV ? null : Colors.white70,
+          ),
+          title: Text(
+            subscription == null
+                ? l10n.autoDownloadNewEpisodes
+                : l10n.autoDownloadStop,
+            style: isTV ? null : const TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            subscription == null
+                ? l10n.autoDownloadKeepSubtitle(keep)
+                : quality!.isTranscoded && PlatformDetection.isIOS
+                ? '${l10n.autoDownloadOnSubtitle(quality.label)} • ${l10n.autoDownloadForegroundOnly}'
+                : l10n.autoDownloadOnSubtitle(quality.label),
+            style: isTV
+                ? null
+                : TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          onTap: onTap,
+        );
+      },
+    );
   }
 
   Widget _scopeRow(
@@ -10564,28 +10654,51 @@ class _DownloadButtonState extends State<_DownloadButton> {
     );
   }
 
-  /// Shows the quality picker. For series, seasons and collections [items] is
-  /// the list resolved by the scope picker and drives both the size estimate
-  /// and what gets queued.
-  void _showQualityPicker(
+  /// Shows the quality picker and queues the download. For series, seasons
+  /// and collections [items] is the list resolved by the scope picker and
+  /// drives both the size estimate and what gets queued.
+  Future<void> _showQualityPicker(
     BuildContext context,
     DownloadService service, {
     List<AggregatedItem>? items,
-  }) {
+  }) async {
     final item = widget.item;
     final isMulti = _isBatchType(item.type);
-    final supportsTranscoding =
-        item.type == 'Movie' ||
-        item.type == 'Episode' ||
-        item.type == 'MusicVideo' ||
-        item.type == 'Video' ||
-        isMulti;
-    final batchItems = items ?? const <AggregatedItem>[];
-
-    if (!isMulti && !supportsTranscoding) {
+    if (!isMulti && !_supportsTranscoding(item.type)) {
       _startDownload(context, service, DownloadQuality.original);
       return;
     }
+    final quality = await _pickQuality(
+      context,
+      title: isMulti
+          ? AppLocalizations.of(context).downloadAllQuality
+          : AppLocalizations.of(context).downloadQuality,
+      items: items ?? const [],
+    );
+    if (quality == null || !mounted) return;
+    _startDownload(this.context, service, quality, items: items);
+  }
+
+  static bool _supportsTranscoding(String? type) =>
+      type == 'Movie' ||
+      type == 'Episode' ||
+      type == 'MusicVideo' ||
+      type == 'Video';
+
+  /// Lets the user pick a quality for [widget.item]; size estimates cover
+  /// [items] for batches. Null when the sheet is dismissed.
+  /// [note] is shown once under the title, for callers where the choice has
+  /// a consequence worth stating.
+  Future<DownloadQuality?> _pickQuality(
+    BuildContext context, {
+    required String title,
+    List<AggregatedItem> items = const [],
+    String? note,
+  }) {
+    final item = widget.item;
+    final isMulti = _isBatchType(item.type);
+    final supportsTranscoding = isMulti || _supportsTranscoding(item.type);
+    final batchItems = items;
 
     final sourceWidth = isMulti
         ? (() {
@@ -10617,12 +10730,8 @@ class _DownloadButtonState extends State<_DownloadButton> {
           batchItems: batchItems,
         ),
     };
-    final title = isMulti
-        ? AppLocalizations.of(context).downloadAllQuality
-        : AppLocalizations.of(context).downloadQuality;
-
     if (PlatformDetection.isTV) {
-      showFocusRestoringModalBottomSheet(
+      return showFocusRestoringModalBottomSheet<DownloadQuality>(
         context: context,
         isScrollControlled: true,
         backgroundColor: const Color(0xFF1E1E1E),
@@ -10639,6 +10748,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _sheetTitle(sheetContext, title),
+                if (note != null) _sheetNote(sheetContext, note),
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
@@ -10655,15 +10765,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
                         ),
                         title: Text(quality.label),
                         subtitle: Text(subtitles[quality]!),
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          _startDownload(
-                            context,
-                            service,
-                            quality,
-                            items: items,
-                          );
-                        },
+                        onTap: () => Navigator.pop(sheetContext, quality),
                       );
                     }).toList(),
                   ),
@@ -10673,10 +10775,9 @@ class _DownloadButtonState extends State<_DownloadButton> {
           ),
         ),
       );
-      return;
     }
 
-    showFocusRestoringModalBottomSheet(
+    return showFocusRestoringModalBottomSheet<DownloadQuality>(
       context: context,
       backgroundColor: const Color(0xFF1E1E1E),
       shape: const RoundedRectangleBorder(
@@ -10688,6 +10789,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _sheetTitle(context, title),
+            if (note != null) _sheetNote(context, note),
             ...availableQualities.map(
               (quality) => ListTile(
                 leading: AdaptiveIcon(
@@ -10704,10 +10806,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
                   subtitles[quality]!,
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _startDownload(context, service, quality, items: items);
-                },
+                onTap: () => Navigator.pop(context, quality),
               ),
             ),
             const SizedBox(height: 8),
@@ -10730,9 +10829,8 @@ class _DownloadButtonState extends State<_DownloadButton> {
     final String message;
     if (items != null) {
       if (items.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l10n.noEpisodesLoaded)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.noEpisodesLoaded)));
         return;
       }
       service.downloadItems(items, quality: quality);
@@ -13174,9 +13272,8 @@ class _EpisodesRow extends StatelessWidget {
     // from overflowing the row and clipping the labels.
     final imageHeight = isMobile ? 100.0 : 124 * desktopScale;
     final labelStyle = Theme.of(context).textTheme.bodySmall;
-    final labelLine = MediaQuery.textScalerOf(
-      context,
-    ).scale((labelStyle?.fontSize ?? 12) * (labelStyle?.height ?? 1.4));
+    final labelLine = MediaQuery.textScalerOf(context)
+        .scale((labelStyle?.fontSize ?? 12) * (labelStyle?.height ?? 1.4));
 
     return SizedBox(
       height: imageHeight + 10 + labelLine + 6,

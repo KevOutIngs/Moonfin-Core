@@ -7,6 +7,7 @@ import 'package:moonfin_design/moonfin_design.dart';
 
 import '../../../data/database/offline_database.dart';
 import '../../../data/models/aggregated_item.dart';
+import '../../../data/models/download_source.dart';
 import '../../../data/providers/offline_providers.dart';
 import '../../../data/repositories/offline_repository.dart';
 import '../../../data/services/download_service.dart';
@@ -898,6 +899,19 @@ class _ActiveDownloadsSection extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(line, style: statusStyle),
                         ),
+                      // A subscription picked this quality; say why the
+                      // transfer is fragile so a restart is not a surprise.
+                      if (active[index].isTranscoded &&
+                          !active[index].isQueued &&
+                          service.sourceOf(active[index].itemId) ==
+                              DownloadSource.auto)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            l10n.autoDownloadTranscodedRunningNote,
+                            style: statusStyle,
+                          ),
+                        ),
                       _TileTrackedProgress(
                         value: active[index].isQueued
                             ? 0
@@ -987,9 +1001,8 @@ class _TotalStorageHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            AppLocalizations.of(
-              context,
-            ).ofStorageLimit(formatBytes(limitBytes)),
+            AppLocalizations.of(context)
+                .ofStorageLimit(formatBytes(limitBytes)),
             style: TextStyle(
               color: AppColorScheme.onSurface.withValues(alpha: 0.54),
               fontSize: 13,

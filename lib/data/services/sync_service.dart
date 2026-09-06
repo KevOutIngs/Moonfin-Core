@@ -198,12 +198,15 @@ class SyncService extends ChangeNotifier {
         int? serverTicks;
         if (userData != null) {
           final serverPlayed = userData['Played'] as bool? ?? false;
-          serverTicks = serverPlayed ? 0 : (userData['PlaybackPositionTicks'] as int? ?? 0);
+          serverTicks = serverPlayed
+              ? 0
+              : (userData['PlaybackPositionTicks'] as int? ?? 0);
         }
 
         final localItem = await _offlineRepo.getItem(item.itemId);
         if (localItem == null) continue;
-        final shouldUpdateTicks = localItem.progressSynced && serverTicks != null;
+        final shouldUpdateTicks =
+            localItem.progressSynced && serverTicks != null;
 
         await _offlineRepo.upsertItem(
           DownloadedItemsCompanion(
@@ -223,6 +226,7 @@ class SyncService extends ChangeNotifier {
             fileSizeBytes: Value(localItem.fileSizeBytes),
             downloadedAt: Value(localItem.downloadedAt),
             qualityPreset: Value(localItem.qualityPreset),
+            downloadSource: Value(localItem.downloadSource),
             seriesId: Value(localItem.seriesId),
             seasonId: Value(localItem.seasonId),
             seriesName: Value(localItem.seriesName),
@@ -230,7 +234,9 @@ class SyncService extends ChangeNotifier {
             indexNumber: Value(localItem.indexNumber),
             parentIndexNumber: Value(localItem.parentIndexNumber),
             progressSynced: Value(localItem.progressSynced),
-            playbackPositionTicks: shouldUpdateTicks ? Value(serverTicks) : Value(localItem.playbackPositionTicks),
+            playbackPositionTicks: shouldUpdateTicks
+                ? Value(serverTicks)
+                : Value(localItem.playbackPositionTicks),
           ),
         );
       } catch (e) {

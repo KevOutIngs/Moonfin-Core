@@ -18,6 +18,15 @@ class MediaServerClientFactory {
 
   Map<String, MediaServerClient> get clients => Map.unmodifiable(_clients);
 
+  /// The server id [client] was created under, or its base URL for a client
+  /// this factory did not create.
+  String serverIdOf(MediaServerClient client) {
+    for (final entry in _clients.entries) {
+      if (identical(entry.value, client)) return entry.key;
+    }
+    return client.baseUrl;
+  }
+
   MediaServerClient getClient({
     required String serverId,
     required ServerType serverType,
@@ -25,10 +34,7 @@ class MediaServerClientFactory {
   }) {
     final normalizedBaseUrl = normalizeServerBaseUrl(baseUrl);
     return _clients.putIfAbsent(serverId, () {
-      return _createClient(
-        serverType: serverType,
-        baseUrl: normalizedBaseUrl,
-      );
+      return _createClient(serverType: serverType, baseUrl: normalizedBaseUrl);
     });
   }
 
@@ -96,10 +102,7 @@ class MediaServerClientFactory {
           deviceInfo: deviceInfo,
         );
       case ServerType.emby:
-        return EmbyMediaServerClient(
-          baseUrl: baseUrl,
-          deviceInfo: deviceInfo,
-        );
+        return EmbyMediaServerClient(baseUrl: baseUrl, deviceInfo: deviceInfo);
     }
   }
 

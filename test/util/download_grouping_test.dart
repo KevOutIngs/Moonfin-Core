@@ -24,6 +24,7 @@ DownloadedItem _saved(
   playbackPositionTicks: 0,
   progressSynced: true,
   qualityPreset: 'original',
+  downloadSource: 'manual',
   seriesId: seriesId,
   seriesName: seriesName,
   indexNumber: episode,
@@ -79,10 +80,7 @@ void main() {
 
     expect(groups, hasLength(3));
     expect(groups.where((g) => g.isSeries), hasLength(2));
-    expect(
-      groups.firstWhere((g) => !g.isSeries).title,
-      'A Movie',
-    );
+    expect(groups.firstWhere((g) => !g.isSeries).title, 'A Movie');
   });
 
   test('episodes run in playing order rather than by size', () {
@@ -137,10 +135,7 @@ void main() {
       episodeNumberLabel(_episode('e', seriesId: 's', season: 2, episode: 5)),
       'S2 E5',
     );
-    expect(
-      episodeNumberLabel(_episode('e', seriesId: 's', episode: 5)),
-      'E5',
-    );
+    expect(episodeNumberLabel(_episode('e', seriesId: 's', episode: 5)), 'E5');
     expect(episodeNumberLabel(_episode('e', seriesId: 's')), isNull);
   });
 }

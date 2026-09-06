@@ -4,6 +4,14 @@ import 'package:drift/drift.dart';
 
 import '../database/offline_database.dart';
 
+/// A download row without its metadata. Status: 1 in progress, 2 complete,
+/// 3 failed.
+typedef DownloadRef = ({
+  String itemId,
+  int downloadStatus,
+  String downloadSource,
+});
+
 class OfflineRepository {
   final OfflineDatabase _db;
 
@@ -17,9 +25,9 @@ class OfflineRepository {
 
     final id = item.itemId.value;
     await _db.transaction(() async {
-      await (_db.delete(_db.downloadedItems)
-            ..where((t) => t.itemId.equals(id)))
-          .go();
+      await (_db.delete(
+        _db.downloadedItems,
+      )..where((t) => t.itemId.equals(id))).go();
       await _db.into(_db.downloadedItems).insertOnConflictUpdate(item);
     });
   }
@@ -30,23 +38,37 @@ class OfflineRepository {
     double? progress,
     String? error,
   }) async {
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(
       downloadStatus: Value(status),
-      downloadProgress: progress != null ? Value(progress) : const Value.absent(),
+        downloadProgress: progress != null
+            ? Value(progress)
+            : const Value.absent(),
       errorMessage: Value(error),
-      downloadedAt: status == 2 ? Value(DateTime.now()) : const Value.absent(),
-    ));
+        downloadedAt: status == 2
+            ? Value(DateTime.now())
+            : const Value.absent(),
+      ),
+    );
   }
 
-  Future<void> setLocalFilePath(String itemId, String path, {int? fileSize}) async {
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(
+  Future<void> setLocalFilePath(
+    String itemId,
+    String path, {
+    int? fileSize,
+  }) async {
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(
       localFilePath: Value(path),
-      fileSizeBytes: fileSize != null ? Value(fileSize) : const Value.absent(),
-    ));
+        fileSizeBytes: fileSize != null
+            ? Value(fileSize)
+            : const Value.absent(),
+      ),
+    );
   }
 
   Future<void> setImagePaths(
@@ -56,23 +78,27 @@ class OfflineRepository {
     String? logo,
     String? thumb,
   }) async {
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(
       posterPath: poster != null ? Value(poster) : const Value.absent(),
       backdropPath: backdrop != null ? Value(backdrop) : const Value.absent(),
       logoPath: logo != null ? Value(logo) : const Value.absent(),
       thumbPath: thumb != null ? Value(thumb) : const Value.absent(),
-    ));
+      ),
+    );
   }
 
   Future<void> updatePlaybackPosition(String itemId, int positionTicks) async {
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(
       playbackPositionTicks: Value(positionTicks),
       progressSynced: const Value(false),
-    ));
+      ),
+    );
   }
 
   Future<void> markProgressSynced(String itemId) async {
@@ -90,14 +116,17 @@ class OfflineRepository {
     int positionTicks, {
     String? metadataJson,
   }) async {
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(
       playbackPositionTicks: Value(positionTicks),
       progressSynced: const Value(true),
-      metadataJson:
-          metadataJson == null ? const Value.absent() : Value(metadataJson),
-    ));
+        metadataJson: metadataJson == null
+            ? const Value.absent()
+            : Value(metadataJson),
+      ),
+    );
   }
 
   /// Merges [patch] into the stored item's UserData, with a null value
@@ -128,28 +157,164 @@ class OfflineRepository {
     });
     metadata['UserData'] = userData;
 
-    await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
-        .write(DownloadedItemsCompanion(metadataJson: Value(jsonEncode(metadata))));
+    await (_db.update(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).write(
+      DownloadedItemsCompanion(metadataJson: Value(jsonEncode(metadata))),
+    );
   }
 
-  Future<void> deleteItem(String itemId) async {
-    await (_db.delete(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
+  // ---------------------------------------------------------------------
+  // Auto-download subscriptions
+
+  Expression<bool> _subscriptionKey(
+    $AutoDownloadSubscriptionsTable t, {
+    required String seriesId,
+    required String serverId,
+    required String userId,
+  }) =>
+      t.seriesId.equals(seriesId) &
+      t.serverId.equals(serverId) &
+      t.userId.equals(userId);
+
+  SimpleSelectStatement<
+    $AutoDownloadSubscriptionsTable,
+    AutoDownloadSubscription
+  >
+  _accountSubscriptions({required String serverId, required String userId}) =>
+      _db.select(_db.autoDownloadSubscriptions)
+        ..where((t) => t.serverId.equals(serverId) & t.userId.equals(userId))
+        ..orderBy([(t) => OrderingTerm.asc(t.seriesName)]);
+
+  Future<List<AutoDownloadSubscription>> getSubscriptions({
+    required String serverId,
+    required String userId,
+  }) => _accountSubscriptions(serverId: serverId, userId: userId).get();
+
+  Stream<List<AutoDownloadSubscription>> watchSubscriptions({
+    required String serverId,
+    required String userId,
+  }) => _accountSubscriptions(serverId: serverId, userId: userId).watch();
+
+  SimpleSelectStatement<
+    $AutoDownloadSubscriptionsTable,
+    AutoDownloadSubscription
+  >
+  _subscription({
+    required String seriesId,
+    required String serverId,
+    required String userId,
+  }) => _db.select(_db.autoDownloadSubscriptions)
+    ..where(
+      (t) => _subscriptionKey(
+        t,
+        seriesId: seriesId,
+        serverId: serverId,
+        userId: userId,
+      ),
+    );
+
+  Future<AutoDownloadSubscription?> getSubscription({
+    required String seriesId,
+    required String serverId,
+    required String userId,
+  }) => _subscription(
+    seriesId: seriesId,
+    serverId: serverId,
+    userId: userId,
+  ).getSingleOrNull();
+
+  Stream<AutoDownloadSubscription?> watchSubscription({
+    required String seriesId,
+    required String serverId,
+    required String userId,
+  }) => _subscription(
+    seriesId: seriesId,
+    serverId: serverId,
+    userId: userId,
+  ).watchSingleOrNull();
+
+  Future<void> upsertSubscription(AutoDownloadSubscriptionsCompanion row) {
+    return _db.into(_db.autoDownloadSubscriptions).insertOnConflictUpdate(row);
+  }
+
+  Future<void> updateSubscriptionCheck({
+    required String seriesId,
+    required String serverId,
+    required String userId,
+    required DateTime checkedAt,
+    required int queuedCount,
+    String? error,
+  }) async {
+    await (_db.update(_db.autoDownloadSubscriptions)..where(
+          (t) => _subscriptionKey(
+            t,
+            seriesId: seriesId,
+            serverId: serverId,
+            userId: userId,
+          ),
+        ))
+        .write(
+          AutoDownloadSubscriptionsCompanion(
+            lastCheckedAt: Value(checkedAt),
+            lastQueuedCount: Value(queuedCount),
+            lastError: Value(error),
+          ),
+        );
+  }
+
+  Future<void> deleteSubscription({
+    required String seriesId,
+    required String serverId,
+    required String userId,
+  }) async {
+    await (_db.delete(_db.autoDownloadSubscriptions)..where(
+          (t) => _subscriptionKey(
+            t,
+            seriesId: seriesId,
+            serverId: serverId,
+            userId: userId,
+          ),
+        ))
         .go();
   }
 
+  /// Id, status and source of every download row, without the metadata
+  /// blobs: what batch queueing and the auto-download check need.
+  Future<List<DownloadRef>> getDownloadRefs() async {
+    final t = _db.downloadedItems;
+    final rows = await (_db.selectOnly(
+      t,
+    )..addColumns([t.itemId, t.downloadStatus, t.downloadSource])).get();
+    return [
+      for (final row in rows)
+        (
+          itemId: row.read(t.itemId)!,
+          downloadStatus: row.read(t.downloadStatus)!,
+          downloadSource: row.read(t.downloadSource)!,
+        ),
+    ];
+  }
+
+  // ---------------------------------------------------------------------
+
+  Future<void> deleteItem(String itemId) async {
+    await (_db.delete(
+      _db.downloadedItems,
+    )..where((t) => t.itemId.equals(itemId))).go();
+  }
+
   Future<void> deleteSeriesItems(String seriesId) async {
-    await (_db.delete(_db.downloadedItems)
-          ..where((t) =>
-              t.itemId.equals(seriesId) | t.seriesId.equals(seriesId)))
+    await (_db.delete(_db.downloadedItems)..where(
+          (t) => t.itemId.equals(seriesId) | t.seriesId.equals(seriesId),
+        ))
         .go();
   }
 
   Future<void> deleteSeasonItems(String seasonId) async {
-    await (_db.delete(_db.downloadedItems)
-          ..where((t) =>
-              t.itemId.equals(seasonId) | t.seasonId.equals(seasonId)))
+    await (_db.delete(_db.downloadedItems)..where(
+          (t) => t.itemId.equals(seasonId) | t.seasonId.equals(seasonId),
+        ))
         .go();
   }
 
@@ -195,9 +360,7 @@ class OfflineRepository {
 
   Future<List<DownloadedItem>> getSeriesEpisodes(String seriesId) async {
     final query = _db.select(_db.downloadedItems)
-      ..where((t) =>
-          t.seriesId.equals(seriesId) &
-          t.type.equals('Episode'))
+      ..where((t) => t.seriesId.equals(seriesId) & t.type.equals('Episode'))
       ..orderBy([
         (t) => OrderingTerm.asc(t.parentIndexNumber),
         (t) => OrderingTerm.asc(t.indexNumber),
@@ -207,9 +370,7 @@ class OfflineRepository {
 
   Future<List<DownloadedItem>> getSeasonEpisodes(String seasonId) async {
     final query = _db.select(_db.downloadedItems)
-      ..where((t) =>
-          t.seasonId.equals(seasonId) &
-          t.type.equals('Episode'))
+      ..where((t) => t.seasonId.equals(seasonId) & t.type.equals('Episode'))
       ..orderBy([(t) => OrderingTerm.asc(t.indexNumber)]);
     return query.get();
   }
@@ -222,16 +383,16 @@ class OfflineRepository {
 
   Future<List<DownloadedItem>> getDownloadedMovies() async {
     final query = _db.select(_db.downloadedItems)
-      ..where((t) =>
-          t.type.equals('Movie') &
-          t.downloadStatus.equals(2));
+      ..where((t) => t.type.equals('Movie') & t.downloadStatus.equals(2));
     return query.get();
   }
 
   Future<int> getTotalStorageUsed() async {
-    final result = await _db.customSelect(
+    final result = await _db
+        .customSelect(
       'SELECT COALESCE(SUM(file_size_bytes), 0) AS total FROM downloaded_items',
-    ).getSingle();
+        )
+        .getSingle();
     return result.read<int>('total');
   }
 
@@ -286,9 +447,7 @@ class OfflineRepository {
 
   Stream<List<DownloadedItem>> watchSeriesEpisodes(String seriesId) {
     final query = _db.select(_db.downloadedItems)
-      ..where((t) =>
-          t.seriesId.equals(seriesId) &
-          t.type.equals('Episode'))
+      ..where((t) => t.seriesId.equals(seriesId) & t.type.equals('Episode'))
       ..orderBy([
         (t) => OrderingTerm.asc(t.parentIndexNumber),
         (t) => OrderingTerm.asc(t.indexNumber),
@@ -298,9 +457,7 @@ class OfflineRepository {
 
   Stream<List<DownloadedItem>> watchSeasonEpisodes(String seasonId) {
     final query = _db.select(_db.downloadedItems)
-      ..where((t) =>
-          t.seasonId.equals(seasonId) &
-          t.type.equals('Episode'))
+      ..where((t) => t.seasonId.equals(seasonId) & t.type.equals('Episode'))
       ..orderBy([(t) => OrderingTerm.asc(t.indexNumber)]);
     return query.watch();
   }
@@ -320,12 +477,22 @@ class OfflineRepository {
   }) async {
     await (_db.update(_db.downloadedItems)
           ..where((t) => t.itemId.equals(itemId) & t.serverId.equals(serverId)))
-        .write(DownloadedItemsCompanion(
-      localFilePath: localFilePath != null ? Value(localFilePath) : const Value.absent(),
-      posterPath: posterPath != null ? Value(posterPath) : const Value.absent(),
-      backdropPath: backdropPath != null ? Value(backdropPath) : const Value.absent(),
+        .write(
+          DownloadedItemsCompanion(
+            localFilePath: localFilePath != null
+                ? Value(localFilePath)
+                : const Value.absent(),
+            posterPath: posterPath != null
+                ? Value(posterPath)
+                : const Value.absent(),
+            backdropPath: backdropPath != null
+                ? Value(backdropPath)
+                : const Value.absent(),
       logoPath: logoPath != null ? Value(logoPath) : const Value.absent(),
-      thumbPath: thumbPath != null ? Value(thumbPath) : const Value.absent(),
-    ));
+            thumbPath: thumbPath != null
+                ? Value(thumbPath)
+                : const Value.absent(),
+          ),
+        );
   }
 }

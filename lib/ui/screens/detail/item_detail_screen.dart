@@ -10550,11 +10550,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
     final quality = await _pickQuality(
       context,
       title: l10n.autoDownloadQualityTitle,
-      // iOS background checks skip transcoded subscriptions; Android's
-      // worker can run them, so the note is an iOS matter.
-      note: PlatformDetection.isIOS
-          ? l10n.autoDownloadTranscodedForegroundNote
-          : null,
+      note: l10n.autoDownloadTranscodedForegroundNote,
     );
     if (quality == null || !mounted) return;
     unawaited(autoDownloads.subscribe(item, quality: quality));
@@ -10600,7 +10596,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
           subtitle: Text(
             subscription == null
                 ? l10n.autoDownloadKeepSubtitle(keep)
-                : quality!.isTranscoded && PlatformDetection.isIOS
+                : AutoDownloadService.runsForegroundOnly(quality!)
                 ? '${l10n.autoDownloadOnSubtitle(quality.label)} • ${l10n.autoDownloadForegroundOnly}'
                 : l10n.autoDownloadOnSubtitle(quality.label),
             style: isTV

@@ -11580,11 +11580,15 @@ class AppLocalizationsSl extends AppLocalizations {
 
   @override
   String get autoDownloadBackgroundRefreshSubtitle =>
-      'Allow iOS to check for new episodes periodically while Moonfin is closed';
+      'Allow the system to check for new episodes periodically while Moonfin is closed';
 
   @override
   String get autoDownloadBackgroundRefreshDenied =>
       'Background App Refresh is disabled for Moonfin. Enable it in iOS Settings';
+
+  @override
+  String get autoDownloadBackgroundRestrictedAndroid =>
+      'Background usage is restricted for Moonfin in Android settings';
 
   @override
   String get autoDownloadCheckNow => 'Check now';

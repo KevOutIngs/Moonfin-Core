@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
+
 import '../../ui/navigation/app_router.dart';
 import '../../ui/navigation/destinations.dart';
 import '../../ui/navigation/home_refresh_bus.dart';
@@ -504,6 +505,7 @@ class SessionRepository {
       }
       _clientFactory.removeClient(serverId);
       resetActiveStreamResolver();
+      clearAutoDownloadForSignOut();
     }
 
     await _authPrefs.setLastServerId('');
@@ -540,7 +542,9 @@ class SessionRepository {
         GetIt.instance<MoonfinAudioHandler>().notifyChildrenChanged();
       }
       if (GetIt.instance.isRegistered<CarPlayService>()) {
-        GetIt.instance<CarPlayService>().notifySignInChanged(signedIn: signedIn);
+        GetIt.instance<CarPlayService>().notifySignInChanged(
+          signedIn: signedIn,
+        );
       }
     } catch (_) {}
   }

@@ -113,4 +113,11 @@ class FakeDownloader implements AutoDownloadDownloader {
 
   @override
   Future<int?> storageHeadroomBytes() async => headroomBytes;
+
+  @override
+  Future<bool> canTransferInBackground(DownloadQuality quality) async =>
+      !quality.isTranscoded;
+
+  @override
+  Future<void> waitForNativeHandoff({required Duration timeout}) async {}
 }

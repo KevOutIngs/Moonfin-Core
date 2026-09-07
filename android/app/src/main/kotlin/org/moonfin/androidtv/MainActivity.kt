@@ -325,6 +325,7 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
             flutterEngine.dartExecutor.binaryMessenger,
             MediaStoreHelper.CHANNEL,
         ).setMethodCallHandler(MediaStoreHelper(this))
+        DeviceStorageChannel.register(flutterEngine.dartExecutor.binaryMessenger)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,

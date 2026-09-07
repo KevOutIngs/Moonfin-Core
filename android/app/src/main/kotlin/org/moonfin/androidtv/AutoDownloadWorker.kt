@@ -135,6 +135,8 @@ class AutoDownloadWorker(
                     flutterEngine.dartExecutor.binaryMessenger,
                     MediaStoreHelper.CHANNEL,
                 ).setMethodCallHandler(MediaStoreHelper(applicationContext))
+                // Free-space checks before an episode is queued.
+                DeviceStorageChannel.register(flutterEngine.dartExecutor.binaryMessenger)
 
                 MethodChannel(
                     flutterEngine.dartExecutor.binaryMessenger,

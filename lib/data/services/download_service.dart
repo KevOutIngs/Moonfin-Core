@@ -16,6 +16,7 @@ import 'package:uuid/uuid.dart';
 import '../../platform/ios_storage.dart';
 import '../../playback/subtitle_formats.dart';
 import '../../preference/user_preferences.dart';
+import '../../util/download_grouping.dart' show downloadNotificationLabel;
 import '../../util/download_utils.dart';
 import '../../util/platform_detection.dart';
 import '../database/offline_database.dart';
@@ -288,6 +289,25 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
 
   int _totalQueued = 0;
   int _completedCount = 0;
+
+  /// Series of the items finished in the current batch (null for a movie),
+  /// so the completion notice can name the show when there is only one.
+  final Set<String?> _completedSeries = {};
+
+  void _resetBatch() {
+    _totalQueued = 0;
+    _completedCount = 0;
+    _completedSeries.clear();
+  }
+
+  /// "Series S1E1" or the item's name, for the system notifications.
+  static String _notificationLabel(AggregatedItem item) =>
+      downloadNotificationLabel(
+        name: item.name,
+        seriesName: item.seriesName,
+        season: item.parentIndexNumber,
+        episode: item.indexNumber,
+      );
 
   /// Batches still awaiting completion. Counters reset only when the last
   /// one finishes, so an automatic batch can run beside a manual one.
@@ -1023,6 +1043,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
   }) async {
     // Both engines finish here, so this is the one place a batch can be counted.
     _completedCount++;
+    _completedSeries.add(item.type == 'Episode' ? item.seriesName : null);
 
     Future<void> runBestEffort(Future<void> task, Duration timeout) async {
       try {
@@ -1059,8 +1080,11 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     if (_totalQueued <= 1 || _completedCount >= _totalQueued) {
       await runBestEffort(
         _notificationService.showComplete(
-          itemName: item.name,
+          itemName: _notificationLabel(item),
           batchTotal: _totalQueued > 1 ? _completedCount : 0,
+          batchSeries: _completedSeries.length == 1
+              ? _completedSeries.single
+              : null,
         ),
         const Duration(seconds: 10),
       );
@@ -1148,7 +1172,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     await _coordinator!.ensureInitialized();
     final ctx = _MediaDownloadContext(
       itemId: item.id,
-      displayName: item.name,
+      displayName: _notificationLabel(item),
       quality: quality,
       savePath: savePath,
       onReceiveProgress: onReceiveProgress,
@@ -2127,7 +2151,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
         destinationOnRemovableStorage: destinationOnRemovableStorage,
       )) {
         await _notificationService.showProgress(
-          itemName: item.name,
+          itemName: _notificationLabel(item),
           progress: initialProgress,
           batchTotal: _totalQueued,
           batchCompleted: _completedCount,
@@ -2227,7 +2251,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
             _shouldUpdateSystemNotification(item.id, progress)) {
           unawaited(
             _notificationService.showProgress(
-              itemName: item.name,
+              itemName: _notificationLabel(item),
               progress: progress,
               batchTotal: _totalQueued,
               batchCompleted: _completedCount,
@@ -2586,8 +2610,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
       if (generation != _batchGeneration) return;
       _openBatches--;
       if (_openBatches == 0) {
-        _totalQueued = 0;
-        _completedCount = 0;
+        _resetBatch();
         await _notificationService.dismiss();
       }
       notifyListeners();
@@ -3106,8 +3129,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     }
     _batchGeneration++;
     _openBatches = 0;
-    _totalQueued = 0;
-    _completedCount = 0;
+    _resetBatch();
     _notificationService.dismiss();
     notifyListeners();
   }
@@ -3155,8 +3177,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     _activeDownloads.clear();
     _cancelTokens.clear();
     _downloadStartTimes.clear();
-    _totalQueued = 0;
-    _completedCount = 0;
+    _resetBatch();
     await _notificationService.dismiss();
     notifyListeners();
   }
@@ -3287,7 +3308,12 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
 
     final ctx = _MediaDownloadContext(
       itemId: itemId,
-      displayName: row.name,
+      displayName: downloadNotificationLabel(
+        name: row.name,
+        seriesName: row.seriesName,
+        season: row.parentIndexNumber,
+        episode: row.indexNumber,
+      ),
       quality: quality,
       savePath: savePath,
       onReceiveProgress: (received, total, {bytesPerSecond, etaSeconds}) {

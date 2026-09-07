@@ -11584,6 +11584,15 @@ class AppLocalizationsId extends AppLocalizations {
   }
 
   @override
+  String downloadNotificationTransfer(
+    String name,
+    String progress,
+    String timeRemaining,
+  ) {
+    return '$name — $progress · $timeRemaining';
+  }
+
+  @override
   String downloadNotificationStarting(String name) {
     return '$name...';
   }

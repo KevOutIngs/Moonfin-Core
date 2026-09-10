@@ -155,6 +155,189 @@ class AppLocalizationsFr extends AppLocalizations {
   String get detailScreenStyleModern => 'Moderne';
 
   @override
+  String get detailScreenStyleSpotlight => 'Spotlight';
+
+  @override
+  String get spotlightMoreActions => 'More actions';
+
+  @override
+  String get spotlightCastCrewStudios => 'Cast, Crew, and Studios';
+
+  @override
+  String get spotlightChaptersExtras => 'Chapters and Extras';
+
+  @override
+  String get spotlightSimilarRecommendations => 'Similar and Recommendations';
+
+  @override
+  String get spotlightSeerrRecommendations =>
+      'Similar and Seerr Recommendations';
+
+  @override
+  String get spotlightSeasonsEpisodes => 'Seasons and Episodes';
+
+  @override
+  String get spotlightMoreEpisodes => 'More Episodes';
+
+  @override
+  String get spotlightFilmography => 'Filmography';
+
+  @override
+  String get spotlightCollectionsCard => 'Collections';
+
+  @override
+  String get spotlightPlaylistOrder => 'Playlist Order';
+
+  @override
+  String get spotlightMoviesAndShows => 'Movies & Shows';
+
+  @override
+  String get spotlightSimilarSeerr => 'Similar (Seerr)';
+
+  @override
+  String spotlightPeopleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people',
+      one: '1 person',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightStudiosCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count studios',
+      one: '1 studio',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightChaptersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters',
+      one: '1 chapter',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightExtrasCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count extras',
+      one: '1 extra',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightSeasonsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seasons',
+      one: '1 season',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightEpisodesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count episodes',
+      one: '1 episode',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightMoviesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count movies',
+      one: '1 movie',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightShowsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count shows',
+      one: '1 show',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightTracksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count tracks',
+      one: '1 track',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightItemsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items',
+      one: '1 item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightAlbumsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count albums',
+      one: '1 album',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightCollectionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count collections',
+      one: '1 collection',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String spotlightTitlesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count titles',
+      one: '1 title',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get expandedTabs => 'Onglets déployés';
 
   @override
@@ -258,7 +441,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get performanceModeSubtitle =>
-      'Auto measures this device and holds back on the ones short on memory, which keeps fewer images in memory and leaves trailers as still images. Takes full effect on the next launch.';
+      'La fonction « Auto » analyse cet appareil et limite l\'utilisation des modèles disposant d\'une mémoire insuffisante, ce qui réduit le nombre d\'images stockées en mémoire et convertit les bandes-annonces en images fixes. Cette modification prendra pleinement effet lors du prochain démarrage.';
 
   @override
   String get performanceModeAuto => 'Auto';
@@ -267,11 +450,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get performanceModeStandard => 'Standard';
 
   @override
-  String get performanceModeReduced => 'Reduced';
+  String get performanceModeReduced => 'Réduit';
 
   @override
   String get trailerPreviewHeldBack =>
-      'Off because Performance is set to Reduced for this device';
+      'Désactivé car le paramètre « Performances » est réglé sur « Réduit » pour cet appareil';
 
   @override
   String get settingsAppearanceThemeSubtitle =>
@@ -292,14 +475,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Utilisez la méthode de saisie de votre appareil par défaut pour la saisie de texte';
 
   @override
-  String get controller => 'Controller';
+  String get controller => 'Contrôleur';
 
   @override
-  String get gamepadNavigation => 'Gamepad navigation';
+  String get gamepadNavigation => 'Navigation à l\'aide d\'une manette';
 
   @override
   String get gamepadNavigationDescription =>
-      'Let a connected game controller move focus and select items';
+      'Permettre à une manette de jeu connectée de déplacer le curseur et de sélectionner des éléments';
 
   @override
   String get themeMoonfin => 'Moonfin';
@@ -849,10 +1032,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get latestAudiobooks => 'Livres audio récemment ajoutés';
 
   @override
-  String get latestComics => 'Latest Comics';
+  String get latestComics => 'Dernières bandes dessinées';
 
   @override
-  String get comics => 'Comics';
+  String get comics => 'Bandes dessinées';
 
   @override
   String bookSeriesItemCount(int count) {
@@ -872,7 +1055,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get bookFormatAudiobook => 'Livre audio';
 
   @override
-  String get bookFormatComic => 'Comic';
+  String get bookFormatComic => 'Bande dessinée';
 
   @override
   String get noBooksFound => 'Aucun livre trouvé pour cet auteur.';
@@ -11587,6 +11770,13 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get setupDetailModernHint =>
       'Cinématique, avec des onglets pour la distribution et les bonus.';
+
+  @override
+  String get setupStyleSpotlight => 'Spotlight';
+
+  @override
+  String get setupDetailSpotlightHint =>
+      'Hero-first, with pop-up cards for cast and extras.';
 
   @override
   String get setupPickALook => 'Choisissez une apparence';

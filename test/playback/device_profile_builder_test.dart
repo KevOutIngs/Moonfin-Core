@@ -380,6 +380,31 @@ Map<String, dynamic>? _sampleRateCap(Map<String, dynamic> profile) {
   return null;
 }
 
+// The fewest channels a codec may carry and still direct play, or null when
+// the profile sets no floor for it.
+String? _videoAudioChannelFloor(Map<String, dynamic> profile, String codec) {
+  final codecProfiles = profile['CodecProfiles'] as List<dynamic>? ?? const [];
+
+  for (final rawProfile in codecProfiles) {
+    final codecProfile = rawProfile as Map<dynamic, dynamic>;
+    if (codecProfile['Type'] != 'VideoAudio' ||
+        codecProfile['Codec'] != codec) {
+      continue;
+    }
+
+    final conditions = codecProfile['Conditions'] as List<dynamic>? ?? const [];
+    for (final rawCondition in conditions) {
+      final condition = rawCondition as Map<dynamic, dynamic>;
+      if (condition['Property'] == 'AudioChannels' &&
+          condition['Condition'] == 'GreaterThanEqual') {
+        return condition['Value']?.toString();
+      }
+    }
+  }
+
+  return null;
+}
+
 void main() {
   group('DeviceProfileBuilder bridged audio sample rate', () {
     test('a player that bridges audio caps the codecs it has to re-encode', () {
@@ -409,6 +434,49 @@ void main() {
 
     test('a player that decodes natively gets no cap', () {
       expect(_sampleRateCap(DeviceProfileBuilder.build()), isNull);
+    });
+  });
+
+  group('DeviceProfileBuilder stereo TrueHD', () {
+    test('a player whose decoder stalls on it asks for surround only', () {
+      expect(
+        _videoAudioChannelFloor(
+          DeviceProfileBuilder.build(playerDecodesStereoTrueHd: false),
+          'truehd',
+        ),
+        '3',
+      );
+    });
+
+    test('a bitstreamed route never decodes, so it keeps stereo', () {
+      expect(
+        _videoAudioChannelFloor(
+          DeviceProfileBuilder.build(
+            playerDecodesStereoTrueHd: false,
+            trueHdPassthroughEnabled: true,
+            audioCapabilityProfile: _capabilityProfile(
+              canPassthroughTrueHd: true,
+            ),
+          ),
+          'truehd',
+        ),
+        isNull,
+      );
+    });
+
+    test('a player that decodes it is left alone', () {
+      expect(
+        _videoAudioChannelFloor(DeviceProfileBuilder.build(), 'truehd'),
+        isNull,
+      );
+    });
+
+    test('surround TrueHD still direct plays either way', () {
+      final profile = DeviceProfileBuilder.build(
+        playerDecodesStereoTrueHd: false,
+      );
+
+      expect(_videoDirectPlayAudioCodecs(profile), contains('truehd'));
     });
   });
 

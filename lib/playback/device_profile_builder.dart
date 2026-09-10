@@ -134,6 +134,10 @@ class DeviceProfileBuilder {
     // locally. Detection never subtracts from the advertised list.
     bool universalAudioDecode = false,
     bool playerDecodesTrueHd = true,
+    // Whether the player can decode a stereo TrueHD track. One that can't asks
+    // the server for surround TrueHD only, so the rest transcodes instead of
+    // reaching a decoder that stalls on it.
+    bool playerDecodesStereoTrueHd = true,
     MaxVideoResolution maxResolution = MaxVideoResolution.auto,
     bool pgsDirectPlay = true,
     bool assDirectPlay = true,
@@ -432,6 +436,7 @@ class DeviceProfileBuilder {
       maxAudioChannels: advertisedMaxChannels,
       passthroughAudioCodecs: passthroughAudioCodecs,
       universalAudioDecode: universalAudioDecode,
+      playerDecodesStereoTrueHd: playerDecodesStereoTrueHd,
       forceStereo: limitStereoDirectPlay,
       maxResolution: maxResolution,
       supportsAvc: effectiveSupportsAvc,
@@ -1034,6 +1039,7 @@ class DeviceProfileBuilder {
     required int maxAudioChannels,
     required Set<String> passthroughAudioCodecs,
     required bool universalAudioDecode,
+    required bool playerDecodesStereoTrueHd,
     required bool forceStereo,
     required MaxVideoResolution maxResolution,
     required bool supportsAvc,
@@ -1521,6 +1527,24 @@ class DeviceProfileBuilder {
               condition: 'LessThanEqual',
               property: 'AudioSampleRate',
               value: '$_bridgedAudioMaxSampleRate',
+            ),
+          ],
+        ),
+      );
+    }
+
+    // A route that bitstreams TrueHD never decodes it, so it keeps stereo.
+    if (!playerDecodesStereoTrueHd &&
+        !passthroughAudioCodecs.contains('truehd')) {
+      profiles.add(
+        _codecProfile(
+          type: 'VideoAudio',
+          codec: 'truehd',
+          conditions: <Map<String, dynamic>>[
+            _condition(
+              condition: 'GreaterThanEqual',
+              property: 'AudioChannels',
+              value: '3',
             ),
           ],
         ),

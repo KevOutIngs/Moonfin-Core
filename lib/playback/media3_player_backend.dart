@@ -1118,6 +1118,10 @@ class Media3PlayerBackend extends PlayerBackend {
       eac3PassthroughEnabled: _prefs.resolveEac3PassthroughEnabled(),
       dtsCorePassthroughEnabled: _prefs.resolveDtsCorePassthroughEnabled(),
       trueHdPassthroughEnabled: _prefs.resolveTrueHdPassthroughEnabled(),
+      // The bundled FFmpeg decoder leaves the channel layout unset for stereo
+      // TrueHD, so every packet is rejected and playback sits at 0ms with a
+      // black screen. Surround decodes fine. See androidx/media#1843.
+      playerDecodesStereoTrueHd: false,
       maxAudioChannels: _prefs.resolveMaxAudioChannels(),
       downmixToStereo: _prefs.get(UserPreferences.downmixToStereo),
       // Media3 bundles the FFmpeg audio decoder extension, so every advertised

@@ -38,6 +38,7 @@ import '../../navigation/app_router.dart';
 import '../../navigation/playback_launcher.dart';
 import 'detail_buttons.dart';
 import 'modern/modern_detail_content.dart';
+import 'spotlight/spotlight_detail_content.dart';
 import '../../../data/repositories/seerr_repository.dart';
 import '../../../data/services/seerr/seerr_api_models.dart';
 import '../../../l10n/app_localizations.dart';
@@ -628,48 +629,75 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           ],
         ),
       ),
-      ItemDetailState.ready =>
-        _prefs.get(UserPreferences.detailScreenStyle) ==
-                DetailScreenStyle.modern
-            ? ModernDetailContent(
-                viewModel: _viewModel,
-                prefs: _prefs,
-                backdropUrl: _backdropUrl,
-                selectedMediaSourceId: _selectedMediaSourceId,
-                initialFocusNode: _ensureInitialFocusNode(),
-                onSelectedMediaSourceChanged: (id) {
-                  setState(() => _selectedMediaSourceId = id);
-                  _viewModel.load(mediaSourceId: id);
-                },
-                onBackdropItemFocused: _onBackdropItemFocused,
-                autoPlay: widget.autoPlay,
-                onPlayFromChapter: (position) => unawaited(
-                  _playFromChapter(
-                    context,
-                    _viewModel.item!,
-                    position,
-                    _selectedMediaSourceId,
-                  ),
-                ),
-                onToggleNavbar: (show) => setState(() => _showNavbar = show),
-                actionsExpanded: _actionsExpanded,
-                onActionsExpandedChanged: (val) =>
-                    setState(() => _actionsExpanded = val),
-                onCollapseBiography: () => setState(() {}),
-              )
-            : _DetailContent(
-                viewModel: _viewModel,
-                prefs: _prefs,
-                backdropUrl: _backdropUrl,
-                selectedMediaSourceId: _selectedMediaSourceId,
-                initialFocusNode: _ensureInitialFocusNode(),
-                onSelectedMediaSourceChanged: (id) {
-                  setState(() => _selectedMediaSourceId = id);
-                  _viewModel.load(mediaSourceId: id);
-                },
-                onBackdropItemFocused: _onBackdropItemFocused,
-                autoPlay: widget.autoPlay,
-              ),
+      ItemDetailState.ready => switch (_prefs.get(
+        UserPreferences.detailScreenStyle,
+      )) {
+        DetailScreenStyle.modern => ModernDetailContent(
+          viewModel: _viewModel,
+          prefs: _prefs,
+          backdropUrl: _backdropUrl,
+          selectedMediaSourceId: _selectedMediaSourceId,
+          initialFocusNode: _ensureInitialFocusNode(),
+          onSelectedMediaSourceChanged: (id) {
+            setState(() => _selectedMediaSourceId = id);
+            _viewModel.load(mediaSourceId: id);
+          },
+          onBackdropItemFocused: _onBackdropItemFocused,
+          autoPlay: widget.autoPlay,
+          onPlayFromChapter: (position) => unawaited(
+            _playFromChapter(
+              context,
+              _viewModel.item!,
+              position,
+              _selectedMediaSourceId,
+            ),
+          ),
+          onToggleNavbar: (show) => setState(() => _showNavbar = show),
+          actionsExpanded: _actionsExpanded,
+          onActionsExpandedChanged: (val) =>
+              setState(() => _actionsExpanded = val),
+          onCollapseBiography: () => setState(() {}),
+        ),
+        DetailScreenStyle.spotlight => SpotlightDetailContent(
+          viewModel: _viewModel,
+          prefs: _prefs,
+          backdropUrl: _backdropUrl,
+          selectedMediaSourceId: _selectedMediaSourceId,
+          initialFocusNode: _ensureInitialFocusNode(),
+          onSelectedMediaSourceChanged: (id) {
+            setState(() => _selectedMediaSourceId = id);
+            _viewModel.load(mediaSourceId: id);
+          },
+          onBackdropItemFocused: _onBackdropItemFocused,
+          autoPlay: widget.autoPlay,
+          onPlayFromChapter: (position) => unawaited(
+            _playFromChapter(
+              context,
+              _viewModel.item!,
+              position,
+              _selectedMediaSourceId,
+            ),
+          ),
+          onToggleNavbar: (show) => setState(() => _showNavbar = show),
+          actionsExpanded: _actionsExpanded,
+          onActionsExpandedChanged: (val) =>
+              setState(() => _actionsExpanded = val),
+          onCollapseBiography: () => setState(() {}),
+        ),
+        DetailScreenStyle.classic => _DetailContent(
+          viewModel: _viewModel,
+          prefs: _prefs,
+          backdropUrl: _backdropUrl,
+          selectedMediaSourceId: _selectedMediaSourceId,
+          initialFocusNode: _ensureInitialFocusNode(),
+          onSelectedMediaSourceChanged: (id) {
+            setState(() => _selectedMediaSourceId = id);
+            _viewModel.load(mediaSourceId: id);
+          },
+          onBackdropItemFocused: _onBackdropItemFocused,
+          autoPlay: widget.autoPlay,
+        ),
+      },
     };
   }
 }
@@ -4788,6 +4816,14 @@ class DetailActionButtons extends StatefulWidget {
   /// circular buttons (landscape).
   final bool fullWidthPrimary;
 
+  /// Spotlight mode: the overflow button is an ellipsis that opens a popup
+  /// menu of the remaining actions instead of expanding them inline, and the
+  /// count split applies to every item type (the Series/Season two-column
+  /// heuristic is bypassed). Overflow also triggers strictly, so never more
+  /// than [maxVisibleButtonsOverride] minus the ellipsis slot stays inline,
+  /// even when the menu would hold a single action.
+  final bool overflowAsMenu;
+
   /// How wide the column hosting the row is. The two column layout measures
   /// its buttons against this to decide when they stop fitting on one line,
   /// which the per device count gets wrong in a column this narrow.
@@ -4812,6 +4848,7 @@ class DetailActionButtons extends StatefulWidget {
     this.onArrowRightAtEnd,
     this.modernStyle = false,
     this.fullWidthPrimary = false,
+    this.overflowAsMenu = false,
     this.rowMaxWidth,
     this.actionRowRightFocusNode,
     this.extraFirstFocusNode,
@@ -6013,6 +6050,90 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     }
   }
 
+  /// Spotlight overflow: opens the remaining actions as a popup menu. Each
+  /// row invokes the original button's handler after the menu closes, so no
+  /// action logic is duplicated. Focus returns to the ellipsis through the
+  /// dialog's focus-restore wrapper.
+  Future<void> _showOverflowMenu(
+    BuildContext context,
+    List<Widget> extraButtons,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final actions = extraButtons.whereType<_DetailActionButton>().toList();
+    if (actions.isEmpty) return;
+    final selected = await showStyledPlayerDialog<VoidCallback>(
+      context,
+      title: l10n.spotlightMoreActions,
+      builder: (dialogContext) => ListView.builder(
+        shrinkWrap: true,
+        itemCount: actions.length,
+        itemBuilder: (rowContext, index) {
+          final action = actions[index];
+          final tint = action.isActive
+              ? (action.activeColor ?? AppColorScheme.accent)
+              : Colors.white;
+          return DpadListTile(
+            autofocus: index == 0,
+            leading: action.iconBuilder != null
+                ? action.iconBuilder!(22, tint)
+                : (action.icon != null
+                      ? AdaptiveIcon(action.icon!, color: tint, size: 22)
+                      : null),
+            title: Text(
+              action.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: tint,
+                fontWeight: action.isActive
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+              ),
+            ),
+            onTap: () => Navigator.pop(rowContext, action.onPressed),
+            onLongPress: action.onLongPress == null
+                ? null
+                : () => Navigator.pop(rowContext, action.onLongPress),
+          );
+        },
+      ),
+    );
+    if (selected != null) {
+      // Let the pop and focus restore settle first, since several actions
+      // immediately open a dialog of their own.
+      WidgetsBinding.instance.addPostFrameCallback((_) => selected());
+    }
+  }
+
+  /// The count-based overflow decision, extracted pure so the Spotlight cap
+  /// (Play + 3 secondaries + ellipsis, strictly) is pinned by tests.
+  ///
+  /// [totalButtons] counts every button including the primary Play slot.
+  /// On the modern mobile layout the full-width primary sits on its own row,
+  /// so it neither occupies a visible slot nor counts toward the split. In
+  /// [overflowAsMenu] (Spotlight) mode overflow triggers as soon as one more
+  /// button exists than the visible slots hold, even when the ellipsis menu
+  /// would hold a single action. Otherwise a row exactly at the cap stays
+  /// inline.
+  @visibleForTesting
+  static ({int visibleCount, bool needsOverflow}) countSplit({
+    required int totalButtons,
+    required int maxVisible,
+    required bool isModernMobile,
+    required bool overflowAsMenu,
+    required bool countCapped,
+  }) {
+    final secondaryCount = isModernMobile ? totalButtons - 1 : totalButtons;
+    final visibleCount = isModernMobile ? maxVisible : maxVisible - 1;
+    final overflowThreshold = overflowAsMenu
+        ? (isModernMobile ? visibleCount - 1 : visibleCount)
+        : maxVisible;
+    return (
+      visibleCount: visibleCount,
+      needsOverflow: countCapped && secondaryCount > overflowThreshold,
+    );
+  }
+
   int _calculateMaxVisibleButtons(BuildContext context) {
     final override = widget.maxVisibleButtonsOverride;
     if (override != null) return override > 2 ? override : 2;
@@ -6788,7 +6909,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     final bool isModernMobile = widget.modernStyle && _isCompact(context);
     // Series/Season keep the two-column inline-Play layout on TV/desktop; on the
     // compact (mobile) layout every type uses the full-width primary + overflow.
-    final bool isTwoColumnLayout = !isModernMobile && isTvShow;
+    // The menu-overflow (Spotlight) mode uses the count split for every type.
+    final bool isTwoColumnLayout =
+        !widget.overflowAsMenu && !isModernMobile && isTvShow;
 
     // The buttons only fold into More once they stop fitting on one line.
     // Measuring the worst case, where whichever button is focused has grown
@@ -6839,15 +6962,18 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     } else {
       // On mobile the full-width primary sits on its own row, so it does not
       // occupy a slot in the secondary row: exclude it from the count and split.
-      final int secondaryCount = isModernMobile
-          ? allButtons.length - 1
-          : allButtons.length;
-      final int visibleCount = isModernMobile ? maxVisible : maxVisible - 1;
-      needsOverflow =
-          (compact ||
-              PlatformDetection.isTV ||
-              widget.maxVisibleButtonsOverride != null) &&
-          secondaryCount > maxVisible;
+      final split = countSplit(
+        totalButtons: allButtons.length,
+        maxVisible: maxVisible,
+        isModernMobile: isModernMobile,
+        overflowAsMenu: widget.overflowAsMenu,
+        countCapped:
+            compact ||
+            PlatformDetection.isTV ||
+            widget.maxVisibleButtonsOverride != null,
+      );
+      final int visibleCount = split.visibleCount;
+      needsOverflow = split.needsOverflow;
       if (needsOverflow) {
         primaryButtons = allButtons.take(visibleCount).toList();
         extraButtons = allButtons.skip(visibleCount).toList();
@@ -7028,8 +7154,12 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
       }).toList();
 
       final moreButton = _DetailActionButton(
-        label: _expanded ? l10n.less : l10n.more,
-        icon: _expanded ? Icons.expand_less : Icons.expand_more,
+        label: widget.overflowAsMenu
+            ? l10n.spotlightMoreActions
+            : (_expanded ? l10n.less : l10n.more),
+        icon: widget.overflowAsMenu
+            ? Icons.more_horiz
+            : (_expanded ? Icons.expand_less : Icons.expand_more),
         focusNode: widget.actionRowRightFocusNode ?? _overflowMoreFocusNode,
         onFocused: () => widget.onFocusExtra?.call(false),
         onArrowUp:
@@ -7053,7 +7183,9 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
           );
         },
         onArrowRight: widget.onArrowRightAtEnd ?? () {},
-        onPressed: () => setState(() => _expanded = !_expanded),
+        onPressed: widget.overflowAsMenu
+            ? () => unawaited(_showOverflowMenu(context, extraButtons))
+            : () => setState(() => _expanded = !_expanded),
       );
 
       if (widget.modernStyle) {

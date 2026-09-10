@@ -17,6 +17,7 @@ import 'package:screen_brightness_platform_interface/screen_brightness_platform_
 import 'package:volume_controller/volume_controller.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../../data/utils/video_range_label.dart';
 import '../../../playback/subtitle_style.dart';
 import '../../../util/fullscreen_helper.dart';
 import '../../../util/scroll_sensitivity_binding.dart';
@@ -1739,7 +1740,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           l10n.resolution,
           '${width ?? '?'}×${height ?? '?'}${fps != null ? ' @ ${fps.round()}fps' : ''}',
         ),
-        row(l10n.hdr, _getHdrType(video)),
+        row(l10n.hdr, videoRangeLabel(video)),
         if (_hdrOutputRow(l10n, hdrTonemapped: hdrTonemapped)
             case final hdrOutput?)
           row(l10n.hdrOutput, hdrOutput),
@@ -7564,27 +7565,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       1 => l10n.mono,
       _ => l10n.channelsCount(channels),
     };
-  }
-
-  String _getHdrType(Map<String, dynamic> stream) {
-    final rangeType = stream['VideoRangeType'] as String? ?? '';
-    if (rangeType.contains('DOVI') || rangeType.contains('DoVi')) {
-      return 'Dolby Vision';
-    }
-    if (rangeType.contains('HDR10Plus') || rangeType.contains('HDR10+')) {
-      return 'HDR10+';
-    }
-    if (rangeType.contains('HDR10') || rangeType.contains('HDR')) {
-      return 'HDR10';
-    }
-    if (rangeType.contains('HLG')) {
-      return 'HLG';
-    }
-    final range = stream['VideoRange'] as String?;
-    if (range == 'HDR') {
-      return 'HDR';
-    }
-    return 'SDR';
   }
 
   void _showStreamInfo() {

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../util/platform_detection.dart';
 
 extension NavigationX on BuildContext {
@@ -181,6 +182,7 @@ class Destinations {
       '/library/$libraryId/letters';
   static String librarySuggestionsOf(String libraryId) =>
       '/library/$libraryId/suggestions';
+
   /// [seasonContext] names the season the viewer was browsing, which is not
   /// always the item's own season: a special inlined by
   /// DisplaySpecialsWithinSeasons is listed under a regular season while still
@@ -322,7 +324,9 @@ class Destinations {
     // A program is only its channel's current airing. Its own id carries no
     // media sources, and asking the server for PlaybackInfo on one fails with
     // a 500, so tune the channel instead.
-    if (isLiveTvProgramType(type) && channelId != null && channelId.isNotEmpty) {
+    if (isLiveTvProgramType(type) &&
+        channelId != null &&
+        channelId.isNotEmpty) {
       return liveTvChannel(channelId);
     }
     // Folders open their contents rather than a detail screen.
@@ -370,6 +374,8 @@ class Destinations {
       '/admin/logs/${Uri.encodeComponent(fileName)}';
   static String adminMetadata(String itemId) => '/admin/metadata/$itemId';
 
+  /// Whether [path] is one of the full-screen player routes: video, audio,
+  /// the reader and its overlays, live TV, or a game.
   static bool isPlayerRoute(String path) =>
       path.startsWith('/player/') ||
       path == liveTvPlayer ||

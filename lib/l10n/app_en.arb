@@ -2566,6 +2566,210 @@
   "@hideMpvStats": {
     "description": "Button in the stream info sheet that hides mpv's own statistics overlay; Shift+I is the keyboard shortcut"
   },
+  "keyboardShortcutsTitle": "Keyboard shortcuts",
+  "@keyboardShortcutsTitle": {
+    "description": "Title of the screen and dialog that list every keyboard shortcut"
+  },
+  "keyboardShortcutsSubtitle": "Keys for the app, video player and reader",
+  "@keyboardShortcutsSubtitle": {
+    "description": "Subtitle of the About tile that opens the keyboard shortcut list"
+  },
+  "keyboardShortcutsPlayerHint": "Press ? or F1 while a video plays to see this list without leaving the player.",
+  "@keyboardShortcutsPlayerHint": {
+    "description": "Footnote on the keyboard shortcuts settings screen"
+  },
+  "keyboardShortcutsSectionApp": "Everywhere",
+  "@keyboardShortcutsSectionApp": {
+    "description": "Keyboard shortcut section for keys that work on every screen"
+  },
+  "keyboardShortcutsSectionAppScope": "On any screen",
+  "@keyboardShortcutsSectionAppScope": {
+    "description": "Under the Everywhere section title: when those keys apply"
+  },
+  "keyboardShortcutsSectionPlayer": "Video player",
+  "@keyboardShortcutsSectionPlayer": {
+    "description": "Keyboard shortcut section for the video player"
+  },
+  "keyboardShortcutsSectionPlayerScope": "While a video is open, playing or paused",
+  "@keyboardShortcutsSectionPlayerScope": {
+    "description": "Under the Video player section title: when those keys apply"
+  },
+  "keyboardShortcutsSectionReader": "Book and comic reader",
+  "@keyboardShortcutsSectionReader": {
+    "description": "Keyboard shortcut section for the ebook and comic reader"
+  },
+  "keyboardShortcutsSectionReaderScope": "While reading a book or comic",
+  "@keyboardShortcutsSectionReaderScope": {
+    "description": "Under the reader section title: when those keys apply"
+  },
+  "keyNameArrowKeys": "Arrow keys",
+  "@keyNameArrowKeys": {
+    "description": "Key cap label standing for the four arrow keys"
+  },
+  "keyNameSpace": "Space",
+  "@keyNameSpace": {
+    "description": "Key cap label for the space bar"
+  },
+  "keyNameEnter": "Enter",
+  "@keyNameEnter": {
+    "description": "Key cap label for the Enter key"
+  },
+  "keyNameEsc": "Esc",
+  "@keyNameEsc": {
+    "description": "Key cap label for the Escape key"
+  },
+  "keyNameBackspace": "Backspace",
+  "@keyNameBackspace": {
+    "description": "Key cap label for the Backspace key"
+  },
+  "keyNamePageUp": "Page Up",
+  "@keyNamePageUp": {
+    "description": "Key cap label for the Page Up key"
+  },
+  "keyNamePageDown": "Page Down",
+  "@keyNamePageDown": {
+    "description": "Key cap label for the Page Down key"
+  },
+  "keyNameHome": "Home",
+  "@keyNameHome": {
+    "description": "Key cap label for the Home key"
+  },
+  "keyNameEnd": "End",
+  "@keyNameEnd": {
+    "description": "Key cap label for the End key"
+  },
+  "keyNameShift": "Shift",
+  "@keyNameShift": {
+    "description": "Key cap label for the Shift modifier"
+  },
+  "keyNameCtrl": "Ctrl",
+  "@keyNameCtrl": {
+    "description": "Key cap label for the Control modifier"
+  },
+  "keyNameAlt": "Alt",
+  "@keyNameAlt": {
+    "description": "Key cap label for the Alt modifier"
+  },
+  "keyNameScrollWheel": "Scroll wheel",
+  "@keyNameScrollWheel": {
+    "description": "Key cap label standing for the mouse scroll wheel"
+  },
+  "shortcutMoveFocus": "Move between items",
+  "@shortcutMoveFocus": {
+    "description": "What the arrow keys do outside the player"
+  },
+  "shortcutActivate": "Open the selected item",
+  "@shortcutActivate": {
+    "description": "What Enter does outside the player"
+  },
+  "shortcutGoBack": "Go back",
+  "@shortcutGoBack": {
+    "description": "What Esc and Backspace do outside the player"
+  },
+  "shortcutToggleFullscreen": "Fullscreen on or off",
+  "@shortcutToggleFullscreen": {
+    "description": "F11 and Alt+Enter anywhere, F in the player"
+  },
+  "shortcutQuit": "Quit Moonfin",
+  "@shortcutQuit": {
+    "description": "What Ctrl+Q does on desktop"
+  },
+  "shortcutPlayPause": "Play or pause",
+  "@shortcutPlayPause": {
+    "description": "Player shortcut action"
+  },
+  "shortcutShowControlsOrPlayPause": "Show controls, or play/pause if shown",
+  "@shortcutShowControlsOrPlayPause": {
+    "description": "What Enter does in the player"
+  },
+  "shortcutSeekBack": "Seek back (hold for bigger jumps)",
+  "@shortcutSeekBack": {
+    "description": "Player shortcut action; the step is the skip back length from settings"
+  },
+  "shortcutSeekForward": "Seek forward (hold for bigger jumps)",
+  "@shortcutSeekForward": {
+    "description": "Player shortcut action; the step is the skip forward length from settings"
+  },
+  "shortcutVolumeUp": "Volume up",
+  "@shortcutVolumeUp": {
+    "description": "Player shortcut action"
+  },
+  "shortcutVolumeDown": "Volume down",
+  "@shortcutVolumeDown": {
+    "description": "Player shortcut action"
+  },
+  "shortcutMute": "Mute or unmute",
+  "@shortcutMute": {
+    "description": "Player shortcut action"
+  },
+  "shortcutToggleSubtitles": "Subtitles on or off",
+  "@shortcutToggleSubtitles": {
+    "description": "Player shortcut action"
+  },
+  "shortcutSlower": "Slow down",
+  "@shortcutSlower": {
+    "description": "Player shortcut action"
+  },
+  "shortcutFaster": "Speed up",
+  "@shortcutFaster": {
+    "description": "Player shortcut action"
+  },
+  "shortcutPlaybackInfo": "Show playback information",
+  "@shortcutPlaybackInfo": {
+    "description": "Player shortcut action"
+  },
+  "shortcutMpvStats": "mpv statistics on or off",
+  "@shortcutMpvStats": {
+    "description": "Player shortcut action, Windows only"
+  },
+  "shortcutLeaveFullscreenOrStop": "Exit fullscreen, or stop if not fullscreen",
+  "@shortcutLeaveFullscreenOrStop": {
+    "description": "What Esc does in the player"
+  },
+  "shortcutStopPlayback": "Stop playback",
+  "@shortcutStopPlayback": {
+    "description": "Player shortcut action"
+  },
+  "shortcutNextItem": "Next item",
+  "@shortcutNextItem": {
+    "description": "Player shortcut action for the next-track media key"
+  },
+  "shortcutPreviousItem": "Previous item",
+  "@shortcutPreviousItem": {
+    "description": "Player shortcut action for the previous-track media key"
+  },
+  "shortcutShowShortcuts": "Show this list",
+  "@shortcutShowShortcuts": {
+    "description": "What ? and F1 do in the player"
+  },
+  "shortcutNextPage": "Next page",
+  "@shortcutNextPage": {
+    "description": "Reader shortcut action"
+  },
+  "shortcutPreviousPage": "Previous page",
+  "@shortcutPreviousPage": {
+    "description": "Reader shortcut action"
+  },
+  "shortcutScrollPage": "Scroll the page (ebooks)",
+  "@shortcutScrollPage": {
+    "description": "What the up and down arrows do in the ebook reader"
+  },
+  "shortcutFirstPage": "First page, or start of chapter",
+  "@shortcutFirstPage": {
+    "description": "Reader shortcut action"
+  },
+  "shortcutLastPage": "Last page, or end of chapter",
+  "@shortcutLastPage": {
+    "description": "Reader shortcut action"
+  },
+  "shortcutZoom": "Zoom in or out (comics)",
+  "@shortcutZoom": {
+    "description": "Reader shortcut action"
+  },
+  "shortcutResetZoom": "Reset zoom (comics)",
+  "@shortcutResetZoom": {
+    "description": "Reader shortcut action"
+  },
   "playback": "Playback",
   "@playback": {
     "description": "Section header in stream info"

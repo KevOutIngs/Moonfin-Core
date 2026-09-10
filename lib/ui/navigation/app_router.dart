@@ -854,12 +854,7 @@ class PlayerRouteObserver extends NavigatorObserver {
 
   bool _isPlayer(Route<dynamic> route) {
     final name = route.settings.name;
-    return name != null &&
-        (name.startsWith('/player/') ||
-         name.startsWith('/game-player/') ||
-         name == '/live-tv/player' ||
-         name == Destinations.audioPlayer ||
-         name == Destinations.videoPlayer);
+    return name != null && Destinations.isPlayerRoute(name);
   }
 
   @override

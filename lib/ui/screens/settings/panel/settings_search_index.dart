@@ -455,6 +455,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     icon: Icons.bug_report,
     open: () => push(const DiagnosticsSettingsScreen()),
   );
+  final shortcuts = _SearchSection(
+    slug: 'keyboard_shortcuts',
+    path: [l10n.aboutTitle, l10n.keyboardShortcutsTitle],
+    icon: Icons.keyboard_outlined,
+    open: () => push(const _KeyboardShortcutsScreen()),
+  );
 
   final entries = <_SettingsSearchEntry>[
     if (showAdmin)
@@ -1616,6 +1622,10 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     ]),
 
     about.screen(keywords: ['version', 'update', 'discord', 'license']),
+    if (PlatformDetection.useDesktopUi)
+      shortcuts.screen(
+        keywords: ['keys', 'hotkeys', 'keybind', 'keyboard', 'player'],
+      ),
     if (AppDistribution.supportsInAppUpdates)
       about.leaf(
         'check_updates',

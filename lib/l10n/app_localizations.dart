@@ -3310,6 +3310,312 @@ abstract class AppLocalizations {
   /// **'Hide mpv Statistics (Shift+I)'**
   String get hideMpvStats;
 
+  /// Title of the screen and dialog that list every keyboard shortcut
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard shortcuts'**
+  String get keyboardShortcutsTitle;
+
+  /// Subtitle of the About tile that opens the keyboard shortcut list
+  ///
+  /// In en, this message translates to:
+  /// **'Keys for the app, video player and reader'**
+  String get keyboardShortcutsSubtitle;
+
+  /// Footnote on the keyboard shortcuts settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Press ? or F1 while a video plays to see this list without leaving the player.'**
+  String get keyboardShortcutsPlayerHint;
+
+  /// Keyboard shortcut section for keys that work on every screen
+  ///
+  /// In en, this message translates to:
+  /// **'Everywhere'**
+  String get keyboardShortcutsSectionApp;
+
+  /// Under the Everywhere section title: when those keys apply
+  ///
+  /// In en, this message translates to:
+  /// **'On any screen'**
+  String get keyboardShortcutsSectionAppScope;
+
+  /// Keyboard shortcut section for the video player
+  ///
+  /// In en, this message translates to:
+  /// **'Video player'**
+  String get keyboardShortcutsSectionPlayer;
+
+  /// Under the Video player section title: when those keys apply
+  ///
+  /// In en, this message translates to:
+  /// **'While a video is open, playing or paused'**
+  String get keyboardShortcutsSectionPlayerScope;
+
+  /// Keyboard shortcut section for the ebook and comic reader
+  ///
+  /// In en, this message translates to:
+  /// **'Book and comic reader'**
+  String get keyboardShortcutsSectionReader;
+
+  /// Under the reader section title: when those keys apply
+  ///
+  /// In en, this message translates to:
+  /// **'While reading a book or comic'**
+  String get keyboardShortcutsSectionReaderScope;
+
+  /// Key cap label standing for the four arrow keys
+  ///
+  /// In en, this message translates to:
+  /// **'Arrow keys'**
+  String get keyNameArrowKeys;
+
+  /// Key cap label for the space bar
+  ///
+  /// In en, this message translates to:
+  /// **'Space'**
+  String get keyNameSpace;
+
+  /// Key cap label for the Enter key
+  ///
+  /// In en, this message translates to:
+  /// **'Enter'**
+  String get keyNameEnter;
+
+  /// Key cap label for the Escape key
+  ///
+  /// In en, this message translates to:
+  /// **'Esc'**
+  String get keyNameEsc;
+
+  /// Key cap label for the Backspace key
+  ///
+  /// In en, this message translates to:
+  /// **'Backspace'**
+  String get keyNameBackspace;
+
+  /// Key cap label for the Page Up key
+  ///
+  /// In en, this message translates to:
+  /// **'Page Up'**
+  String get keyNamePageUp;
+
+  /// Key cap label for the Page Down key
+  ///
+  /// In en, this message translates to:
+  /// **'Page Down'**
+  String get keyNamePageDown;
+
+  /// Key cap label for the Home key
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get keyNameHome;
+
+  /// Key cap label for the End key
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get keyNameEnd;
+
+  /// Key cap label for the Shift modifier
+  ///
+  /// In en, this message translates to:
+  /// **'Shift'**
+  String get keyNameShift;
+
+  /// Key cap label for the Control modifier
+  ///
+  /// In en, this message translates to:
+  /// **'Ctrl'**
+  String get keyNameCtrl;
+
+  /// Key cap label for the Alt modifier
+  ///
+  /// In en, this message translates to:
+  /// **'Alt'**
+  String get keyNameAlt;
+
+  /// Key cap label standing for the mouse scroll wheel
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll wheel'**
+  String get keyNameScrollWheel;
+
+  /// What the arrow keys do outside the player
+  ///
+  /// In en, this message translates to:
+  /// **'Move between items'**
+  String get shortcutMoveFocus;
+
+  /// What Enter does outside the player
+  ///
+  /// In en, this message translates to:
+  /// **'Open the selected item'**
+  String get shortcutActivate;
+
+  /// What Esc and Backspace do outside the player
+  ///
+  /// In en, this message translates to:
+  /// **'Go back'**
+  String get shortcutGoBack;
+
+  /// F11 and Alt+Enter anywhere, F in the player
+  ///
+  /// In en, this message translates to:
+  /// **'Fullscreen on or off'**
+  String get shortcutToggleFullscreen;
+
+  /// What Ctrl+Q does on desktop
+  ///
+  /// In en, this message translates to:
+  /// **'Quit Moonfin'**
+  String get shortcutQuit;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Play or pause'**
+  String get shortcutPlayPause;
+
+  /// What Enter does in the player
+  ///
+  /// In en, this message translates to:
+  /// **'Show controls, or play/pause if shown'**
+  String get shortcutShowControlsOrPlayPause;
+
+  /// Player shortcut action; the step is the skip back length from settings
+  ///
+  /// In en, this message translates to:
+  /// **'Seek back (hold for bigger jumps)'**
+  String get shortcutSeekBack;
+
+  /// Player shortcut action; the step is the skip forward length from settings
+  ///
+  /// In en, this message translates to:
+  /// **'Seek forward (hold for bigger jumps)'**
+  String get shortcutSeekForward;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Volume up'**
+  String get shortcutVolumeUp;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Volume down'**
+  String get shortcutVolumeDown;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Mute or unmute'**
+  String get shortcutMute;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Subtitles on or off'**
+  String get shortcutToggleSubtitles;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Slow down'**
+  String get shortcutSlower;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Speed up'**
+  String get shortcutFaster;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Show playback information'**
+  String get shortcutPlaybackInfo;
+
+  /// Player shortcut action, Windows only
+  ///
+  /// In en, this message translates to:
+  /// **'mpv statistics on or off'**
+  String get shortcutMpvStats;
+
+  /// What Esc does in the player
+  ///
+  /// In en, this message translates to:
+  /// **'Exit fullscreen, or stop if not fullscreen'**
+  String get shortcutLeaveFullscreenOrStop;
+
+  /// Player shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Stop playback'**
+  String get shortcutStopPlayback;
+
+  /// Player shortcut action for the next-track media key
+  ///
+  /// In en, this message translates to:
+  /// **'Next item'**
+  String get shortcutNextItem;
+
+  /// Player shortcut action for the previous-track media key
+  ///
+  /// In en, this message translates to:
+  /// **'Previous item'**
+  String get shortcutPreviousItem;
+
+  /// What ? and F1 do in the player
+  ///
+  /// In en, this message translates to:
+  /// **'Show this list'**
+  String get shortcutShowShortcuts;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Next page'**
+  String get shortcutNextPage;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Previous page'**
+  String get shortcutPreviousPage;
+
+  /// What the up and down arrows do in the ebook reader
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll the page (ebooks)'**
+  String get shortcutScrollPage;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'First page, or start of chapter'**
+  String get shortcutFirstPage;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Last page, or end of chapter'**
+  String get shortcutLastPage;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in or out (comics)'**
+  String get shortcutZoom;
+
+  /// Reader shortcut action
+  ///
+  /// In en, this message translates to:
+  /// **'Reset zoom (comics)'**
+  String get shortcutResetZoom;
+
   /// Section header in stream info
   ///
   /// In en, this message translates to:

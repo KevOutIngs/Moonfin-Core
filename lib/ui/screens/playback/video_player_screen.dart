@@ -673,6 +673,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _overlayFocus.requestFocus();
   }
 
+  /// Takes key handling back whenever focus falls out of the player.
+  ///
+  /// Every remote key is read on [_overlayFocus], and the OSD, the skip button
+  /// and the next up card are all below it, so they hold focus for it while
+  /// they are up. When one of them goes away Flutter hands focus to whatever
+  /// held it before, which is this node only if it ever did and is otherwise
+  /// the route's own scope, where no player key is read. The remote then does
+  /// nothing at all until a direction press walks focus back by itself.
+  ///
+  /// A dialog opened over the player keeps its focus: requesting it back would
+  /// pull the remote out of an open track or cast picker, and the hide timer
+  /// runs on regardless of what is on top.
+  void _restoreOverlayFocus() {
+    if (!mounted || _overlayFocus.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _overlayFocus.hasFocus) return;
+      if (ModalRoute.of(context)?.isCurrent != true) return;
+      _overlayFocus.requestFocus();
+    });
+  }
+
   List<Map<String, dynamic>> _streamMaps(dynamic raw) {
     if (raw is! List) {
       return const <Map<String, dynamic>>[];
@@ -752,6 +773,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    FocusManager.instance.addListener(_restoreOverlayFocus);
     if (PlatformDetection.isTV || PlatformDetection.isMobile) {
       // The decoder wants every megabyte a constrained box has, and a stale
       // IME binding swallows d-pad presses mid-playback. Desktop keeps its
@@ -1027,6 +1049,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _screenLockSub?.cancel();
     _completedSub?.cancel();
     _tvBackgroundExitTimer?.cancel();
+    FocusManager.instance.removeListener(_restoreOverlayFocus);
     _overlayFocus.dispose();
     _tvSeekbarFocus.dispose();
     _tvSkipSegmentFocus.dispose();

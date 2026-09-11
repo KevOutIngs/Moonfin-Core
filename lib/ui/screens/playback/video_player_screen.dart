@@ -84,6 +84,7 @@ import '../../widgets/progress_snack_bar.dart';
 import '../../../util/remote_subtitle_labels.dart';
 import '../../../util/subtitle_appearance_schedule.dart';
 import '../../../playback/media3_player_backend.dart';
+import '../../../util/system_ui.dart';
 import 'playback_takeover.dart';
 import 'osd_buttons.dart';
 
@@ -95,7 +96,7 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen>
-    with WidgetsBindingObserver, WindowListener {
+    with WidgetsBindingObserver, WindowListener, ImmersiveSystemUi {
   static final _camelCaseSpaceRe = RegExp(r'(?<=[a-z])(?=[A-Z])');
   static const _streamLoadingLabel = 'Loading Stream...';
   static const _tvTemporarySpeed = 2.0;
@@ -239,7 +240,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   bool _subtitleReapplyRetryScheduled = false;
   bool _isStopping = false;
   bool _readyToPop = false;
-  bool _didRestoreSystemUiOnExit = false;
   DateTime? _suppressTvLifecycleExitUntil;
   bool _isOsdLocked = false;
   String? _remotePlaybackState;
@@ -826,7 +826,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _applySubtitleStyle();
     _scheduleHide();
     _startEndsAtTicker();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    setImmersive(true);
     if (PlatformDetection.isMobile) {
       _forcedLandscape = true;
       SystemChrome.setPreferredOrientations([
@@ -1490,7 +1490,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     setState(() => _isInPiP = isInPiP);
     if (!isInPiP) {
       _didRequestIosPiPForBackground = false;
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      setImmersive(true);
       if (PlatformDetection.isMobile && _forcedLandscape) {
         SystemChrome.setPreferredOrientations([
           DeviceOrientation.landscapeLeft,
@@ -2793,9 +2793,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   Future<void> _restoreSystemUiForExit() async {
-    if (_didRestoreSystemUiOnExit) return;
-    _didRestoreSystemUiOnExit = true;
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    setImmersive(false);
     await SystemChrome.setPreferredOrientations([]);
   }
 

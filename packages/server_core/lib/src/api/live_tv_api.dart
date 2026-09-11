@@ -9,10 +9,19 @@ abstract class LiveTvApi {
     String? userId,
   });
 
+  /// Without [channelIds] the server searches every channel, which combined
+  /// with one of the genre flags ([isMovie], [isSeries], [isSports], [isNews],
+  /// [isKids]) lets a guide category filter cover the whole lineup in a single
+  /// request instead of only the channels already loaded client-side.
   Future<Map<String, dynamic>> getGuide({
     DateTime? startDate,
     DateTime? endDate,
     List<String>? channelIds,
+    bool? isMovie,
+    bool? isSeries,
+    bool? isSports,
+    bool? isNews,
+    bool? isKids,
     String? fields,
     bool? enableTotalRecordCount,
     bool? enableImages,

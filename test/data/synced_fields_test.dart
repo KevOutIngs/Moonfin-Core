@@ -226,6 +226,7 @@ void main() {
     'showLibrariesInToolbar',
     'showLoadingAnimationText',
     'showMediaDetailsOnLibraryPage',
+    'showSeerrAvailabilityBadges',
     'showSeerrButton',
     'showServerMessagesButton',
     'showShuffleButton',

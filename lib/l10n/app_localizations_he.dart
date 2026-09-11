@@ -4575,6 +4575,13 @@ class AppLocalizationsHe extends AppLocalizations {
       'Include missing items on Collection pages';
 
   @override
+  String get showSeerrAvailabilityBadges => 'Show Seerr Availability Badges';
+
+  @override
+  String get showSeerrAvailabilityBadgesDescription =>
+      'Show season availability badges on media details pages';
+
+  @override
   String get seerrNotificationsSection => 'התראות';
 
   @override

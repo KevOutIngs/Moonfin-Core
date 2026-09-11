@@ -1341,14 +1341,16 @@ class ItemDetailViewModel extends ChangeNotifier {
   }) async {
     final own = int.tryParse(boxSetTmdbId ?? '');
     if (own != null && own > 0) return own;
+    // Movies only, because a series id would resolve to an unrelated film.
+    // Capped, because a large hand-made set carries no shared collection and
+    // would otherwise cost one request per member every time it's opened.
+    const maxProbes = 8;
     final candidates = <int>[
       for (final member in members)
         if (member.type == 'Movie')
           if (int.tryParse(member.tmdbId ?? '') case final id? when id > 0)
             id,
-    ];
-    // A few at a time: one awaited request per member would cost a long
-    // collection seconds of serial round trips.
+    ].take(maxProbes).toList();
     const maxConcurrent = 4;
     for (var i = 0; i < candidates.length; i += maxConcurrent) {
       final batch = candidates.skip(i).take(maxConcurrent);
@@ -1386,7 +1388,10 @@ class ItemDetailViewModel extends ChangeNotifier {
     final overlap = collection.parts
         .where((part) => memberTmdbIds.contains(part.id.toString()))
         .length;
-    if (overlap < (movieCount < 2 ? movieCount : 2)) return const [];
+    // One match is enough for a single-film set, two otherwise. Nothing
+    // matching means this collection describes something else entirely.
+    if (overlap == 0) return const [];
+    if (movieCount > 1 && overlap < 2) return const [];
     return seerrMissingCollectionItems(
       parts: collection.parts,
       libraryTmdbIds: memberTmdbIds,

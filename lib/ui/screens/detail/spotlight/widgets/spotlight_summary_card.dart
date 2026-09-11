@@ -185,10 +185,8 @@ class _SpotlightSummaryCardState extends State<SpotlightSummaryCard>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              widget.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            _CardTitle(
+                              text: widget.title,
                               style:
                                   (compact
                                           ? textTheme.titleSmall
@@ -196,7 +194,8 @@ class _SpotlightSummaryCardState extends State<SpotlightSummaryCard>
                                       ?.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w700,
-                                      ),
+                                      ) ??
+                                  const TextStyle(color: Colors.white),
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -261,6 +260,62 @@ class _SpotlightSummaryCardState extends State<SpotlightSummaryCard>
           size: widget.compact ? 32 : 44,
         ),
       ),
+    );
+  }
+}
+
+/// A card title that steps its size down until the longest word fits on one
+/// line and the whole thing fits in two. Card names like "Recommendations"
+/// are a single long word, and at the card's width they would otherwise be
+/// broken across lines mid-word.
+class _CardTitle extends StatelessWidget {
+  const _CardTitle({required this.text, required this.style});
+
+  final String text;
+  final TextStyle style;
+
+  static const _maxLines = 2;
+  static const _minScale = 0.72;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final scaler = MediaQuery.textScalerOf(context);
+        final direction = Directionality.of(context);
+        final baseSize = style.fontSize ?? 16;
+        final longestWord = text
+            .split(RegExp(r'\s+'))
+            .fold<String>('', (a, b) => b.length > a.length ? b : a);
+
+        bool fits(double size) {
+          final sized = style.copyWith(fontSize: size);
+          TextPainter paint(String value, int maxLines) => TextPainter(
+            text: TextSpan(text: value, style: sized),
+            maxLines: maxLines,
+            textDirection: direction,
+            textScaler: scaler,
+          )..layout(maxWidth: width);
+          if (longestWord.isNotEmpty && paint(longestWord, 1).didExceedMaxLines) {
+            return false;
+          }
+          return !paint(text, _maxLines).didExceedMaxLines;
+        }
+
+        var size = baseSize;
+        final floor = baseSize * _minScale;
+        while (size > floor && !fits(size)) {
+          size -= 1;
+        }
+
+        return Text(
+          text,
+          maxLines: _maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style.copyWith(fontSize: size),
+        );
+      },
     );
   }
 }

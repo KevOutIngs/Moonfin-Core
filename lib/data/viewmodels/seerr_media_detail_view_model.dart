@@ -478,8 +478,9 @@ class SeerrMediaDetailViewModel extends ChangeNotifier {
         tmdbId = match.id;
         resolvedMediaType = match.mediaType ?? mediaType;
       } else {
-        final cleanId =
-            itemId.replaceAll(RegExp(r'^tmdb:(?:movie:|tv:|person:)?'), '');
+        // Only the media kinds. A person id reaching here is a routing
+        // mistake, and stripping it would quietly load an unrelated title.
+        final cleanId = itemId.replaceAll(RegExp(r'^tmdb:(?:movie:|tv:)?'), '');
         final parsed = int.tryParse(cleanId);
         if (parsed == null) {
           throw Exception('Invalid media ID');

@@ -7,7 +7,9 @@ import '../../../../data/services/seerr/seerr_api_models.dart';
 import '../../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../preference/user_preferences.dart';
+import '../../../widgets/seerr/seerr_item_chips.dart';
 import '../../../widgets/seerr/seerr_item_status.dart' show seerrItemTabState;
+import '../../../widgets/seerr/seerr_stats_card.dart';
 import '../item_detail_screen.dart' show DetailTrackList;
 import '../modern/modern_detail_content.dart'
     show
@@ -104,6 +106,35 @@ List<SpotlightCardSpec> spotlightCardsFor({
   return builder.build();
 }
 
+/// The single card [id] of [item], or null when that card has nothing to show.
+/// The modal uses this to refresh what it's showing without rebuilding
+/// every other card to find it.
+SpotlightCardSpec? spotlightCardFor({
+  required String id,
+  required ItemDetailViewModel vm,
+  required AggregatedItem item,
+  required UserPreferences prefs,
+  required AppLocalizations l10n,
+  required List<StudioCompany> tmdbStudios,
+  required SpotlightCardActions actions,
+  List<SeerrDiscoverItem> seerrAppearances = const [],
+  List<SeerrDiscoverItem> seerrCrewCredits = const [],
+  String? fallbackImageUrl,
+}) {
+  final builder = _SpotlightCardsBuilder(
+    vm: vm,
+    item: item,
+    prefs: prefs,
+    l10n: l10n,
+    tmdbStudios: tmdbStudios,
+    actions: actions,
+    seerrAppearances: seerrAppearances,
+    seerrCrewCredits: seerrCrewCredits,
+    fallbackImageUrl: fallbackImageUrl,
+  );
+  return builder.buildOne(id);
+}
+
 class _SpotlightCardsBuilder {
   final ItemDetailViewModel vm;
   final AggregatedItem item;
@@ -129,51 +160,57 @@ class _SpotlightCardsBuilder {
 
   ImageApi get _imageApi => vm.imageApi;
 
-  List<SpotlightCardSpec> build() {
+  /// Which cards this item gets and in what order, each still unbuilt so a
+  /// caller after one card doesn't pay for the rest.
+  Map<String, SpotlightCardSpec? Function()> _cardFactories() {
     if (vm.isSeerrOnly) {
-      return _compact([_peopleCard(), _similarCard()]);
+      return {'people': _peopleCard, 'similar': _similarCard};
     }
-    final cards = switch (item.type) {
-      'Series' => [
-        _seasonsCard(),
-        _peopleCard(),
-        _chaptersExtrasCard(),
-        _similarCard(),
-        _collectionsCard(),
-      ],
-      'Season' => [
-        _episodesCard(l10n.spotlightSeasonsEpisodes),
-        _peopleCard(),
-        _chaptersExtrasCard(),
-        _similarCard(),
-      ],
-      'Episode' => [
-        _episodesCard(l10n.spotlightMoreEpisodes),
-        _peopleCard(),
-        _chaptersExtrasCard(),
-        _similarCard(),
-      ],
-      'MusicAlbum' || 'AudioBook' || 'Book' => [
-        _tracksCard(),
-        _similarCard(),
-      ],
-      'Playlist' => [_playlistCard()],
-      'MusicArtist' => [_albumsCard(), _similarCard()],
-      'Person' => [_filmographyCard()],
-      'BoxSet' => [
-        _boxSetItemsCard(),
-        _boxSetPeopleCard(),
-        _boxSetPlaylistOrderCard(),
-      ],
-      _ => [
-        _peopleCard(),
-        _chaptersExtrasCard(),
-        _similarCard(),
-        _collectionsCard(),
-      ],
+    return switch (item.type) {
+      'Series' => {
+        'seasons': _seasonsCard,
+        'people': _peopleCard,
+        'chapters_extras': _chaptersExtrasCard,
+        'similar': _similarCard,
+        'collections': _collectionsCard,
+      },
+      'Season' => {
+        'episodes': () => _episodesCard(l10n.spotlightSeasonsEpisodes),
+        'people': _peopleCard,
+        'chapters_extras': _chaptersExtrasCard,
+        'similar': _similarCard,
+      },
+      'Episode' => {
+        'episodes': () => _episodesCard(l10n.spotlightMoreEpisodes),
+        'people': _peopleCard,
+        'chapters_extras': _chaptersExtrasCard,
+        'similar': _similarCard,
+      },
+      'MusicAlbum' || 'AudioBook' || 'Book' => {
+        'tracks': _tracksCard,
+        'similar': _similarCard,
+      },
+      'Playlist' => {'playlist': _playlistCard},
+      'MusicArtist' => {'albums': _albumsCard, 'similar': _similarCard},
+      'Person' => {'filmography': _filmographyCard},
+      'BoxSet' => {
+        'boxset_items': _boxSetItemsCard,
+        'people': _boxSetPeopleCard,
+        'playlist_order': _boxSetPlaylistOrderCard,
+      },
+      _ => {
+        'people': _peopleCard,
+        'chapters_extras': _chaptersExtrasCard,
+        'similar': _similarCard,
+        'collections': _collectionsCard,
+      },
     };
-    return _compact(cards);
   }
+
+  List<SpotlightCardSpec> build() =>
+      _compact([for (final make in _cardFactories().values) make()]);
+
+  SpotlightCardSpec? buildOne(String id) => _cardFactories()[id]?.call();
 
   List<SpotlightCardSpec> _compact(List<SpotlightCardSpec?> cards) =>
       cards.whereType<SpotlightCardSpec>().toList();
@@ -410,6 +447,18 @@ class _SpotlightCardsBuilder {
       imageUrl: imageUrl ?? fallbackImageUrl,
       icon: Icons.auto_awesome_outlined,
       sections: [
+        // What Seerr knows about the title itself, ahead of the lists.
+        if (seerrState != null && SeerrItemChips.hasContent(seerrState))
+          SpotlightModalSection(
+            builder: (context, firstFocusNode) => SeerrItemChips(
+              state: seerrState,
+              firstFocusNode: firstFocusNode,
+            ),
+          ),
+        if (seerrState != null && SeerrStatsCard.hasContent(seerrState, l10n))
+          SpotlightModalSection(
+            builder: (context, _) => SeerrStatsCard(state: seerrState),
+          ),
         if (similar.isNotEmpty) _mediaSection(librarySectionTitle, similar),
         if (seerrRecommendations.isNotEmpty)
           _seerrSection(
@@ -551,6 +600,13 @@ class _SpotlightCardsBuilder {
             showAlbum: true,
             getFocusNode: actions.trackFocusNode,
             onPlayTrack: actions.playTrack,
+            reorderable: canManage,
+            onReorder: canManage
+                ? (oldIndex, newIndex) => vm.reorderPlaylistTrack(
+                    oldIndex,
+                    newIndex > oldIndex ? newIndex - 1 : newIndex,
+                  )
+                : null,
             onRemoveFromPlaylist: canManage
                 ? (track) => vm.removeTrackFromPlaylist(track)
                 : null,

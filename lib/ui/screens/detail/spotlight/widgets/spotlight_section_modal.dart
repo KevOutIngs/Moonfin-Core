@@ -7,18 +7,19 @@ import '../../../../../util/platform_detection.dart';
 import '../../../../widgets/adaptive/sf_symbol.dart';
 import '../../../../widgets/overlay_sheet.dart';
 
-/// One titled section inside a [SpotlightSectionModal]: a header plus a grid
-/// (or list) built by [builder]. Only the first section of a modal receives a
-/// [FocusNode] to claim initial d-pad focus. A known [count] shows as a pill
-/// next to the section title.
+/// One section inside a [SpotlightSectionModal]: an optional header plus a
+/// grid (or list) built by [builder]. Only the first section of a modal
+/// receives a [FocusNode] to claim initial d-pad focus. A known [count] shows
+/// as a pill next to the title. Leave [title] off for content that stands on
+/// its own, like the Seerr chips and stats.
 class SpotlightModalSection {
-  final String title;
+  final String? title;
   final int? count;
   final Widget Function(BuildContext context, FocusNode? firstFocusNode)
   builder;
 
   const SpotlightModalSection({
-    required this.title,
+    this.title,
     required this.builder,
     this.count,
   });
@@ -46,6 +47,7 @@ abstract final class SpotlightSectionModal {
     FocusNode? returnFocus,
     Listenable? refreshOn,
     SpotlightModalContent Function()? refresh,
+    VoidCallback? onNearEnd,
   }) {
     FocusManager.instance.primaryFocus?.unfocus();
     final future = showGeneralDialog<T>(
@@ -60,6 +62,7 @@ abstract final class SpotlightSectionModal {
         sections: sections,
         refreshOn: refreshOn,
         refresh: refresh,
+        onNearEnd: onNearEnd,
       ),
       transitionBuilder: (context, anim, secondAnim, child) {
         final scale = Tween<double>(begin: 0.96, end: 1.0).animate(
@@ -86,12 +89,16 @@ class _SpotlightModalShell extends StatefulWidget {
   final Listenable? refreshOn;
   final SpotlightModalContent Function()? refresh;
 
+  /// Called as the viewer nears the bottom, for content that pages.
+  final VoidCallback? onNearEnd;
+
   const _SpotlightModalShell({
     required this.title,
     required this.icon,
     required this.sections,
     this.refreshOn,
     this.refresh,
+    this.onNearEnd,
   });
 
   @override
@@ -111,35 +118,37 @@ class _SpotlightModalShellState extends State<_SpotlightModalShell> {
   late IconData? _icon = widget.icon;
   late List<SpotlightModalSection> _sections = widget.sections;
 
-  /// Cheap identity of the rendered content. The host view model notifies far
-  /// more often than the sections actually change, and rebuilding every grid
-  /// on each notification would churn focus for nothing.
-  static String _signatureOf(String t, List<SpotlightModalSection> parts) =>
-      '$t|${parts.map((e) => '${e.title}:${e.count}').join('|')}';
-
-  late String _signature = _signatureOf(widget.title, widget.sections);
-
+  /// Takes the latest content whenever the host notifies. Every cell carries
+  /// a stable key, so a rebuild reuses the elements already on screen rather
+  /// than moving focus around.
   void _onRefresh() {
     final refresh = widget.refresh;
     if (refresh == null || !mounted) return;
     final next = refresh();
-    final signature = _signatureOf(next.title, next.sections);
-    if (signature == _signature) {
-      _sections = next.sections;
-      return;
-    }
     setState(() {
-      _signature = signature;
       _title = next.title;
       _icon = next.icon;
       _sections = next.sections;
     });
   }
 
+  /// Asks for the next page once the viewer is within a screenful of the
+  /// bottom. The host ignores the call while a page is already in flight or
+  /// when there's nothing left.
+  void _onScroll() {
+    final onNearEnd = widget.onNearEnd;
+    if (onNearEnd == null || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - position.viewportDimension) {
+      onNearEnd();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     widget.refreshOn?.addListener(_onRefresh);
+    if (widget.onNearEnd != null) _scrollController.addListener(_onScroll);
     if (PlatformDetection.isTV) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _firstCellFocusNode.hasFocus) return;
@@ -158,6 +167,7 @@ class _SpotlightModalShellState extends State<_SpotlightModalShell> {
   @override
   void dispose() {
     widget.refreshOn?.removeListener(_onRefresh);
+    _scrollController.removeListener(_onScroll);
     _trapScope.dispose();
     _firstCellFocusNode.dispose();
     _scrollController.dispose();
@@ -176,13 +186,17 @@ class _SpotlightModalShellState extends State<_SpotlightModalShell> {
     Navigator.of(context, rootNavigator: true).pop();
   }
 
-  Widget _sectionHeader(TextTheme textTheme, SpotlightModalSection section) {
+  Widget _sectionHeader(
+    TextTheme textTheme,
+    SpotlightModalSection section,
+    String title,
+  ) {
     final count = section.count;
     return Row(
       children: [
         Flexible(
           child: Text(
-            section.title,
+            title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: textTheme.titleMedium?.copyWith(
@@ -226,10 +240,11 @@ class _SpotlightModalShellState extends State<_SpotlightModalShell> {
         children: [
           for (var i = 0; i < _sections.length; i++) ...[
             if (i > 0) const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _sectionHeader(textTheme, _sections[i]),
-            ),
+            if (_sections[i].title case final title?)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _sectionHeader(textTheme, _sections[i], title),
+              ),
             _sections[i].builder(
               context,
               i == 0 ? _firstCellFocusNode : null,

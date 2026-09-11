@@ -122,25 +122,39 @@ class LiveTvGuideViewModel extends ChangeNotifier {
 
   bool _loadingMore = false;
 
-  // Programs for the active category chip (Movies/Sports/Kids/...), fetched
-  // server-side across the whole lineup rather than only the lazily-loaded
-  // prefix, so a category can surface channels past the first batch. Keyed by
-  // channel id; only channels with a matching program are present.
-  Map<String, List<GuideProgram>> _categoryPrograms = const {};
+  // A category chip (Movies/Sports/Kids/...) walks the lineup in order, asking
+  // the server for just the matching programs of this many channels per
+  // request. Bigger than the All-view batch because only matches come back,
+  // so a 200-channel request stays small.
+  static const _categoryBatchSize = 200;
+  // Keep walking batches until a page adds at least this many rows (or the
+  // lineup ends). A sparse category would otherwise return an empty page, and
+  // the scroll-driven loader needs rows on screen to trigger from.
+  static const _categoryMinRowsPerPage = 24;
+
+  // Matching programs for the active category, keyed by channel id; only
+  // channels with a match are present. Walked in lineup order up to
+  // [_categoryHighWater] (an index into [_channels]).
+  final Map<String, List<GuideProgram>> _categoryPrograms = {};
+  int _categoryHighWater = 0;
   GuideFilter? _categoryLoadedFor;
-  // Bumped on every filter change so a slow category response that lands after
-  // the user has already moved on is dropped instead of overwriting the guide.
+  // Bumped whenever the category cache is reset or the chip changes, so a slow
+  // batch that lands after the user moved on is dropped instead of merged.
   int _categoryRequest = 0;
   bool _categoryFetchInFlight = false;
 
-  /// True while more channels remain to lazily load in scroll order. A category
-  /// chip already holds the whole lineup's matches, so nothing more to page.
-  bool get hasMorePrograms => !_isCategory(_filter) && _hasMoreBatches;
+  /// True while more channels remain to lazily load in scroll order.
+  bool get hasMorePrograms => _isCategory(_filter)
+      ? _categoryHighWater < _channels.length
+      : _hasMoreBatches;
 
   bool get _hasMoreBatches => _programsHighWater < _channels.length;
 
-  /// How many channels (in list order) have been requested so far.
-  int get programsHighWater => _programsHighWater;
+  /// How many rows have content so far: channels requested in list order for
+  /// the All view, or matching channels found so far for a category chip. The
+  /// guide asks for more once it scrolls near this many rows.
+  int get programsHighWater =>
+      _isCategory(_filter) ? _categoryPrograms.length : _programsHighWater;
 
   /// Whether a given channel's programs have been fetched yet.
   bool hasProgramsFor(String channelId) => _isCategory(_filter)
@@ -161,6 +175,11 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     // The lazy-load prefix follows list order, so walk it again from the top.
     // Already-fetched channels are skipped in _loadNextBatch.
     _programsHighWater = 0;
+    // A category walk is a prefix of the old order; start it over in the new.
+    if (_isCategory(_filter)) {
+      unawaited(_loadCategoryPrograms());
+      return;
+    }
     notifyListeners();
     unawaited(loadMorePrograms());
   }
@@ -244,8 +263,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     if (_filter == GuideFilter.favorites) {
       return _channels.where((ch) => ch.isFavorite).toList();
     }
-    // Category results come from the server for the whole lineup; keep the
-    // channels in lineup (sort) order rather than response order.
+    // Category rows are the channels found so far, in lineup (sort) order.
     if (_categoryLoadedFor != _filter) return const [];
     return _channels
         .where((ch) => _categoryPrograms.containsKey(ch.id))
@@ -385,7 +403,10 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _windowEnd = _windowStart.add(Duration(hours: _guideWindowHours));
 
       await loadInitialPrograms();
-      await _refreshCategoryPrograms();
+      if (_isCategory(_filter)) {
+        _categoryLoadedFor = _filter;
+        await _walkCategory(_categoryRequest, minRows: _categoryMinRowsPerPage);
+      }
       _state = GuideState.ready;
     } catch (e) {
       _errorMessage = e.toString();
@@ -404,6 +425,8 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _categoryFetchInFlight = false;
       _state = GuideState.ready;
     }
+    // The last category's rows are kept, so All → Sports → All → Sports does
+    // not re-walk; a different chip starts a fresh walk.
     if (_isCategory(value) && _categoryLoadedFor != value) {
       unawaited(_loadCategoryPrograms());
       return;
@@ -418,16 +441,19 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     }
   }
 
-  /// Fetches the active category from the server behind the loading state.
-  /// Used when the chip changes; window/date changes refresh it inline as part
-  /// of [_reloadPrograms] instead.
+  /// Starts a fresh walk for the active category behind the loading state,
+  /// stopping once the first page of rows is in. Scrolling then pulls the rest
+  /// through [loadMorePrograms]; window/date changes re-walk inline as part of
+  /// [_reloadPrograms] instead.
   Future<void> _loadCategoryPrograms() async {
+    _resetCategory();
     final request = _categoryRequest;
+    _categoryLoadedFor = _filter;
     _categoryFetchInFlight = true;
     _state = GuideState.loading;
     notifyListeners();
     try {
-      await _refreshCategoryPrograms();
+      await _walkCategory(request, minRows: _categoryMinRowsPerPage);
       if (request != _categoryRequest) return;
       _state = GuideState.ready;
     } catch (e) {
@@ -439,29 +465,47 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Re-fetches the active category's programs for the current window. No-op
-  /// unless a category chip is selected. Does not touch [state].
-  Future<void> _refreshCategoryPrograms() async {
+  /// Walks the lineup from [_categoryHighWater], one server-filtered batch per
+  /// request, until at least [minRows] new rows were found and the walk has
+  /// reached [minHighWater], or the lineup ends. Bails out without merging if
+  /// the category was reset or changed while a request was in flight.
+  Future<void> _walkCategory(
+    int request, {
+    int minRows = 0,
+    int minHighWater = 0,
+    bool notifyPerBatch = false,
+  }) async {
     final filter = _filter;
-    if (!_isCategory(filter)) return;
-    final request = _categoryRequest;
-    final programs = filter == GuideFilter.premiere
-        ? await _fetchPremierePrograms()
-        : await _fetchCategoryPrograms(filter);
-    // The chip changed while this was in flight; its owner handles the result.
-    if (request != _categoryRequest) return;
-    _categoryPrograms = programs;
-    _categoryLoadedFor = filter;
+    final startRows = _categoryPrograms.length;
+    while (_categoryHighWater < _channels.length &&
+        (_categoryPrograms.length - startRows < minRows ||
+            _categoryHighWater < minHighWater)) {
+      // Premiere has no server flag, so every program of the batch comes back
+      // and the match happens client-side; keep that batch at the All size.
+      final size = filter == GuideFilter.premiere
+          ? _programBatchSize
+          : _categoryBatchSize;
+      final end = min(_categoryHighWater + size, _channels.length);
+      final batch = _channels.sublist(_categoryHighWater, end);
+      final fetched = await _fetchCategoryBatch(filter, batch);
+      if (request != _categoryRequest) return;
+      _categoryPrograms.addAll(fetched);
+      _categoryHighWater = end;
+      if (notifyPerBatch) notifyListeners();
+    }
   }
 
-  /// One server-wide request for a genre flag: no ChannelIds, so every channel
-  /// in the lineup is searched, not just the ones the guide has scrolled to.
-  Future<Map<String, List<GuideProgram>>> _fetchCategoryPrograms(
+  /// One request for a batch of channels with the category's genre flag, so
+  /// only matching programs come back. Servers that ignore the flag (or match
+  /// on genre text) can still return off-category programs; those are dropped.
+  Future<Map<String, List<GuideProgram>>> _fetchCategoryBatch(
     GuideFilter filter,
+    List<GuideChannel> batch,
   ) async {
     final response = await _client.liveTvApi.getGuide(
       startDate: _windowStart,
       endDate: _windowEnd,
+      channelIds: batch.map((c) => c.id).toList(),
       isMovie: filter == GuideFilter.movies ? true : null,
       isSeries: filter == GuideFilter.series ? true : null,
       isSports: filter == GuideFilter.sports ? true : null,
@@ -474,8 +518,6 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       userId: _client.userId,
     );
     final byChannel = _groupByChannel(response);
-    // Servers that ignore the flag (or match on genre text) can still return
-    // off-category programs; keep the rows honest.
     byChannel.removeWhere((_, programs) {
       programs.removeWhere((p) => !_matches(filter, p));
       return programs.isEmpty;
@@ -483,16 +525,11 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     return byChannel;
   }
 
-  /// The server has no premiere flag, so walk every channel through the normal
-  /// batches (which also warms the All view) and match client-side.
-  Future<Map<String, List<GuideProgram>>> _fetchPremierePrograms() async {
-    await ensureProgramsForChannels(_channels.map((c) => c.id).toList());
-    final byChannel = <String, List<GuideProgram>>{};
-    for (final entry in _programsByChannel.entries) {
-      final matching = entry.value.where((p) => p.isPremiere).toList();
-      if (matching.isNotEmpty) byChannel[entry.key] = matching;
-    }
-    return byChannel;
+  void _resetCategory() {
+    _categoryPrograms.clear();
+    _categoryHighWater = 0;
+    _categoryLoadedFor = null;
+    _categoryRequest++;
   }
 
   Future<void> setDate(DateTime date) async {
@@ -524,11 +561,20 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       // Re-fetch as many channels as were already loaded (at least the first
       // batch) so the user keeps the rows they had scrolled to.
       final target = max(_programsHighWater, _programBatchSize);
+      final categoryTarget = _categoryHighWater;
       _resetPrograms();
       while (_programsHighWater < target && _hasMoreBatches) {
         await _loadNextBatch();
       }
-      await _refreshCategoryPrograms();
+      // Re-walk the category as far as the user had scrolled it.
+      if (_isCategory(_filter)) {
+        _categoryLoadedFor = _filter;
+        await _walkCategory(
+          _categoryRequest,
+          minRows: _categoryMinRowsPerPage,
+          minHighWater: categoryTarget,
+        );
+      }
       _state = GuideState.ready;
     } catch (e) {
       _errorMessage = e.toString();
@@ -562,8 +608,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     _programsByChannel.clear();
     _programsLoadedIds.clear();
     _programsHighWater = 0;
-    _categoryPrograms = const {};
-    _categoryLoadedFor = null;
+    _resetCategory();
   }
 
   /// Clears any cached programs and loads the first batch of channels. Used on
@@ -574,12 +619,22 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   }
 
   /// Loads the next batch of channels (in list order) as the guide is scrolled
-  /// toward the loaded edge. No-op once every channel has been requested.
+  /// toward the loaded edge. No-op once every channel has been requested. For
+  /// a category chip this walks further down the lineup until another page of
+  /// matching channels is found.
   Future<void> loadMorePrograms() async {
     if (_loadingMore || !hasMorePrograms) return;
     _loadingMore = true;
     try {
-      await _loadNextBatch();
+      if (_isCategory(_filter)) {
+        await _walkCategory(
+          _categoryRequest,
+          minRows: _categoryMinRowsPerPage,
+          notifyPerBatch: true,
+        );
+      } else {
+        await _loadNextBatch();
+      }
     } finally {
       _loadingMore = false;
     }

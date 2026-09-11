@@ -20,6 +20,7 @@ Map<String, dynamic> _program(
   String channelId, {
   bool isSports = false,
   bool isKids = false,
+  bool isPremiere = false,
 }) => {
   'Id': id,
   'ChannelId': channelId,
@@ -28,6 +29,32 @@ Map<String, dynamic> _program(
   'EndDate': '2026-09-11T11:00:00Z',
   'IsSports': isSports,
   'IsKids': isKids,
+  'IsPremiere': isPremiere,
+};
+
+/// The ChannelIds a stubbed getGuide call was made with.
+List<String> _requestedIds(Invocation inv) =>
+    (inv.namedArguments[#channelIds] as List<String>?) ?? const [];
+
+/// Answers a category request with one matching program per channel in the
+/// batch that [matches] says is in the category, mimicking server-side flags.
+Future<Map<String, dynamic>> Function(Invocation) _serverFiltered(
+  bool Function(String id) matches, {
+  bool isSports = false,
+  bool isKids = false,
+  bool isPremiere = false,
+}) => (inv) async => {
+  'Items': [
+    for (final id in _requestedIds(inv))
+      if (matches(id))
+        _program(
+          'p-$id',
+          id,
+          isSports: isSports,
+          isKids: isKids,
+          isPremiere: isPremiere,
+        ),
+  ],
 };
 
 /// Marks a getGuide argument as wild-carded; anything else is matched as a
@@ -134,23 +161,21 @@ void main() {
 
   group('category filters', () {
     test(
-      'a category chip asks the server for the whole lineup, not the first 50',
+      'a category chip asks the server for the lineup in flagged batches',
       () async {
         final channels = List.generate(
           120,
           (i) => _channel('c$i', number: '$i'),
         );
         _stubChannels(liveTv, channels);
-        // Sports programs on channels well past the lazily-loaded prefix.
-        when(
-          () => _anyGuide(liveTv, channelIds: null, isSports: true),
-        ).thenAnswer(
-          (_) async => {
+        // Sports on channels well past the All view's first batch of 50, plus
+        // a server that ignores the flag and returns a kids program.
+        when(() => _anyGuide(liveTv, isSports: true)).thenAnswer(
+          (inv) async => {
             'Items': [
-              _program('p1', 'c110', isSports: true),
-              _program('p2', 'c7', isSports: true),
-              _program('p3', 'c60', isSports: true),
-              // A server that ignores the flag: dropped client-side.
+              for (final id in _requestedIds(inv))
+                if (const {'c110', 'c7', 'c60'}.contains(id))
+                  _program('p-$id', id, isSports: true),
               _program('p4', 'c8', isKids: true),
             ],
           },
@@ -165,36 +190,132 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         expect(vm.state, GuideState.ready);
 
-        // One server-wide request: no ChannelIds, only the sports flag set.
-        verify(
+        // 120 channels fit in one 200-channel batch: one request with every
+        // channel id and only the sports flag set.
+        final captured = verify(
           () => _anyGuide(
             liveTv,
-            channelIds: null,
+            captureChannelIds: true,
             isMovie: null,
             isSeries: null,
             isSports: true,
             isNews: null,
             isKids: null,
           ),
-        ).called(1);
+        ).captured;
+        expect((captured.single as List).length, 120);
 
         // Channel-number order is kept (not response order), and c110 (row
         // 111) shows up even though only the first 50 channels had programs
-        // loaded for the All view.
+        // loaded for the All view. The off-category kids program is dropped.
         expect(vm.filteredChannels.map((c) => c.id), ['c7', 'c60', 'c110']);
         expect(vm.hasProgramsFor('c110'), isTrue);
-        expect(vm.programsForChannel('c110').single.id, 'p1');
+        expect(vm.programsForChannel('c110').single.id, 'p-c110');
+        expect(vm.programsHighWater, 3);
         expect(vm.hasMorePrograms, isFalse);
       },
     );
+
+    test('scrolling a category pulls the next batch of channels', () async {
+      // 500 channels, every 10th one sports → 50 matching rows, 20 per batch.
+      _stubChannels(
+        liveTv,
+        List.generate(500, (i) => _channel('c$i', number: '$i')),
+      );
+      when(() => _anyGuide(liveTv, isSports: true)).thenAnswer(
+        _serverFiltered(
+          (id) => int.parse(id.substring(1)) % 10 == 0,
+          isSports: true,
+        ),
+      );
+
+      final vm = LiveTvGuideViewModel(client);
+      await vm.load();
+      vm.setFilter(GuideFilter.sports);
+      await Future<void>.delayed(Duration.zero);
+
+      // The first page keeps walking until it has at least 24 rows: batch one
+      // (c0–c199) gives 20, batch two (c200–c399) brings it to 40.
+      final ids = vm.filteredChannels.map((c) => c.id).toList();
+      expect(ids.length, 40);
+      expect(ids.first, 'c0');
+      expect(ids.last, 'c390');
+      expect(vm.programsHighWater, 40);
+      expect(vm.hasMorePrograms, isTrue);
+
+      // Scrolling near the end asks for the rest of the lineup.
+      await vm.loadMorePrograms();
+      expect(vm.filteredChannels.length, 50);
+      expect(vm.filteredChannels.last.id, 'c490');
+      expect(vm.hasMorePrograms, isFalse);
+
+      await vm.loadMorePrograms();
+      expect(vm.filteredChannels.length, 50);
+      verify(() => _anyGuide(liveTv, isSports: true)).called(3);
+    });
+
+    test('a sparse category keeps walking until it finds rows', () async {
+      // Only the very last channel of 1000 is sports.
+      _stubChannels(
+        liveTv,
+        List.generate(1000, (i) => _channel('c$i', number: '$i')),
+      );
+      when(() => _anyGuide(liveTv, isSports: true)).thenAnswer(
+        _serverFiltered((id) => id == 'c999', isSports: true),
+      );
+
+      final vm = LiveTvGuideViewModel(client);
+      await vm.load();
+      vm.setFilter(GuideFilter.sports);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.state, GuideState.ready);
+      expect(vm.filteredChannels.map((c) => c.id), ['c999']);
+      expect(vm.hasMorePrograms, isFalse);
+      verify(() => _anyGuide(liveTv, isSports: true)).called(5);
+    });
+
+    test('premiere has no server flag, so it matches client-side', () async {
+      _stubChannels(
+        liveTv,
+        List.generate(120, (i) => _channel('c$i', number: '$i')),
+      );
+      // Unflagged requests return every program; only c100's is a premiere.
+      when(
+        () => _anyGuide(
+          liveTv,
+          isMovie: null,
+          isSeries: null,
+          isSports: null,
+          isNews: null,
+          isKids: null,
+        ),
+      ).thenAnswer(
+        (inv) async => {
+          'Items': [
+            for (final id in _requestedIds(inv))
+              _program('p-$id', id, isPremiere: id == 'c100'),
+          ],
+        },
+      );
+
+      final vm = LiveTvGuideViewModel(client);
+      await vm.load();
+      vm.setFilter(GuideFilter.premiere);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(vm.filteredChannels.map((c) => c.id), ['c100']);
+      expect(vm.programsForChannel('c100').single.id, 'p-c100');
+      expect(vm.hasMorePrograms, isFalse);
+    });
 
     test('switching chips drops a stale in-flight category response', () async {
       _stubChannels(liveTv, List.generate(10, (i) => _channel('c$i')));
       final sports = Completer<Map<String, dynamic>>();
       when(
-        () => _anyGuide(liveTv, channelIds: null, isSports: true),
+        () => _anyGuide(liveTv, isSports: true),
       ).thenAnswer((_) => sports.future);
-      when(() => _anyGuide(liveTv, channelIds: null, isKids: true)).thenAnswer(
+      when(() => _anyGuide(liveTv, isKids: true)).thenAnswer(
         (_) async => {
           'Items': [_program('k1', 'c3', isKids: true)],
         },
@@ -222,7 +343,7 @@ void main() {
       _stubChannels(liveTv, List.generate(10, (i) => _channel('c$i')));
       final sports = Completer<Map<String, dynamic>>();
       when(
-        () => _anyGuide(liveTv, channelIds: null, isSports: true),
+        () => _anyGuide(liveTv, isSports: true),
       ).thenAnswer((_) => sports.future);
 
       final vm = LiveTvGuideViewModel(client);
@@ -242,9 +363,7 @@ void main() {
 
     test('shifting the window re-fetches the active category', () async {
       _stubChannels(liveTv, List.generate(10, (i) => _channel('c$i')));
-      when(
-        () => _anyGuide(liveTv, channelIds: null, isKids: true),
-      ).thenAnswer(
+      when(() => _anyGuide(liveTv, isKids: true)).thenAnswer(
         (_) async => {
           'Items': [_program('k1', 'c5', isKids: true)],
         },
@@ -257,9 +376,7 @@ void main() {
 
       await vm.shiftWindow(3);
 
-      verify(
-        () => _anyGuide(liveTv, channelIds: null, isKids: true),
-      ).called(2);
+      verify(() => _anyGuide(liveTv, isKids: true)).called(2);
       expect(vm.filteredChannels.map((c) => c.id), ['c5']);
     });
   });

@@ -122,15 +122,30 @@ class LiveTvGuideViewModel extends ChangeNotifier {
 
   bool _loadingMore = false;
 
-  /// True while more channels remain to lazily load in scroll order.
-  bool get hasMorePrograms => _programsHighWater < _channels.length;
+  // Programs for the active category chip (Movies/Sports/Kids/...), fetched
+  // server-side across the whole lineup rather than only the lazily-loaded
+  // prefix, so a category can surface channels past the first batch. Keyed by
+  // channel id; only channels with a matching program are present.
+  Map<String, List<GuideProgram>> _categoryPrograms = const {};
+  GuideFilter? _categoryLoadedFor;
+  // Bumped on every filter change so a slow category response that lands after
+  // the user has already moved on is dropped instead of overwriting the guide.
+  int _categoryRequest = 0;
+  bool _categoryFetchInFlight = false;
+
+  /// True while more channels remain to lazily load in scroll order. A category
+  /// chip already holds the whole lineup's matches, so nothing more to page.
+  bool get hasMorePrograms => !_isCategory(_filter) && _hasMoreBatches;
+
+  bool get _hasMoreBatches => _programsHighWater < _channels.length;
 
   /// How many channels (in list order) have been requested so far.
   int get programsHighWater => _programsHighWater;
 
   /// Whether a given channel's programs have been fetched yet.
-  bool hasProgramsFor(String channelId) =>
-      _programsLoadedIds.contains(channelId);
+  bool hasProgramsFor(String channelId) => _isCategory(_filter)
+      ? _categoryPrograms.containsKey(channelId)
+      : _programsLoadedIds.contains(channelId);
 
   LiveTvGuideViewModel(this._client, {ChannelSortBy? initialSortBy})
       : _sortBy = initialSortBy ?? ChannelSortBy.number;
@@ -229,18 +244,17 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     if (_filter == GuideFilter.favorites) {
       return _channels.where((ch) => ch.isFavorite).toList();
     }
-    return _channels.where((ch) {
-      final programs = _programsByChannel[ch.id] ?? [];
-      return programs.any((p) => _matchesFilter(p));
-    }).toList();
+    // Category results come from the server for the whole lineup; keep the
+    // channels in lineup (sort) order rather than response order.
+    if (_categoryLoadedFor != _filter) return const [];
+    return _channels
+        .where((ch) => _categoryPrograms.containsKey(ch.id))
+        .toList();
   }
 
   List<GuideProgram> programsForChannel(String channelId) {
-    final all = _programsByChannel[channelId] ?? [];
-    if (_filter == GuideFilter.all || _filter == GuideFilter.favorites) {
-      return all;
-    }
-    return all.where(_matchesFilter).toList();
+    if (_isCategory(_filter)) return _categoryPrograms[channelId] ?? const [];
+    return _programsByChannel[channelId] ?? const [];
   }
 
   GuideChannel? channelForId(String channelId) {
@@ -267,7 +281,10 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     return (now: now, next: next);
   }
 
-  bool _matchesFilter(GuideProgram p) => switch (_filter) {
+  static bool _isCategory(GuideFilter filter) =>
+      filter != GuideFilter.all && filter != GuideFilter.favorites;
+
+  static bool _matches(GuideFilter filter, GuideProgram p) => switch (filter) {
     GuideFilter.all => true,
     GuideFilter.movies => p.isMovie,
     GuideFilter.series => p.isSeries,
@@ -368,6 +385,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _windowEnd = _windowStart.add(Duration(hours: _guideWindowHours));
 
       await loadInitialPrograms();
+      await _refreshCategoryPrograms();
       _state = GuideState.ready;
     } catch (e) {
       _errorMessage = e.toString();
@@ -379,6 +397,17 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   void setFilter(GuideFilter value) {
     if (_filter == value) return;
     _filter = value;
+    _categoryRequest++;
+    // A category fetch the user just abandoned must not leave the guide stuck
+    // on its spinner; the stale-request guard drops its result when it lands.
+    if (_categoryFetchInFlight) {
+      _categoryFetchInFlight = false;
+      _state = GuideState.ready;
+    }
+    if (_isCategory(value) && _categoryLoadedFor != value) {
+      unawaited(_loadCategoryPrograms());
+      return;
+    }
     notifyListeners();
     // Favorites can sit anywhere in the lineup, past the lazily-loaded prefix,
     // so make sure their programs are fetched when that filter is selected.
@@ -387,6 +416,83 @@ class LiveTvGuideViewModel extends ChangeNotifier {
           _channels.where((c) => c.isFavorite).map((c) => c.id).toList();
       unawaited(ensureProgramsForChannels(favIds));
     }
+  }
+
+  /// Fetches the active category from the server behind the loading state.
+  /// Used when the chip changes; window/date changes refresh it inline as part
+  /// of [_reloadPrograms] instead.
+  Future<void> _loadCategoryPrograms() async {
+    final request = _categoryRequest;
+    _categoryFetchInFlight = true;
+    _state = GuideState.loading;
+    notifyListeners();
+    try {
+      await _refreshCategoryPrograms();
+      if (request != _categoryRequest) return;
+      _state = GuideState.ready;
+    } catch (e) {
+      if (request != _categoryRequest) return;
+      _errorMessage = e.toString();
+      _state = GuideState.error;
+    }
+    _categoryFetchInFlight = false;
+    notifyListeners();
+  }
+
+  /// Re-fetches the active category's programs for the current window. No-op
+  /// unless a category chip is selected. Does not touch [state].
+  Future<void> _refreshCategoryPrograms() async {
+    final filter = _filter;
+    if (!_isCategory(filter)) return;
+    final request = _categoryRequest;
+    final programs = filter == GuideFilter.premiere
+        ? await _fetchPremierePrograms()
+        : await _fetchCategoryPrograms(filter);
+    // The chip changed while this was in flight; its owner handles the result.
+    if (request != _categoryRequest) return;
+    _categoryPrograms = programs;
+    _categoryLoadedFor = filter;
+  }
+
+  /// One server-wide request for a genre flag: no ChannelIds, so every channel
+  /// in the lineup is searched, not just the ones the guide has scrolled to.
+  Future<Map<String, List<GuideProgram>>> _fetchCategoryPrograms(
+    GuideFilter filter,
+  ) async {
+    final response = await _client.liveTvApi.getGuide(
+      startDate: _windowStart,
+      endDate: _windowEnd,
+      isMovie: filter == GuideFilter.movies ? true : null,
+      isSeries: filter == GuideFilter.series ? true : null,
+      isSports: filter == GuideFilter.sports ? true : null,
+      isNews: filter == GuideFilter.news ? true : null,
+      isKids: filter == GuideFilter.kids ? true : null,
+      fields: _fields,
+      enableTotalRecordCount: false,
+      enableImages: false,
+      enableUserData: false,
+      userId: _client.userId,
+    );
+    final byChannel = _groupByChannel(response);
+    // Servers that ignore the flag (or match on genre text) can still return
+    // off-category programs; keep the rows honest.
+    byChannel.removeWhere((_, programs) {
+      programs.removeWhere((p) => !_matches(filter, p));
+      return programs.isEmpty;
+    });
+    return byChannel;
+  }
+
+  /// The server has no premiere flag, so walk every channel through the normal
+  /// batches (which also warms the All view) and match client-side.
+  Future<Map<String, List<GuideProgram>>> _fetchPremierePrograms() async {
+    await ensureProgramsForChannels(_channels.map((c) => c.id).toList());
+    final byChannel = <String, List<GuideProgram>>{};
+    for (final entry in _programsByChannel.entries) {
+      final matching = entry.value.where((p) => p.isPremiere).toList();
+      if (matching.isNotEmpty) byChannel[entry.key] = matching;
+    }
+    return byChannel;
   }
 
   Future<void> setDate(DateTime date) async {
@@ -419,9 +525,10 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       // batch) so the user keeps the rows they had scrolled to.
       final target = max(_programsHighWater, _programBatchSize);
       _resetPrograms();
-      while (_programsHighWater < target && hasMorePrograms) {
+      while (_programsHighWater < target && _hasMoreBatches) {
         await _loadNextBatch();
       }
+      await _refreshCategoryPrograms();
       _state = GuideState.ready;
     } catch (e) {
       _errorMessage = e.toString();
@@ -455,6 +562,8 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     _programsByChannel.clear();
     _programsLoadedIds.clear();
     _programsHighWater = 0;
+    _categoryPrograms = const {};
+    _categoryLoadedFor = null;
   }
 
   /// Clears any cached programs and loads the first batch of channels. Used on
@@ -478,7 +587,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadNextBatch() async {
-    if (!hasMorePrograms) return;
+    if (!_hasMoreBatches) return;
     final end = min(_programsHighWater + _programBatchSize, _channels.length);
     // A re-sort can move already-fetched channels back into the unwalked
     // suffix. Fetching them again would append duplicate programs.
@@ -526,45 +635,60 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       userId: _client.userId,
     );
 
-    final items = (response['Items'] as List?) ?? [];
-    final touched = <String>{};
-    for (final raw in items.cast<Map<String, dynamic>>()) {
-      final channelId = raw['ChannelId']?.toString();
-      if (channelId == null) continue;
-
-      final startStr = raw['StartDate'] as String?;
-      final endStr = raw['EndDate'] as String?;
-      if (startStr == null || endStr == null) continue;
-
-      final program = GuideProgram(
-        id: raw['Id']?.toString() ?? '',
-        channelId: channelId,
-        name: raw['Name'] as String? ?? '',
-        startDate: DateTime.parse(startStr).toLocal(),
-        endDate: DateTime.parse(endStr).toLocal(),
-        overview: raw['Overview'] as String?,
-        episodeTitle: raw['EpisodeTitle'] as String?,
-        isMovie: raw['IsMovie'] == true,
-        isSeries: raw['IsSeries'] == true,
-        isSports: raw['IsSports'] == true,
-        isNews: raw['IsNews'] == true,
-        isKids: raw['IsKids'] == true,
-        isPremiere: raw['IsPremiere'] == true,
-        hasTimer: raw['TimerId'] != null,
-        hasSeriesTimer: raw['SeriesTimerId'] != null,
-        rawData: raw,
-      );
-
-      (_programsByChannel[channelId] ??= <GuideProgram>[]).add(program);
-      touched.add(channelId);
-    }
-
-    for (final id in touched) {
-      _programsByChannel[id]!.sort((a, b) => a.startDate.compareTo(b.startDate));
+    final fetched = _groupByChannel(response);
+    for (final entry in fetched.entries) {
+      (_programsByChannel[entry.key] ??= <GuideProgram>[])
+        ..addAll(entry.value)
+        ..sort((a, b) => a.startDate.compareTo(b.startDate));
     }
 
     // Mark every requested channel as loaded, even those with no programs, so
     // their rows stop showing the placeholder.
     _programsLoadedIds.addAll(ids);
+  }
+
+  /// Parses a /LiveTv/Programs response into per-channel lists sorted by start.
+  static Map<String, List<GuideProgram>> _groupByChannel(
+    Map<String, dynamic> response,
+  ) {
+    final items = (response['Items'] as List?) ?? [];
+    final byChannel = <String, List<GuideProgram>>{};
+    for (final raw in items.cast<Map<String, dynamic>>()) {
+      final program = _programFromRaw(raw);
+      if (program == null) continue;
+      (byChannel[program.channelId] ??= <GuideProgram>[]).add(program);
+    }
+    for (final programs in byChannel.values) {
+      programs.sort((a, b) => a.startDate.compareTo(b.startDate));
+    }
+    return byChannel;
+  }
+
+  static GuideProgram? _programFromRaw(Map<String, dynamic> raw) {
+    final channelId = raw['ChannelId']?.toString();
+    if (channelId == null) return null;
+
+    final startStr = raw['StartDate'] as String?;
+    final endStr = raw['EndDate'] as String?;
+    if (startStr == null || endStr == null) return null;
+
+    return GuideProgram(
+      id: raw['Id']?.toString() ?? '',
+      channelId: channelId,
+      name: raw['Name'] as String? ?? '',
+      startDate: DateTime.parse(startStr).toLocal(),
+      endDate: DateTime.parse(endStr).toLocal(),
+      overview: raw['Overview'] as String?,
+      episodeTitle: raw['EpisodeTitle'] as String?,
+      isMovie: raw['IsMovie'] == true,
+      isSeries: raw['IsSeries'] == true,
+      isSports: raw['IsSports'] == true,
+      isNews: raw['IsNews'] == true,
+      isKids: raw['IsKids'] == true,
+      isPremiere: raw['IsPremiere'] == true,
+      hasTimer: raw['TimerId'] != null,
+      hasSeriesTimer: raw['SeriesTimerId'] != null,
+      rawData: raw,
+    );
   }
 }

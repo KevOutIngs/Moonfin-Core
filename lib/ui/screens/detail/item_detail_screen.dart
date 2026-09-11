@@ -53,6 +53,7 @@ import '../../../ui/mixins/focus_state_mixin.dart';
 import '../../../auth/repositories/user_repository.dart';
 import '../../../util/focus/key_event_utils.dart';
 import '../../../util/overview_text.dart';
+import '../../../util/seerr_credits.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/adaptive/sf_symbol.dart';
@@ -280,14 +281,6 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   bool _seerrRedirectDone = false;
   String? _selectedMediaSourceId;
   bool _showNavbar = true;
-
-  /// Spotlight's summary cards fall back to the item's first backdrop, so its
-  /// slideshow opens on the second one and the hero doesn't repeat the cards.
-  int get _detailBackdropStartIndex =>
-      _prefs.get(UserPreferences.detailScreenStyle) ==
-          DetailScreenStyle.spotlight
-      ? 1
-      : 0;
   bool _actionsExpanded = false;
   Timer? _focusedBackdropDebounce;
   String? _lastFocusedBackdropItemId;
@@ -354,11 +347,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     unawaited(_viewModel.syncUserDataIfStale());
     final item = _viewModel.item;
     if (item != null) {
-      _backgroundService.setBackground(
-        item,
-        context: BlurContext.details,
-        startIndex: _detailBackdropStartIndex,
-      );
+      _backgroundService.setBackground(item, context: BlurContext.details);
       final nextUrl = _backgroundService.currentUrl;
       // Keep the last good backdrop if the service has none to give (e.g. after
       // returning from a child with no backdrop that cleared the shared service).
@@ -455,11 +444,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         final target = (item.type == 'Playlist' && _viewModel.tracks.isNotEmpty)
             ? _viewModel.tracks.first
             : item;
-        _backgroundService.setBackground(
-          target,
-          context: BlurContext.details,
-          startIndex: _detailBackdropStartIndex,
-        );
+        _backgroundService.setBackground(target, context: BlurContext.details);
         _backdropUrl.value = _backgroundService.currentUrl;
 
         if (item.type == 'Playlist' && _viewModel.tracks.isNotEmpty) {
@@ -519,11 +504,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         }
       }
 
-      _backgroundService.setBackground(
-        focusedItem,
-        context: BlurContext.details,
-        startIndex: 0,
-      );
+      _backgroundService.setBackground(focusedItem, context: BlurContext.details);
       final nextUrl = _backgroundService.currentUrl;
       if (nextUrl != _backdropUrl.value) {
         _backdropUrl.value = nextUrl;
@@ -576,53 +557,38 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     );
 
     if (!PlatformDetection.isTV) {
-      final isSidebar =
-          NavigationLayout.positionNotifier.value == NavbarPosition.left;
-      body = Stack(
-        children: [
-          Positioned.fill(child: body),
-          if (!_showNavbar) ...[
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 90,
-              child: MouseRegion(
-                opaque: false,
-                onEnter: (_) {
-                  if (!_showNavbar && mounted) {
-                    setState(() => _showNavbar = true);
-                  }
-                },
-                onHover: (_) {
-                  if (!_showNavbar && mounted) {
-                    setState(() => _showNavbar = true);
-                  }
-                },
-              ),
-            ),
-            if (isSidebar)
-              Positioned(
-                top: 0,
-                left: 0,
-                bottom: 0,
-                width: 80,
-                child: MouseRegion(
-                  opaque: false,
-                  onEnter: (_) {
-                    if (!_showNavbar && mounted) {
-                      setState(() => _showNavbar = true);
-                    }
-                  },
-                  onHover: (_) {
-                    if (!_showNavbar && mounted) {
-                      setState(() => _showNavbar = true);
-                    }
-                  },
+      final content = body;
+      body = ValueListenableBuilder<NavbarPosition?>(
+        valueListenable: NavigationLayout.positionNotifier,
+        builder: (context, position, child) {
+          void reveal() {
+            if (!_showNavbar && mounted) setState(() => _showNavbar = true);
+          }
+
+          return Stack(
+            children: [
+              Positioned.fill(child: child!),
+              if (!_showNavbar) ...[
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 90,
+                  child: _NavbarRevealZone(onReveal: reveal),
                 ),
-              ),
-          ],
-        ],
+                if (position == NavbarPosition.left)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    width: 80,
+                    child: _NavbarRevealZone(onReveal: reveal),
+                  ),
+              ],
+            ],
+          );
+        },
+        child: content,
       );
     }
 
@@ -864,24 +830,11 @@ class _DetailContentState extends State<_DetailContent> {
       await repo.ensureInitialized();
       final personId = int.tryParse(tmdbId);
       if (personId != null) {
-        final credits = await repo.getPersonCombinedCredits(personId);
-        const excludedJobs = {'thanks', 'special thanks'};
-        final castWithPosters =
-            credits.cast.where((i) => i.posterPath != null).toList()
-              ..sort((a, b) => a.displayTitle.compareTo(b.displayTitle));
-        final crewWithPosters =
-            credits.crew
-                .where(
-                  (i) =>
-                      i.posterPath != null &&
-                      !excludedJobs.contains(i.job?.toLowerCase()),
-                )
-                .toList()
-              ..sort((a, b) => a.displayTitle.compareTo(b.displayTitle));
+        final credits = await loadSeerrPersonCredits(repo, personId);
         if (mounted) {
           setState(() {
-            _seerrAppearances = castWithPosters;
-            _seerrCrewCredits = crewWithPosters;
+            _seerrAppearances = credits.cast;
+            _seerrCrewCredits = credits.crew;
           });
         }
       }
@@ -16576,3 +16529,20 @@ class _PersonDisplaySettingsDialogState
 }
 
 typedef PersonDisplaySettingsDialog = _PersonDisplaySettingsDialog;
+
+/// An invisible edge strip that brings the hidden navbar back when the
+/// pointer reaches it. Mouse only, so it stays out of the way on touch.
+class _NavbarRevealZone extends StatelessWidget {
+  const _NavbarRevealZone({required this.onReveal});
+
+  final VoidCallback onReveal;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      opaque: false,
+      onEnter: (_) => onReveal(),
+      onHover: (_) => onReveal(),
+    );
+  }
+}

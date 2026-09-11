@@ -19,6 +19,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../preference/preference_constants.dart';
 import '../../../../preference/user_preferences.dart';
 import '../../../../util/overview_text.dart';
+import '../../../../util/seerr_credits.dart';
 import '../../../../util/platform_detection.dart';
 import '../../../navigation/destinations.dart';
 import '../../../navigation/playback_launcher.dart';
@@ -193,6 +194,9 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
           type: item.type == 'Series' ? 'tv' : 'movie',
         );
     if (!mounted || companies == null) return;
+    // The item can swap while this is in flight, and a slower response for
+    // the previous one would otherwise land on the current page.
+    if (_vm.item?.id != item.id) return;
     setState(() => _tmdbStudios = companies);
   }
 
@@ -213,26 +217,14 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
       await repo.ensureInitialized();
       final personId = int.tryParse(tmdbId);
       if (personId == null) return;
-      final credits = await repo.getPersonCombinedCredits(personId);
-      const excludedJobs = {'thanks', 'special thanks'};
-      final castWithPosters =
-          credits.cast.where((i) => i.posterPath != null).toList()
-            ..sort((a, b) => a.displayTitle.compareTo(b.displayTitle));
-      final crewWithPosters =
-          credits.crew
-              .where(
-                (i) =>
-                    i.posterPath != null &&
-                    !excludedJobs.contains(i.job?.toLowerCase()),
-              )
-              .toList()
-            ..sort((a, b) => a.displayTitle.compareTo(b.displayTitle));
-      if (mounted) {
-        setState(() {
-          _seerrAppearances = castWithPosters;
-          _seerrCrewCredits = crewWithPosters;
-        });
-      }
+      final credits = await loadSeerrPersonCredits(repo, personId);
+      if (!mounted) return;
+      setState(() {
+        // Seerr lists a title once per credit, so a title has to be folded
+        // into a single entry before it reaches a keyed grid.
+        _seerrAppearances = groupSeerrCredits(credits.cast, isCrew: false);
+        _seerrCrewCredits = groupSeerrCredits(credits.crew, isCrew: true);
+      });
     } catch (_) {
       // Seerr credits are an extra. The filmography card falls back to the
       // library lists when the lookup fails.
@@ -356,6 +348,11 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
         // similar card. Re-derive the card while the modal is open instead.
         refreshOn: _vm,
         refresh: () => _liveCardContent(spec),
+        // The collection grid arrives a page at a time, and this modal is the
+        // only place Spotlight shows it, so it has to ask for the rest.
+        onNearEnd: spec.id == 'boxset_items'
+            ? () => unawaited(_vm.loadMoreCollectionItems())
+            : null,
       );
       if (mounted && action != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -372,23 +369,26 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
   /// The current state of the open card, falling back to what it was opened
   /// with when the item is gone or the card no longer applies.
   SpotlightModalContent _liveCardContent(SpotlightCardSpec opened) {
-    final fallback = (
-      title: opened.title,
-      icon: opened.icon,
-      sections: opened.sections,
-    );
     final item = _vm.item;
-    if (!mounted || item == null) return fallback;
-    for (final card in _currentCards(context, item)) {
-      if (card.id == opened.id) {
-        return (
-          title: card.title,
-          icon: card.icon,
-          sections: card.sections,
-        );
-      }
-    }
-    return fallback;
+    // Only the open card is rebuilt. The host notifies on every lazy load and
+    // user-data sync, and rebuilding the whole set to read one of them would
+    // redo the crew merge and the collection aggregation each time.
+    final current = mounted && item != null
+        ? spotlightCardFor(
+            id: opened.id,
+            vm: _vm,
+            item: item,
+            prefs: widget.prefs,
+            l10n: AppLocalizations.of(context),
+            tmdbStudios: _tmdbStudios,
+            actions: _cardActions(item),
+            seerrAppearances: _seerrAppearances,
+            seerrCrewCredits: _seerrCrewCredits,
+            fallbackImageUrl: _cardFallbackImageUrl(item),
+          )
+        : null;
+    final card = current ?? opened;
+    return (title: card.title, icon: card.icon, sections: card.sections);
   }
 
   // ---------------------------------------------------------------------------
@@ -960,13 +960,6 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
     BuildContext context,
     AggregatedItem item,
   ) {
-    final itemBackdrop = item.backdropImageTags.isNotEmpty
-        ? _vm.imageApi.getBackdropImageUrl(
-            item.id,
-            maxWidth: 960,
-            tag: item.backdropImageTags.first,
-          )
-        : widget.backdropUrl.value;
     final cards = spotlightCardsFor(
       vm: _vm,
       item: item,
@@ -976,7 +969,7 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
       actions: _cardActions(item),
       seerrAppearances: _seerrAppearances,
       seerrCrewCredits: _seerrCrewCredits,
-      fallbackImageUrl: itemBackdrop,
+      fallbackImageUrl: _cardFallbackImageUrl(item),
     );
     for (final card in cards) {
       _cardFocusNodes.putIfAbsent(
@@ -985,6 +978,19 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
       );
     }
     return cards;
+  }
+
+  /// Artwork a card falls back to when it has nothing of its own. The hero
+  /// behind it runs the same backdrops from the start, so a second one is
+  /// preferred and the page doesn't show the same still twice.
+  String? _cardFallbackImageUrl(AggregatedItem item) {
+    final tags = item.backdropImageTags;
+    if (tags.isEmpty) return widget.backdropUrl.value;
+    return _vm.imageApi.getBackdropImageUrl(
+      item.id,
+      maxWidth: 960,
+      tag: tags.length > 1 ? tags[1] : tags.first,
+    );
   }
 
   Widget _buildCards(BuildContext context, List<SpotlightCardSpec> cards) {
@@ -1015,9 +1021,12 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
       band = LayoutBuilder(
         builder: (context, constraints) {
           final maxCardWidth = cardHeight * (16 / 9);
-          final cardWidth = math.min(
-            maxCardWidth,
-            (constraints.maxWidth - (cards.length - 1) * 16) / cards.length,
+          final cardWidth = math.max(
+            0.0,
+            math.min(
+              maxCardWidth,
+              (constraints.maxWidth - (cards.length - 1) * 16) / cards.length,
+            ),
           );
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1108,6 +1117,7 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
                 hero: hero,
                 cards: cards,
                 topInset: topInset,
+                prefs: widget.prefs,
                 scrollController: _scrollController,
               )
             : SpotlightPortraitLayout(

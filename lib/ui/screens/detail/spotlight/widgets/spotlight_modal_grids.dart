@@ -63,6 +63,50 @@ SpotlightGridMetrics spotlightGridMetrics({
   );
 }
 
+/// Keys that stay put across rebuilds even when a list repeats an id, so a
+/// grid never trips Flutter's duplicate-key assertion.
+List<String> spotlightCellKeys(Iterable<String> ids) {
+  final seen = <String, int>{};
+  return [
+    for (final id in ids)
+      switch (seen.update(id, (count) => count + 1, ifAbsent: () => 0)) {
+        0 => id,
+        final repeat => '$id#$repeat',
+      },
+  ];
+}
+
+/// De-duplicates the people a server lists more than once, keeping the first
+/// appearance and folding any extra roles into it. A cast list can name the
+/// same person as both an actor and a guest star.
+List<Map<String, dynamic>> spotlightDedupePeople(
+  List<Map<String, dynamic>> people,
+) {
+  final byKey = <String, Map<String, dynamic>>{};
+  for (final person in people) {
+    final key = person['Id']?.toString() ?? person['Name']?.toString() ?? '';
+    if (key.isEmpty) continue;
+    final existing = byKey[key];
+    if (existing == null) {
+      byKey[key] = person;
+      continue;
+    }
+    final roles = <String>{
+      ...?(existing['Roles'] as Set<String>?),
+      ...?(person['Roles'] as Set<String>?),
+    };
+    for (final source in [existing, person]) {
+      final role = source['Role']?.toString();
+      if (role != null && role.isNotEmpty) roles.add(role);
+    }
+    byKey[key] = {
+      ...existing,
+      if (roles.isNotEmpty) ...{'Roles': roles, 'Role': roles.join(' · ')},
+    };
+  }
+  return byKey.values.toList();
+}
+
 /// Scrolls [cellContext] to the middle of the enclosing scroll view, so a
 /// d-pad walk down a grid keeps the focused row clear of the modal's edges.
 void spotlightScrollCellIntoView(BuildContext cellContext) {
@@ -120,6 +164,7 @@ class SpotlightMediaGridSection extends StatelessWidget {
           focusExpansion: cardExpansion,
           maxCellWidth: 300,
         );
+        final cellKeys = spotlightCellKeys(items.map((i) => i.id));
         return Padding(
           padding: cardExpansion
               ? EdgeInsets.symmetric(vertical: metrics.runSpacing)
@@ -130,7 +175,7 @@ class SpotlightMediaGridSection extends StatelessWidget {
             children: [
               for (var i = 0; i < items.length; i++)
                 Builder(
-                  key: ValueKey(items[i].id),
+                  key: ValueKey(cellKeys[i]),
                   builder: (cellContext) {
                     final entry = items[i];
                     // A title the library lacks, standing in from Seerr. It
@@ -141,7 +186,7 @@ class SpotlightMediaGridSection extends StatelessWidget {
                         entry.serverId == 'seerr' ||
                         entry.id.startsWith('tmdb:');
                     return MediaCard(
-                      key: ValueKey(entry.id),
+                      key: ValueKey(cellKeys[i]),
                       title: entry.name,
                       titleColor: titleColor,
                       imageUrl: spotlightItemImageUrl(imageApi, entry),
@@ -220,6 +265,7 @@ class SpotlightSeerrGridSection extends StatelessWidget {
           focusExpansion: cardExpansion,
           maxCellWidth: 300,
         );
+        final cellKeys = spotlightCellKeys(items.map((i) => '${i.id}'));
         return Padding(
           padding: cardExpansion
               ? EdgeInsets.symmetric(vertical: metrics.runSpacing)
@@ -230,11 +276,11 @@ class SpotlightSeerrGridSection extends StatelessWidget {
             children: [
               for (var i = 0; i < items.length; i++)
                 Builder(
-                  key: ValueKey(items[i].id),
+                  key: ValueKey(cellKeys[i]),
                   builder: (cellContext) {
                     final entry = items[i];
                     return MediaCard(
-                      key: ValueKey(entry.id),
+                      key: ValueKey(cellKeys[i]),
                       title: entry.displayTitle,
                       subtitle: showCredit
                           ? (entry.character ?? entry.job)
@@ -280,6 +326,8 @@ class SpotlightPeopleGridSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (people.isEmpty) return const SizedBox.shrink();
+    final entries = spotlightDedupePeople(people);
+    if (entries.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
         final metrics = spotlightGridMetrics(
@@ -290,19 +338,21 @@ class SpotlightPeopleGridSection extends StatelessWidget {
           minSpacing: 16,
           minRunSpacing: 16,
         );
+        final cellKeys = spotlightCellKeys([
+          for (var i = 0; i < entries.length; i++)
+            entries[i]['Id']?.toString() ??
+                entries[i]['Name']?.toString() ??
+                '$i',
+        ]);
         return Wrap(
           spacing: metrics.spacing,
           runSpacing: metrics.runSpacing,
           children: [
-            for (var i = 0; i < people.length; i++)
+            for (var i = 0; i < entries.length; i++)
               Builder(
-                key: ValueKey(
-                  people[i]['Id']?.toString() ??
-                      people[i]['Name']?.toString() ??
-                      '$i',
-                ),
+                key: ValueKey(cellKeys[i]),
                 builder: (cellContext) {
-                  final person = people[i];
+                  final person = entries[i];
                   final personId = person['Id']?.toString();
                   final name = person['Name']?.toString() ?? '';
                   final role = (person['Roles'] as Set<String>?)?.join(' · ') ??
@@ -315,11 +365,7 @@ class SpotlightPeopleGridSection extends StatelessWidget {
                     maxHeight: 200,
                   );
                   return _SpotlightPersonCell(
-                    key: ValueKey(
-                      person['Id']?.toString() ??
-                          people[i]['Name']?.toString() ??
-                          '$i',
-                    ),
+                    key: ValueKey(cellKeys[i]),
                     width: metrics.cellWidth,
                     name: name,
                     role: role,

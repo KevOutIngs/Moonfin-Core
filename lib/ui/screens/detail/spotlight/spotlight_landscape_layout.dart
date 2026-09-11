@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
+
 import '../../../../preference/preference_constants.dart';
 import '../../../../preference/user_preferences.dart';
 import '../../../../util/platform_detection.dart';
@@ -13,6 +13,7 @@ class SpotlightLandscapeLayout extends StatelessWidget {
   final Widget hero;
   final Widget cards;
   final double topInset;
+  final UserPreferences prefs;
   final ScrollController? scrollController;
 
   const SpotlightLandscapeLayout({
@@ -21,6 +22,7 @@ class SpotlightLandscapeLayout extends StatelessWidget {
     required this.hero,
     required this.cards,
     required this.topInset,
+    required this.prefs,
     this.scrollController,
   });
 
@@ -33,14 +35,10 @@ class SpotlightLandscapeLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final scale = GetIt.instance<UserPreferences>()
-        .get(UserPreferences.desktopUiScale)
-        .scaleFactor;
+    final scale = prefs.get(UserPreferences.desktopUiScale).scaleFactor;
     final heroWidth = heroWidthFor(size);
-
     final hasLeftSidebar =
-        GetIt.instance<UserPreferences>().get(UserPreferences.navbarPosition) ==
-        NavbarPosition.left;
+        prefs.get(UserPreferences.navbarPosition) == NavbarPosition.left;
     final leftPadding = hasLeftSidebar ? 120.0 : 40.0;
 
     return Stack(

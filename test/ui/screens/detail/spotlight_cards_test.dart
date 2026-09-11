@@ -278,6 +278,32 @@ void main() {
     ]);
   });
 
+  test('seerr genres and stats lead the recommendations card', () {
+    final seerrVm = _SeerrVm();
+    when(() => seerrVm.state).thenReturn(
+      SeerrMediaDetailState(
+        movie: const SeerrMovieDetails(
+          id: 42,
+          title: 'The Movie',
+          status: 'Released',
+          genres: [SeerrGenre(id: 1, name: 'Action')],
+        ),
+        recommendations: const [
+          SeerrDiscoverItem(id: 1, title: 'Rec', posterPath: '/rec.jpg'),
+        ],
+      ),
+    );
+    when(() => vm.seerr).thenReturn(seerrVm);
+
+    final card = cardsFor(_item('Movie')).singleWhere((c) => c.id == 'similar');
+
+    // Untitled sections, so they read as context rather than another list.
+    expect(card.sections.first.title, isNull);
+    expect(card.sections.map((s) => s.title).last, isNotNull);
+    // The counted subtitle still describes only the titles on offer.
+    expect(card.subtitle, '1 title');
+  });
+
   test('the library similar list keeps the Similar label when Jellyfin made it', () {
     when(() => vm.similar).thenReturn([_child('s1', 'Movie')]);
     // The default recommendation source is Moonfin, but the view model fell

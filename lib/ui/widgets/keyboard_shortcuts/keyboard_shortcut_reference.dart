@@ -11,7 +11,7 @@ import '../../../util/platform_detection.dart';
 import '../track_selector_dialog.dart';
 
 /// One action and the key combinations that trigger it. Each entry in [keys]
-/// is a full combination such as `Shift+I`; entries are alternatives.
+/// is a full combination such as `Shift+I`, and entries are alternatives.
 class KeyboardShortcut {
   const KeyboardShortcut(this.keys, this.action);
 
@@ -50,7 +50,7 @@ class KeyboardShortcutSection {
 /// The player rows come from [PlayerKeyBindings], the same table the player
 /// handler reads, so they cannot drift. The app and reader rows still
 /// document the handlers in `app.dart` and `book_reader_screen.dart` by
-/// hand; a key added or removed there needs the matching change here.
+/// hand, so a key added or removed there needs the matching change here.
 ///
 /// [context] trims the list to what helps where it is shown: over a video
 /// the reader section is noise, and the other way round. The row for the

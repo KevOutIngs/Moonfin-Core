@@ -140,7 +140,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   }
 
   /// The key table the handler and the shortcut list share. Only the
-  /// defaults exist today; a user-editable table plugs in here.
+  /// defaults exist today. A user-editable table plugs in here.
   PlayerKeyBindings get _keyBindings => PlayerKeyBindings.defaults;
 
   /// The backend whose mpv statistics overlay this screen can toggle, or null

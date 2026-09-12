@@ -20,9 +20,13 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../preference/user_preferences.dart';
 import '../../../../preference/preference_constants.dart';
 import '../../../../util/seerr_credits.dart';
+import '../../../../util/detail_playback_info.dart';
 import '../../../../util/detail_track_highlight.dart';
+import '../../../../util/direct_play_reasons_formatter.dart';
 import '../../../../util/episode_playability.dart';
+import '../../../../util/item_watch_state.dart';
 import '../../../../util/overview_text.dart';
+import '../../../../util/playback_time_label.dart';
 import '../../../../util/platform_detection.dart';
 import '../../../../util/focus/dpad_keys.dart';
 import '../../../../util/focus/focus_scroll.dart';
@@ -268,6 +272,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
   // a request every frame.
   bool _playbackInfoFailed = false;
   String? _loadedPlaybackInfoItemId;
+  String? _loadedMediaSourceId;
 
   bool _upNextResolvedThisBuild = false;
   Widget? _upNextCard;
@@ -276,6 +281,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     if (_loadingPlaybackInfo) return;
     if ((_playbackInfo != null || _playbackInfoFailed) &&
         _loadedPlaybackInfoItemId == item.id &&
+        _loadedMediaSourceId == widget.selectedMediaSourceId &&
         _loadedAudioIndex == _vm.selectedAudioIndex &&
         _loadedSubtitleIndex == _vm.selectedSubtitleIndex) {
       return;
@@ -284,6 +290,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     _loadingPlaybackInfo = true;
     _playbackInfoFailed = false;
     _loadedPlaybackInfoItemId = item.id;
+    _loadedMediaSourceId = widget.selectedMediaSourceId;
     _loadedAudioIndex = _vm.selectedAudioIndex;
     _loadedSubtitleIndex = _vm.selectedSubtitleIndex;
     // Delay state change slightly to prevent setstate during build
@@ -292,39 +299,46 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     });
 
     try {
-      final client = GetIt.instance<MediaServerClient>();
-      final manager = GetIt.instance<PlaybackManager>();
-      
-      final backend = manager.backend;
-      final profile = backend?.getDeviceProfile() ?? {};
-      final bitrate = profile['MaxStreamingBitrate'] as int?;
-
       final mediaSource = selectedMediaSourceForItem(item, widget.selectedMediaSourceId);
-      final mediaSourceId = mediaSource?['Id']?.toString();
 
-      final request = PlaybackInfoRequest(
+      final manager = GetIt.instance<PlaybackManager>();
+      final rawStreams = (mediaSource?['MediaStreams'] as List?)
+              ?.whereType<Map>()
+              .map((e) => e.cast<String, dynamic>())
+              .toList() ??
+          [];
+      final audioStreams = rawStreams.where((s) => s['Type'] == 'Audio').toList();
+      final subtitleStreams = rawStreams.where((s) => s['Type'] == 'Subtitle').toList();
+      final isPlayingThisItem = manager.queueService.currentItem is AggregatedItem &&
+          (manager.queueService.currentItem as AggregatedItem).id == item.id;
+      final effectiveAudio = highlightedAudioIndex(
+        audioStreams: audioStreams,
+        seriesId: item.seriesId,
+        selectedIndex: _vm.selectedAudioIndex,
+        activePlaybackIndex: isPlayingThisItem ? manager.audioStreamIndex : null,
+      );
+      final effectiveSubtitle = highlightedSubtitleIndex(
+        subtitleStreams: subtitleStreams,
+        audioStreams: audioStreams,
+        seriesId: item.seriesId,
+        selectedIndex: _vm.selectedSubtitleIndex,
+        activePlaybackIndex: isPlayingThisItem
+            ? manager.subtitleStreamIndex
+            : null,
+        activeAudioIndex: effectiveAudio,
+      );
+
+      final parsed = await fetchDetailPlaybackInfo(
         itemId: item.id,
-        mediaSourceId: mediaSourceId,
-        audioStreamIndex: _vm.selectedAudioIndex,
-        subtitleStreamIndex: _vm.selectedSubtitleIndex,
-        deviceProfile: profile,
-        maxStreamingBitrate: bitrate,
-        enableDirectPlay: true,
-        enableDirectStream: true,
-        enableTranscoding: true,
+        mediaSourceId: mediaSource?['Id']?.toString(),
+        audioStreamIndex: _vm.selectedAudioIndex ?? effectiveAudio,
+        subtitleStreamIndex: _vm.selectedSubtitleIndex ?? effectiveSubtitle,
       );
-
-      final rawInfo = await client.playbackApi.getPlaybackInfo(
-        item.id,
-        requestBody: request.toJson(),
-        userId: client.userId,
-      );
-
-      final parsed = PlaybackInfoResult.fromJson(rawInfo);
       if (mounted) {
         // Drop the result if the track selection changed mid-request.
         final stillCurrent = _loadedAudioIndex == _vm.selectedAudioIndex &&
-            _loadedSubtitleIndex == _vm.selectedSubtitleIndex;
+            _loadedSubtitleIndex == _vm.selectedSubtitleIndex &&
+            _loadedMediaSourceId == widget.selectedMediaSourceId;
         setState(() {
           _loadingPlaybackInfo = false;
           if (stillCurrent) _playbackInfo = parsed;
@@ -428,34 +442,11 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     return groupSeerrCredits(list, isCrew: isCrew);
   }
 
-  List<SeerrDiscoverItem> _sortSeerrItems(List<SeerrDiscoverItem> list) {
-    final sortOpt = widget.prefs.get(UserPreferences.personPageSortOption);
-    final sorted = List<SeerrDiscoverItem>.from(list);
-    if (sortOpt == 'alphabetical') {
-      sorted.sort((a, b) => a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase()));
-    } else {
-      final asc = sortOpt == 'releaseDateAsc';
-      sorted.sort((a, b) {
-        final dateStrA = a.releaseDate ?? a.firstAirDate;
-        final dateStrB = b.releaseDate ?? b.firstAirDate;
-        if (dateStrA == null && dateStrB == null) {
-          return a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
-        }
-        if (dateStrA == null) return 1;
-        if (dateStrB == null) return -1;
-        final dateA = DateTime.tryParse(dateStrA);
-        final dateB = DateTime.tryParse(dateStrB);
-        if (dateA == null && dateB == null) {
-          return dateStrA.compareTo(dateStrB);
-        }
-        if (dateA == null) return 1;
-        if (dateB == null) return -1;
-        final comp = dateA.compareTo(dateB);
-        return asc ? comp : -comp;
-      });
-    }
-    return sorted;
-  }
+  List<SeerrDiscoverItem> _sortSeerrItems(List<SeerrDiscoverItem> items) =>
+      sortSeerrCredits(
+        items,
+        widget.prefs.get(UserPreferences.personPageSortOption),
+      );
 
   ItemDetailViewModel get _vm => widget.viewModel;
 
@@ -1151,11 +1142,15 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     final textTheme = Theme.of(context).textTheme;
     final counts = _episodeCountsBySeason();
     final showPosterUrl = _imageUrl(item);
+    final watchedBehavior =
+        widget.prefs.get(UserPreferences.watchedIndicatorBehavior);
     // Determine which season contains the "next up" episode, mirroring the
     // episode-card logic: prefer _vm.nextUp.seasonId, fall back to the first
     // unplayed episode's seasonId so the cyan border always renders correctly.
     final nextUpSeasonId = _vm.nextUp?.seasonId ??
         _vm.seriesEpisodes.firstWhereOrNull((e) => !e.isPlayed)?.seasonId;
+    final showAvailabilityBadges =
+        widget.prefs.get(UserPreferences.showSeerrAvailabilityBadges);
     final seerrSeasonStatus = seerrItemSeasonStatus(_vm);
     // Set only for a series with no season to open, where the card offers to
     // request that season instead.
@@ -1165,37 +1160,66 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
       double? width,
       double? height,
       bool topRow = true,
-    }) =>
-        SeasonCard(
-          seerrStatus: seerrSeasonStatus[_vm.seasons[i].indexNumber],
-          title: _vm.seasons[i].name,
-          subtitle: l10n.episodeCount(
-            counts[_vm.seasons[i].id] ?? _vm.seasons[i].childCount ?? 0,
-          ),
-          imageUrl: _imageUrl(_vm.seasons[i]) ?? showPosterUrl,
-          isFallbackImage: _imageUrl(_vm.seasons[i]) == null,
-          landscape: _landscape,
-          isNextUp: _vm.seasons[i].id == nextUpSeasonId,
-          onNavigateUp: topRow ? _focusSelectedTab : null,
-          focusNode: i == 0 ? _seasonsFirstFocusNode : null,
-          width: width,
-          height: height,
-          autoScroll: true,
-          onTap: () => seerrOnlyVm != null
-              ? showSeerrRequestDialog(
-                  context: context,
-                  vm: seerrOnlyVm,
-                  is4k: false,
-                  qualityToggle: true,
-                  season: _vm.seasons[i].indexNumber,
-                )
-              : context.push(
-                  Destinations.item(
-                    _vm.seasons[i].id,
-                    serverId: _vm.seasons[i].serverId,
-                  ),
+    }) {
+      final season = _vm.seasons[i];
+      final seasonEpisodes = _vm.seriesEpisodes
+          .where(
+            (e) =>
+                e.seasonId == season.id ||
+                (season.indexNumber != null &&
+                    e.parentIndexNumber == season.indexNumber),
+          )
+          .toList(growable: false);
+      final unplayed = seasonEpisodes.where((e) => !e.isPlayed).length;
+      final isFullyPlayed =
+          season.isPlayed || (seasonEpisodes.isNotEmpty && unplayed == 0);
+      final remaining = isFullyPlayed
+          ? 0
+          : (seasonEpisodes.isNotEmpty
+              ? unplayed
+              : (season.unplayedItemCount ?? 0));
+      final showsIndicator = showsWatchedIndicator(
+        behavior: watchedBehavior,
+        isPlayed: isFullyPlayed,
+        itemType: 'Season',
+        unplayedCount: remaining,
+      );
+
+      return SeasonCard(
+        seerrStatus: showAvailabilityBadges
+            ? seerrSeasonStatus[season.indexNumber]
+            : null,
+        title: season.name,
+        subtitle: l10n.episodeCount(
+          counts[season.id] ?? season.childCount ?? 0,
+        ),
+        imageUrl: _imageUrl(season) ?? showPosterUrl,
+        isFallbackImage: _imageUrl(season) == null,
+        landscape: _landscape,
+        isNextUp: season.id == nextUpSeasonId,
+        isPlayed: showsIndicator && isFullyPlayed,
+        unplayedCount: showsIndicator && !isFullyPlayed ? remaining : null,
+        onNavigateUp: topRow ? _focusSelectedTab : null,
+        focusNode: i == 0 ? _seasonsFirstFocusNode : null,
+        width: width,
+        height: height,
+        autoScroll: true,
+        onTap: () => seerrOnlyVm != null
+            ? showSeerrRequestDialog(
+                context: context,
+                vm: seerrOnlyVm,
+                is4k: false,
+                qualityToggle: true,
+                season: season.indexNumber,
+              )
+            : context.push(
+                Destinations.item(
+                  season.id,
+                  serverId: season.serverId,
                 ),
-        );
+              ),
+      );
+    }
     final seasonLabelStyle = textTheme.labelMedium?.copyWith(
       color: Colors.white70,
       fontWeight: FontWeight.bold,
@@ -2996,7 +3020,13 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         ],
 
         const SizedBox(height: 12),
-        _buildDirectPlaySection(context, item, textTheme),
+        _buildDirectPlaySection(
+          context,
+          item,
+          textTheme,
+          activeAudioIndex: activeAudioIndex,
+          activeSubtitleIndex: activeSubtitleIndex,
+        ),
       ],
     );
   }
@@ -3022,7 +3052,13 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     );
   }
 
-  Widget _buildDirectPlaySection(BuildContext context, AggregatedItem item, TextTheme textTheme) {
+  Widget _buildDirectPlaySection(
+    BuildContext context,
+    AggregatedItem item,
+    TextTheme textTheme, {
+    int? activeAudioIndex,
+    int? activeSubtitleIndex,
+  }) {
     final l10n = AppLocalizations.of(context);
     if (_loadingPlaybackInfo) {
       return Row(
@@ -3093,8 +3129,48 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
       orElse: () => _playbackInfo!.mediaSources.first,
     );
 
-    final canDirectPlay = source.supportsDirectPlay;
-    final reasons = source.transcodingReasons;
+    final manager = GetIt.instance.isRegistered<PlaybackManager>()
+        ? GetIt.instance<PlaybackManager>()
+        : null;
+    final profile = manager?.backend?.getDeviceProfile() ?? <String, dynamic>{};
+    // Cast receiver profiles can carry this as a double, so read it as a
+    // number rather than an int.
+    final bitrate = (profile['MaxStreamingBitrate'] as num?)?.toInt();
+
+    final selectedSource = selectedMediaSourceForItem(item, widget.selectedMediaSourceId);
+    final mediaStreams = source.mediaStreams.isNotEmpty
+        ? source.mediaStreams
+        : (selectedSource?['MediaStreams'] as List?)
+            ?.whereType<Map>()
+            .map((e) => e.cast<String, dynamic>())
+            .toList() ??
+            const [];
+
+    final clientDvReason = checkClientDolbyVisionTranscodeReason(
+      mediaStreams,
+      widget.prefs,
+    );
+
+    final canDirectPlay = source.supportsDirectPlay && clientDvReason == null;
+
+    final mediaSourceMap = <String, dynamic>{
+      'Container': source.container ?? selectedSource?['Container'],
+      'Bitrate': source.bitrate ?? selectedSource?['Bitrate'],
+      'MediaStreams': mediaStreams,
+    };
+
+    final reasons = !canDirectPlay
+        ? buildDirectPlayReasonItems(
+            serverReasons: source.transcodingReasons,
+            mediaSource: mediaSourceMap,
+            deviceProfile: profile,
+            prefs: widget.prefs,
+            l10n: l10n,
+            selectedAudioIndex: _vm.selectedAudioIndex ?? activeAudioIndex,
+            selectedSubtitleIndex: _vm.selectedSubtitleIndex ?? activeSubtitleIndex,
+            maxStreamingBitrate: bitrate,
+          )
+        : const <DirectPlayReasonItem>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3118,20 +3194,36 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
           ],
         ),
         if (!canDirectPlay && reasons.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.only(left: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: reasons.map((r) {
-                final readable = _formatTranscodeReason(r, l10n);
+              children: reasons.map((reason) {
                 return Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    '• $readable',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: Colors.white70,
-                    ),
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '• ${reason.description}',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: Colors.white70,
+                        ),
+                      ),
+                      if (reason.hint != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12, top: 2),
+                          child: Text(
+                            reason.hint!,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: AppColorScheme.accent,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               }).toList(),
@@ -3140,26 +3232,6 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
         ],
       ],
     );
-  }
-
-  String _formatTranscodeReason(String reason, AppLocalizations l10n) {
-    return switch (reason) {
-      'ContainerNotSupported' => l10n.transcodeContainerNotSupported,
-      'VideoCodecNotSupported' => l10n.transcodeVideoCodecNotSupported,
-      'AudioCodecNotSupported' => l10n.transcodeAudioCodecNotSupported,
-      'SubtitleCodecNotSupported' => l10n.transcodeSubtitleCodecNotSupported,
-      'AudioProfileNotSupported' => l10n.transcodeAudioProfileNotSupported,
-      'VideoProfileNotSupported' => l10n.transcodeVideoProfileNotSupported,
-      'VideoLevelNotSupported' => l10n.transcodeVideoLevelNotSupported,
-      'VideoResolutionNotSupported' => l10n.transcodeVideoResolutionNotSupported,
-      'VideoBitDepthNotSupported' => l10n.transcodeVideoBitDepthNotSupported,
-      'VideoFramerateNotSupported' => l10n.transcodeVideoFramerateNotSupported,
-      'ContainerBitrateExceedsLimit' => l10n.transcodeContainerBitrateExceedsLimit,
-      'VideoBitrateExceedsLimit' => l10n.transcodeVideoBitrateExceedsLimit,
-      'AudioBitrateExceedsLimit' => l10n.transcodeAudioBitrateExceedsLimit,
-      'AudioChannelsNotSupported' => l10n.transcodeAudioChannelsNotSupported,
-      _ => reason,
-    };
   }
 
   Widget _itemGrid(List<AggregatedItem> items, {double aspectRatio = 2 / 3, FocusNode? focusNode}) {
@@ -3914,7 +3986,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
               }
               final runtime = item.runtime;
               if (isBookLayout && runtime != null && runtime.inMinutes > 0) {
-                parts.add(_formatDuration(runtime));
+                parts.add(formatRuntimeShort(runtime));
               } else if (!isBookLayout && _vm.tracks.isNotEmpty) {
                 final count = _vm.tracks.length;
                 parts.add(l10n.trackCount(count));
@@ -4292,7 +4364,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
           children: [
             Icon(Icons.schedule, size: 14, color: muted),
             const SizedBox(width: 4),
-            Text(_formatDuration(runtime), style: style),
+            Text(formatRuntimeShort(runtime), style: style),
           ],
         ),
       );
@@ -4577,14 +4649,7 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
     final position = episode.playbackPosition ?? Duration.zero;
     final remaining = runtime - position;
     if (remaining.inMinutes <= 0) return null;
-    return l10n.timeRemaining(_formatDuration(remaining));
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    if (h > 0) return m > 0 ? '${h}h ${m}m' : '${h}h';
-    return '${m}m';
+    return l10n.timeRemaining(formatRuntimeShort(remaining));
   }
 
   /// Full-bleed cinematic backdrop owned by the Modern screen (deliberately

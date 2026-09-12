@@ -337,6 +337,9 @@ class AppLocalizationsNb extends AppLocalizations {
   }
 
   @override
+  String get detailScreenStyleNouveau => 'Nouveau';
+
+  @override
   String get expandedTabs => 'Utvidede faner';
 
   @override
@@ -359,6 +362,9 @@ class AppLocalizationsNb extends AppLocalizations {
 
   @override
   String get recommendationSystemMoonfin => 'Moonfin anbefaler';
+
+  @override
+  String get recommendationSystemJellyfin => 'Jellyfin Recommends';
 
   @override
   String get recommendationSystemTmdb => 'TMDb-likhet';
@@ -388,39 +394,39 @@ class AppLocalizationsNb extends AppLocalizations {
   String get interfaceStyleMaterial => 'Material';
 
   @override
-  String get interfaceLayout => 'Interface Layout';
+  String get interfaceLayout => 'Grensesnittoppsett';
 
   @override
   String get interfaceLayoutSubtitle =>
-      'Override the detected layout when this device is read wrong. Restart Moonfin for changes to take effect.';
+      'Overstyr oppsettet dersom enheten gjenkjennes feil. Start Moonfin på nytt for å ta i bruk endringene.';
 
   @override
-  String get interfaceLayoutAutomatic => 'Automatic';
+  String get interfaceLayoutAutomatic => 'Automatisk';
 
   @override
   String get interfaceLayoutTv => 'TV';
 
   @override
-  String get interfaceLayoutDesktop => 'Desktop';
+  String get interfaceLayoutDesktop => 'Skrivebord';
 
   @override
-  String get interfaceLayoutPhone => 'Phone';
+  String get interfaceLayoutPhone => 'Telefon';
 
   @override
   String get glassQuality => 'Glasskvalitet';
 
   @override
-  String get oledMode => 'OLED Mode';
+  String get oledMode => 'OLED modus';
 
   @override
   String get oledModeSubtitle =>
-      'Deepen blacks and enrich artwork. Best on OLED displays.';
+      'Forsterk sortnivå og farger. Best egnet for OLED skjermer.';
 
   @override
-  String get oledModeSubtle => 'Subtle';
+  String get oledModeSubtle => 'Dempet';
 
   @override
-  String get oledModeVivid => 'Vivid';
+  String get oledModeVivid => 'Livlig';
 
   @override
   String get glassQualitySubtitle =>
@@ -436,11 +442,11 @@ class AppLocalizationsNb extends AppLocalizations {
   String get glassQualityReduced => 'Redusert';
 
   @override
-  String get performanceMode => 'Performance';
+  String get performanceMode => 'Ytelse';
 
   @override
   String get performanceModeSubtitle =>
-      'Auto measures this device and holds back on the ones short on memory, which keeps fewer images in memory and leaves trailers as still images. Takes full effect on the next launch.';
+      'Justerer seg automatisk etter enhetens minne. Færre bilder lagres i minnet, og trailere vises som stillbilder. Trer i kraft ved neste oppstart.';
 
   @override
   String get performanceModeAuto => 'Auto';
@@ -449,11 +455,11 @@ class AppLocalizationsNb extends AppLocalizations {
   String get performanceModeStandard => 'Standard';
 
   @override
-  String get performanceModeReduced => 'Reduced';
+  String get performanceModeReduced => 'Redusert';
 
   @override
   String get trailerPreviewHeldBack =>
-      'Off because Performance is set to Reduced for this device';
+      'Av fordi Ytelse er satt til Redusert for denne enheten';
 
   @override
   String get settingsAppearanceThemeSubtitle =>
@@ -474,14 +480,14 @@ class AppLocalizationsNb extends AppLocalizations {
       'Bruk enhetens inndatametode som standard for tekstinnskriving';
 
   @override
-  String get controller => 'Controller';
+  String get controller => 'Kontroller';
 
   @override
-  String get gamepadNavigation => 'Gamepad navigation';
+  String get gamepadNavigation => 'Navigasjon med spillkontroll';
 
   @override
   String get gamepadNavigationDescription =>
-      'Let a connected game controller move focus and select items';
+      'La tilkoblet spillkontroll flytte markør og velge elementer';
 
   @override
   String get themeMoonfin => 'Moonfin';
@@ -737,13 +743,13 @@ class AppLocalizationsNb extends AppLocalizations {
   String get extraLarge => 'Ekstra stor';
 
   @override
-  String get scrollDirection => 'Scroll Direction';
+  String get scrollDirection => 'Rulleretning';
 
   @override
-  String get scrollDirectionVertical => 'Vertical';
+  String get scrollDirectionVertical => 'Vertikal';
 
   @override
-  String get scrollDirectionHorizontal => 'Horizontal';
+  String get scrollDirectionHorizontal => 'Horisontal';
 
   @override
   String libraryGenresTitle(String name) {
@@ -841,7 +847,7 @@ class AppLocalizationsNb extends AppLocalizations {
   String get scrollRight => 'Rull til høyre';
 
   @override
-  String get scrollToTop => 'Scroll to top';
+  String get scrollToTop => 'Gå til toppen';
 
   @override
   String get couldNotLoadGenre =>
@@ -1026,10 +1032,10 @@ class AppLocalizationsNb extends AppLocalizations {
   String get latestAudiobooks => 'Nyeste lydbøker';
 
   @override
-  String get latestComics => 'Latest Comics';
+  String get latestComics => 'Siste Tegneserier';
 
   @override
-  String get comics => 'Comics';
+  String get comics => 'Tegneserier';
 
   @override
   String bookSeriesItemCount(int count) {
@@ -1049,14 +1055,14 @@ class AppLocalizationsNb extends AppLocalizations {
   String get bookFormatAudiobook => 'Lydbok';
 
   @override
-  String get bookFormatComic => 'Comic';
+  String get bookFormatComic => 'Tegneserie';
 
   @override
   String get noBooksFound => 'Fant ingen bøker for denne forfatteren.';
 
   @override
   String get noBooksFoundDescription =>
-      'This library does not contain any books, audiobooks, or comics yet.';
+      'Dette biblioteket inneholder ingen bøker, lydbøker eller tegneserier.';
 
   @override
   String bookPercentRead(int percent) {
@@ -1366,7 +1372,7 @@ class AppLocalizationsNb extends AppLocalizations {
   String get finalizingDownload => 'Fullfører…';
 
   @override
-  String get queuedDownload => 'Queued';
+  String get queuedDownload => 'I Kø';
 
   @override
   String queuedMoreCount(int count) {
@@ -1493,7 +1499,7 @@ class AppLocalizationsNb extends AppLocalizations {
   String get downloadSubtitles => 'Last ned undertekster';
 
   @override
-  String get searchingSubtitles => 'Searching for subtitles…';
+  String get searchingSubtitles => 'Søkker etter undertekster…';
 
   @override
   String get downloadingSubtitle => 'Downloading subtitle…';
@@ -1904,6 +1910,165 @@ class AppLocalizationsNb extends AppLocalizations {
 
   @override
   String get hideMpvStats => 'Hide mpv Statistics (Shift+I)';
+
+  @override
+  String get keyboardShortcutsTitle => 'Keyboard shortcuts';
+
+  @override
+  String get keyboardShortcutsSubtitle =>
+      'Keys for the app, video player and reader';
+
+  @override
+  String get keyboardShortcutsPlayerHint =>
+      'Press ? or F1 while a video plays to see this list without leaving the player.';
+
+  @override
+  String get keyboardShortcutsSectionApp => 'Everywhere';
+
+  @override
+  String get keyboardShortcutsSectionAppScope => 'On any screen';
+
+  @override
+  String get keyboardShortcutsSectionPlayer => 'Video player';
+
+  @override
+  String get keyboardShortcutsSectionPlayerScope =>
+      'While a video is open, playing or paused';
+
+  @override
+  String get keyboardShortcutsSectionReader => 'Book and comic reader';
+
+  @override
+  String get keyboardShortcutsSectionReaderScope =>
+      'While reading a book or comic';
+
+  @override
+  String get keyNameArrowKeys => 'Arrow keys';
+
+  @override
+  String get keyNameSpace => 'Space';
+
+  @override
+  String get keyNameEnter => 'Enter';
+
+  @override
+  String get keyNameEsc => 'Esc';
+
+  @override
+  String get keyNameBackspace => 'Backspace';
+
+  @override
+  String get keyNamePageUp => 'Page Up';
+
+  @override
+  String get keyNamePageDown => 'Page Down';
+
+  @override
+  String get keyNameHome => 'Home';
+
+  @override
+  String get keyNameEnd => 'End';
+
+  @override
+  String get keyNameShift => 'Shift';
+
+  @override
+  String get keyNameCtrl => 'Ctrl';
+
+  @override
+  String get keyNameAlt => 'Alt';
+
+  @override
+  String get keyNameScrollWheel => 'Scroll wheel';
+
+  @override
+  String get shortcutMoveFocus => 'Move between items';
+
+  @override
+  String get shortcutActivate => 'Open the selected item';
+
+  @override
+  String get shortcutGoBack => 'Go back';
+
+  @override
+  String get shortcutToggleFullscreen => 'Fullscreen on or off';
+
+  @override
+  String get shortcutQuit => 'Quit Moonfin';
+
+  @override
+  String get shortcutPlayPause => 'Play or pause';
+
+  @override
+  String get shortcutShowControlsOrPlayPause =>
+      'Show controls, or play/pause if shown';
+
+  @override
+  String get shortcutSeekBack => 'Seek back (hold for bigger jumps)';
+
+  @override
+  String get shortcutSeekForward => 'Seek forward (hold for bigger jumps)';
+
+  @override
+  String get shortcutVolumeUp => 'Volume up';
+
+  @override
+  String get shortcutVolumeDown => 'Volume down';
+
+  @override
+  String get shortcutMute => 'Mute or unmute';
+
+  @override
+  String get shortcutToggleSubtitles => 'Subtitles on or off';
+
+  @override
+  String get shortcutSlower => 'Slow down';
+
+  @override
+  String get shortcutFaster => 'Speed up';
+
+  @override
+  String get shortcutPlaybackInfo => 'Show playback information';
+
+  @override
+  String get shortcutMpvStats => 'mpv statistics on or off';
+
+  @override
+  String get shortcutLeaveFullscreenOrStop =>
+      'Exit fullscreen, or stop if not fullscreen';
+
+  @override
+  String get shortcutStopPlayback => 'Stop playback';
+
+  @override
+  String get shortcutNextItem => 'Next item';
+
+  @override
+  String get shortcutPreviousItem => 'Previous item';
+
+  @override
+  String get shortcutShowShortcuts => 'Show this list';
+
+  @override
+  String get shortcutNextPage => 'Next page';
+
+  @override
+  String get shortcutPreviousPage => 'Previous page';
+
+  @override
+  String get shortcutScrollPage => 'Scroll the page (ebooks)';
+
+  @override
+  String get shortcutFirstPage => 'First page, or start of chapter';
+
+  @override
+  String get shortcutLastPage => 'Last page, or end of chapter';
+
+  @override
+  String get shortcutZoom => 'Zoom in or out (comics)';
+
+  @override
+  String get shortcutResetZoom => 'Reset zoom (comics)';
 
   @override
   String get playback => 'Avspilling';
@@ -4440,6 +4605,13 @@ class AppLocalizationsNb extends AppLocalizations {
   @override
   String get showMissingCollectionItemsDesc =>
       'Include missing items on Collection pages';
+
+  @override
+  String get showSeerrAvailabilityBadges => 'Show Seerr Availability Badges';
+
+  @override
+  String get showSeerrAvailabilityBadgesDescription =>
+      'Show season availability badges on media details pages';
 
   @override
   String get seerrNotificationsSection => 'Varsler';
@@ -10033,6 +10205,13 @@ class AppLocalizationsNb extends AppLocalizations {
       'Klassisk beholder bildetype og infooverlegg per rad. Moderne bruker rader fra portrett til bakgrunnsbilde.';
 
   @override
+  String get modernCardsOnMyMediaRow => 'Modern cards on My Media row';
+
+  @override
+  String get modernCardsOnMyMediaRowDescription =>
+      'Display customizable posters that expand on focus. Disable to always show landscape thumbnail.';
+
+  @override
   String get sortOrder => 'Sort Order';
 
   @override
@@ -10914,6 +11093,9 @@ class AppLocalizationsNb extends AppLocalizations {
   String get audiobookFocusedTimeline => 'Fokusert tidslinje';
 
   @override
+  String get audiobookFullTimeline => 'Full Timeline';
+
+  @override
   String get audiobookExportBookmarks => 'Eksporter bokmerker';
 
   @override
@@ -11175,6 +11357,118 @@ class AppLocalizationsNb extends AppLocalizations {
   @override
   String get transcodeAudioChannelsNotSupported =>
       'Antall lydkanaler støttes ikke.';
+
+  @override
+  String transcodeAudioCodecWithCodec(String codec) {
+    return 'Audio codec ($codec) is not supported directly.';
+  }
+
+  @override
+  String transcodeAudioCodecHintPassthrough(String codec) {
+    return 'Tip: If your audio receiver or soundbar supports $codec, enable Audio Passthrough in Audio settings.';
+  }
+
+  @override
+  String transcodeAudioChannelsExceeded(int channels) {
+    return 'Audio channel count (${channels}ch) exceeds the player limit.';
+  }
+
+  @override
+  String get transcodeAudioChannelsHint =>
+      'Tip: Adjust \'Max Audio Channels\' or multichannel downmixing in Audio settings.';
+
+  @override
+  String get transcodeSubtitleBurnInAssDisabled =>
+      'ASS/SSA subtitles require transcoding because direct play is turned off.';
+
+  @override
+  String get transcodeSubtitleBurnInAssHint =>
+      'Tip: Enable \'ASS/SSA Direct Play\' in Playback settings to play directly without transcoding.';
+
+  @override
+  String get transcodeSubtitleBurnInPgsDisabled =>
+      'PGS subtitles require transcoding because direct play is turned off.';
+
+  @override
+  String get transcodeSubtitleBurnInPgsHint =>
+      'Tip: Enable \'PGS Direct Play\' in Playback settings to play directly without transcoding.';
+
+  @override
+  String transcodeSubtitleNotSupportedWithCodec(String codec) {
+    return 'Subtitle format ($codec) is not supported directly and must be burned in.';
+  }
+
+  @override
+  String transcodeBitrateExceededWithValues(
+    String fileBitrate,
+    String maxBitrate,
+  ) {
+    return 'File bitrate ($fileBitrate) exceeds the configured streaming limit ($maxBitrate).';
+  }
+
+  @override
+  String get transcodeBitrateHint =>
+      'Tip: Increase \'Maximum Bitrate\' in Playback settings to allow direct streaming.';
+
+  @override
+  String get transcodeResolutionHint =>
+      'Tip: Increase \'Maximum Resolution\' in Playback settings to allow direct streaming.';
+
+  @override
+  String get transcodeVideoRangeNotSupported =>
+      'Video dynamic range (e.g. Dolby Vision / HDR) is not supported by this display.';
+
+  @override
+  String get transcodeDolbyVisionProfile7ElDisabled =>
+      'Dolby Vision Profile 7 enhancement layer direct play is disabled.';
+
+  @override
+  String get transcodeDolbyVisionProfile7ElHint =>
+      'Tip: Enable \'Dolby Vision Profile 7 Direct Play\' in Playback settings if your display supports it.';
+
+  @override
+  String get transcodeDolbyVisionFallbackPreferenceTranscode =>
+      'Transcoding is preferred for Dolby Vision fallback per user settings.';
+
+  @override
+  String get transcodeDolbyVisionFallbackHint =>
+      'Tip: Set \'Dolby Vision Fallback\' to \'Play as HDR10\' in Playback settings to avoid transcoding.';
+
+  @override
+  String get transcodeDisplayReportsNoHdr =>
+      'Connected display does not report support for HDR or Dolby Vision.';
+
+  @override
+  String get transcodeDisplayLacksHdr10ForFallback =>
+      'Connected display lacks HDR10 support needed for Dolby Vision fallback.';
+
+  @override
+  String get transcodeAudioSampleRateNotSupported =>
+      'Audio sample rate is not supported.';
+
+  @override
+  String get transcodeAudioBitDepthNotSupported =>
+      'Audio bit depth is not supported.';
+
+  @override
+  String get transcodeRefFramesNotSupported =>
+      'Video reference frames exceed player limits.';
+
+  @override
+  String get transcodeAnamorphicVideoNotSupported =>
+      'Anamorphic video is not supported.';
+
+  @override
+  String get transcodeInterlacedVideoNotSupported =>
+      'Interlaced video is not supported.';
+
+  @override
+  String get transcodeSecondaryAudioNotSupported =>
+      'Secondary audio stream requires transcoding.';
+
+  @override
+  String get transcodeDirectPlayError =>
+      'Direct play is not supported for this media format.';
 
   @override
   String get sortAlphabetical => 'Alfabetisk';
@@ -11630,6 +11924,13 @@ class AppLocalizationsNb extends AppLocalizations {
   @override
   String get setupDetailSpotlightHint =>
       'Hero-first, with pop-up cards for cast and extras.';
+
+  @override
+  String get setupStyleNouveau => 'Nouveau';
+
+  @override
+  String get setupDetailNouveauHint =>
+      'Full-screen, with sections stacked instead of tabs.';
 
   @override
   String get setupPickALook => 'Pick a look';

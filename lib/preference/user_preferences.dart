@@ -441,6 +441,7 @@ class UserPreferences extends ChangeNotifier {
     'poster_size_playlist',
     'pref_home_rows_fullscreen',
     'pref_show_seerr_button',
+    'pref_show_seerr_availability_badges',
     'pref_show_server_messages_button',
     'pref_show_media_details_on_library_page',
     'pref_use_detailed_sub_headings',
@@ -484,6 +485,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_home_rows_style',
     'pref_modern_home_rows_padding',
     'pref_classic_home_rows_padding',
+    'pref_modern_cards_my_media',
     'poster_size',
     'pref_display_favorites_rows',
     'pref_display_collections_rows',
@@ -973,6 +975,11 @@ class UserPreferences extends ChangeNotifier {
   static final classicHomeRowsPadding = Preference<int>(
     key: 'pref_classic_home_rows_padding',
     defaultValue: 30,
+  );
+
+  static final modernCardsOnMyMediaRow = Preference<bool>(
+    key: 'pref_modern_cards_my_media',
+    defaultValue: true,
   );
 
   /// How far a mouse wheel notch scrolls, as a percentage of what the platform
@@ -1472,6 +1479,11 @@ class UserPreferences extends ChangeNotifier {
 
   static final showSeerrButton = Preference(
     key: 'pref_show_seerr_button',
+    defaultValue: true,
+  );
+
+  static final showSeerrAvailabilityBadges = Preference(
+    key: 'pref_show_seerr_availability_badges',
     defaultValue: true,
   );
 

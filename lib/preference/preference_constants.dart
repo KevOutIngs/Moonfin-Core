@@ -256,16 +256,20 @@ enum VisualThemeId {
 /// cinematic layout (landscape two-pane / portrait stack) and is the default.
 /// [spotlight] is the hero-first layout: Play plus at most three action
 /// buttons with the rest behind an ellipsis menu, and summary cards that open
-/// sectioned grid modals. Stored per server and user.
+/// sectioned grid modals. [nouveau] is the full-screen layout, with every
+/// section stacked down the page rather than behind tabs or cards. Stored per
+/// server and user.
 enum DetailScreenStyle {
   classic,
   modern,
-  spotlight;
+  spotlight,
+  nouveau;
 }
 
 /// Selectable algorithm source for similarity recommendation system.
 enum RecommendationSystemSource {
   local,
+  server,
   online;
 }
 
@@ -857,9 +861,14 @@ enum ScreensaverTimeout {
 
 enum SinceYouWatchedSource {
   local,
+  server,
   online;
 
-  String get displayName => this == local ? 'Local' : 'Online';
+  String get displayName => switch (this) {
+    SinceYouWatchedSource.local => 'Moonfin Recommends',
+    SinceYouWatchedSource.server => 'Jellyfin Recommends',
+    SinceYouWatchedSource.online => 'TMDb Similarity',
+  };
 }
 
 enum SinceYouWatchedSourceType {

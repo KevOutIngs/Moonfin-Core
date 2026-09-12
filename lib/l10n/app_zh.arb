@@ -10729,5 +10729,13 @@
                 "type": "String"
             }
         }
+    },
+    "trickplayPauseWhileScrubbing": "",
+    "@trickplayPauseWhileScrubbing": {
+        "description": "Setting for whether seeking pauses playback so the trickplay preview holds still"
+    },
+    "trickplayPauseWhileScrubbingSubtitle": "",
+    "@trickplayPauseWhileScrubbingSubtitle": {
+        "description": "Description for the trickplay pause-while-scrubbing setting"
     }
 }

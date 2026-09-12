@@ -9815,5 +9815,1129 @@
     "detailButtonsSectionDescription": "Репродукција је увек на првом месту, док су закључана дугмад увек приказана. Све остало можете организовати по сопственом нахођењу, а сваки тип уређаја задржава своју засебну листу.",
     "@detailButtonsSectionDescription": {
         "description": "Explains that the play buttons can't be hidden and that the list is per device kind"
+    },
+    "settingsAudioPassthroughModeAuto": "",
+    "settingsAudioPassthroughModeManual": "",
+    "settingsRedetectDisplay": "",
+    "settingsRedetectDisplayDescription": "",
+    "settingsDisplayIsSdr": "",
+    "settingsDisplayRedetected": "",
+    "@settingsDisplayRedetected": {
+        "placeholders": {
+            "formats": {
+                "type": "String"
+            }
+        }
+    },
+    "settingsCinemaModeEpisodes": "",
+    "@settingsCinemaModeEpisodes": {
+        "description": "Settings toggle label. Extends Cinema Mode, which plays pre-roll videos before playback, to TV episodes as well as films. 'Cinema Mode' is the app's feature name."
+    },
+    "collectionsRowShowEpisodesSubtitle": "",
+    "selectStudiosToInclude": "",
+    "selectStudiosToIncludeDescription": "",
+    "movieStudiosFilter": "",
+    "selectedStudiosFilter": "",
+    "unselectedStudiosFilter": "",
+    "dateCreatedFormat": "",
+    "@dateCreatedFormat": {
+        "placeholders": {
+            "date": {}
+        }
+    },
+    "addToWatchlist": "",
+    "@addToWatchlist": {
+        "description": "Button label to add media to the user's Seerr watchlist"
+    },
+    "watchlistUpdateFailed": "",
+    "@watchlistUpdateFailed": {
+        "description": "Snackbar shown when adding/removing a Seerr watchlist item fails"
+    },
+    "adminLabelTmdbMovieId": "",
+    "@adminLabelTmdbMovieId": {
+        "description": "Label for the TheMovieDb movie identifier field in the Identify dialog. TheMovieDb is a brand name and is normally left untranslated"
+    },
+    "detailUseSeriesThumbnails": "",
+    "@detailUseSeriesThumbnails": {
+        "description": "Setting title to replace thumbnails on Classic details page with series thumbnail"
+    },
+    "detailUseSeriesThumbnailsSubtitle": "",
+    "@detailUseSeriesThumbnailsSubtitle": {
+        "description": "Description for setting to use series thumbnails on Classic details page"
+    },
+    "setupPickALook": "",
+    "@setupPickALook": {
+        "description": "Label above the theme swatches on the final setup screen"
+    },
+    "setupDetailModernHint": "",
+    "@setupDetailModernHint": {
+        "description": "What the modern detail screen style gives you"
+    },
+    "setupTourMoreHeader": "",
+    "@setupTourMoreHeader": {
+        "description": "Heading of the closing setup screen block that lists features found in settings"
+    },
+    "setupTourBulletThemes": "",
+    "@setupTourBulletThemes": {
+        "description": "Bullet on the closing setup screen for custom themes"
+    },
+    "serverMessagesShowButtonSubtitle": "",
+    "@serverMessagesShowButtonSubtitle": {
+        "description": "Explains the setting that shows or hides the messages button"
+    },
+    "autoDownloadNewEpisodes": "",
+    "@autoDownloadNewEpisodes": {
+        "description": "Row in the download sheet of a series that subscribes it to automatic downloads"
+    },
+    "autoDownloadStop": "",
+    "@autoDownloadStop": {
+        "description": "Row in the download sheet of a series that is already subscribed; tapping removes the subscription"
+    },
+    "autoDownloadKeepUnwatchedSubtitle": "",
+    "@autoDownloadKeepUnwatchedSubtitle": {
+        "description": "Subtitle under the auto-download row explaining the keep-unwatched rule",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "autoDownloadStopSubtitle": "",
+    "@autoDownloadStopSubtitle": {
+        "description": "Subtitle under the stop auto-download row showing the subscription's quality",
+        "placeholders": {
+            "quality": {
+                "type": "String"
+            }
+        }
+    },
+    "autoDownloadTranscodedForegroundNote": "",
+    "@autoDownloadTranscodedForegroundNote": {
+        "description": "Shown under transcoded options when choosing the quality of an auto-download subscription"
+    },
+    "autoDownloadTranscodedRunningNote": "",
+    "@autoDownloadTranscodedRunningNote": {
+        "description": "Shown under a running transcoded download that a subscription queued"
+    },
+    "autoDownloadForegroundOnly": "",
+    "@autoDownloadForegroundOnly": {
+        "description": "Short note next to a followed series in a transcoded quality"
+    },
+    "autoDownloadQualityTitle": "",
+    "@autoDownloadQualityTitle": {
+        "description": "Title of the quality sheet when it is opened to create an auto-download subscription"
+    },
+    "autoDownloadEnabledFor": "",
+    "@autoDownloadEnabledFor": {
+        "description": "Snackbar after subscribing a series",
+        "placeholders": {
+            "title": {
+                "type": "String"
+            }
+        }
+    },
+    "autoDownloadStoppedFor": "",
+    "@autoDownloadStoppedFor": {
+        "description": "Snackbar after unsubscribing a series",
+        "placeholders": {
+            "title": {
+                "type": "String"
+            }
+        }
+    },
+    "autoDownloadSection": "",
+    "@autoDownloadSection": {
+        "description": "Settings section header for auto-download subscriptions"
+    },
+    "autoDownloadEnableSubtitle": "",
+    "@autoDownloadEnableSubtitle": {
+        "description": "Explains the master switch"
+    },
+    "autoDownloadKeepUnwatched": "",
+    "@autoDownloadKeepUnwatched": {
+        "description": "Setting that caps how many unwatched episodes per series stay downloaded"
+    },
+    "autoDownloadKeepAll": "",
+    "@autoDownloadKeepAll": {
+        "description": "Option meaning no cap on kept unwatched episodes"
+    },
+    "autoDownloadDeleteNever": "",
+    "@autoDownloadDeleteNever": {
+        "description": "Delete-after-watching option: keep episodes"
+    },
+    "autoDownloadDeleteImmediately": "",
+    "@autoDownloadDeleteImmediately": {
+        "description": "Delete-after-watching option: remove at the next check once played"
+    },
+    "autoDownloadDeleteAfterDay": "",
+    "@autoDownloadDeleteAfterDay": {
+        "description": "Delete-after-watching option"
+    },
+    "autoDownloadDeleteAfterWeek": "",
+    "@autoDownloadDeleteAfterWeek": {
+        "description": "Delete-after-watching option"
+    },
+    "autoDownloadBackgroundRefresh": "",
+    "@autoDownloadBackgroundRefresh": {
+        "description": "Setting that lets the system wake the app to check for new episodes"
+    },
+    "autoDownloadBackgroundRefreshSubtitle": "",
+    "@autoDownloadBackgroundRefreshSubtitle": {
+        "description": "Explains the background refresh setting"
+    },
+    "autoDownloadBackgroundRefreshDenied": "",
+    "@autoDownloadBackgroundRefreshDenied": {
+        "description": "Shown when iOS forbids background refresh for the app"
+    },
+    "autoDownloadBackgroundRestrictedAndroid": "",
+    "@autoDownloadBackgroundRestrictedAndroid": {
+        "description": "Shown when Android restricts the app from running in the background"
+    },
+    "autoDownloadCheckNow": "",
+    "@autoDownloadCheckNow": {
+        "description": "Button that runs a subscription check immediately"
+    },
+    "autoDownloadChecking": "",
+    "@autoDownloadChecking": {
+        "description": "Subtitle while a subscription check is running"
+    },
+    "autoDownloadLastCheck": "",
+    "@autoDownloadLastCheck": {
+        "description": "Subtitle summarising the last subscription check",
+        "placeholders": {
+            "when": {
+                "type": "String"
+            },
+            "queued": {
+                "type": "int"
+            }
+        }
+    },
+    "autoDownloadLastCheckFailed": "",
+    "@autoDownloadLastCheckFailed": {
+        "description": "Subtitle when the last subscription check hit an error",
+        "placeholders": {
+            "when": {
+                "type": "String"
+            },
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "autoDownloadFollowedSeries": "",
+    "@autoDownloadFollowedSeries": {
+        "description": "Settings section header listing the series with auto-download on"
+    },
+    "autoDownloadNoSubscriptions": "",
+    "@autoDownloadNoSubscriptions": {
+        "description": "Shown in settings when no series is followed"
+    },
+    "autoDownloadRemove": "",
+    "@autoDownloadRemove": {
+        "description": "Tooltip on the button that removes a followed series"
+    },
+    "downloadNotificationRunning": "",
+    "@downloadNotificationRunning": {
+        "description": "System notification title while a download transfers"
+    },
+    "downloadNotificationRunningBatch": "",
+    "@downloadNotificationRunningBatch": {
+        "description": "System notification title while a batch transfers; done is the 1-based position of the current item",
+        "placeholders": {
+            "done": {
+                "type": "int"
+            },
+            "total": {
+                "type": "int"
+            }
+        }
+    },
+    "downloadNotificationFailedBody": "",
+    "@downloadNotificationFailedBody": {
+        "description": "System notification body for a failed download",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "settingsAudioTrueHdIncludesAtmos": "",
+    "resetProfileDescription": "",
+    "@resetProfileDescription": {
+        "description": "Body of the dialog confirming a device profile reset",
+        "placeholders": {
+            "profile": {
+                "type": "String"
+            }
+        }
+    },
+    "resetGlobalProfileDescription": "",
+    "@resetGlobalProfileDescription": {
+        "description": "Body of the dialog confirming a global profile reset"
+    },
+    "resetRatingsDescription": "",
+    "@resetRatingsDescription": {
+        "description": "Body of the dialog confirming a ratings reset"
+    },
+    "showDownloadsButton": "",
+    "@showDownloadsButton": {
+        "description": "Setting for showing downloads button"
+    },
+    "mergeRecentRowsByType": "",
+    "@mergeRecentRowsByType": {
+        "description": "Setting for merging recently added and recently released libraries by media type"
+    },
+    "adminMetadataLockFieldOverview": "",
+    "adminMetadataLockFieldRuntime": "",
+    "emulatorCoreUnavailable": "",
+    "emulatorCoreSettingsReset": "",
+    "@emulatorCoreSettingsReset": {
+        "description": "Snackbar shown after resetting a core's saved emulator settings"
+    },
+    "downloadedGamesDescription": "",
+    "@downloadedGamesDescription": {
+        "description": "Explanation at the top of the Downloaded Games settings screen"
+    },
+    "removeDownloadedGameConfirm": "",
+    "@removeDownloadedGameConfirm": {
+        "description": "Confirmation prompt before deleting a single downloaded game, where title is the game name",
+        "placeholders": {
+            "title": {
+                "type": "String"
+            }
+        }
+    },
+    "settingsSkipButtonAutoHide": "",
+    "@settingsSkipButtonAutoHide": {
+        "description": "Setting label for automatically dismissing the skip intro and outro button after a delay"
+    },
+    "ascending": "",
+    "collectionsRowSortOrderDescription": "",
+    "displayStudiosRows": "",
+    "studiosRowSorting": "",
+    "studiosRowSortingDescription": "",
+    "studiosRowSortOrderDescription": "",
+    "playlistsRowSortOrderDescription": "",
+    "groupByType": "",
+    "@groupByType": {
+        "description": "Checkbox label to group playlists by their media type category"
+    },
+    "playlistTypeVideo": "",
+    "@playlistTypeVideo": {
+        "description": "Filter checkbox label for video playlists"
+    },
+    "playlistTypeAudiobook": "",
+    "@playlistTypeAudiobook": {
+        "description": "Filter checkbox label for audiobook playlists"
+    },
+    "playlistTypeAudio": "",
+    "@playlistTypeAudio": {
+        "description": "Filter checkbox label for audio/music playlists"
+    },
+    "settingsPlaybackTimeDisplayDescription": "",
+    "@settingsPlaybackTimeDisplayDescription": {
+        "description": "Setting description for the progress bar time option"
+    },
+    "playbackTimeAboveBarRight": "",
+    "@playbackTimeAboveBarRight": {
+        "description": "Progress bar time slot above the bar on the right"
+    },
+    "playbackTimeBelowBarLeft": "",
+    "@playbackTimeBelowBarLeft": {
+        "description": "Progress bar time slot below the bar on the left"
+    },
+    "playbackTimeBelowBarCenter": "",
+    "@playbackTimeBelowBarCenter": {
+        "description": "Progress bar time slot below the bar in the center"
+    },
+    "playlistTypes": "",
+    "@playlistTypes": {
+        "description": "Section header in the library display dialog for filtering playlist categories"
+    },
+    "filterTrailers": "",
+    "@filterTrailers": {
+        "description": "Library filter for items that have a trailer."
+    },
+    "seerrRuntime": "",
+    "@seerrRuntime": {
+        "description": "Heading for the runtime window filter in the Seerr browse dialog."
+    },
+    "serverMessages": "",
+    "@serverMessages": {
+        "description": "Menu button and window title for messages sent by the server admin"
+    },
+    "serverMessagesEmpty": "",
+    "@serverMessagesEmpty": {
+        "description": "Shown in the messages window when the server has sent nothing"
+    },
+    "serverMessagesMarkAllRead": "",
+    "@serverMessagesMarkAllRead": {
+        "description": "Button in the messages window that marks every message as read"
+    },
+    "selectAllStudios": "",
+    "showHeader": "",
+    "playbackTimeRemaining": "",
+    "@playbackTimeRemaining": {
+        "description": "Progress bar time option showing how much is left to play"
+    },
+    "moveUp": "",
+    "@moveUp": {
+        "description": "Moves a button one place earlier in its row"
+    },
+    "adminMetadataEnabledFieldsHelp": "",
+    "adminMetadataLockFieldCast": "",
+    "adminMetadataLockFieldTags": "",
+    "adminPluginsNoneActive": "",
+    "@adminPluginsNoneActive": {
+        "description": "Empty state for the active installed-plugin filter"
+    },
+    "filtersHeader": "",
+    "setupNavbarQuestion": "",
+    "@setupNavbarQuestion": {
+        "description": "Setup question asking where the navigation bar should sit"
+    },
+    "playbackTimeEndsAt": "",
+    "@playbackTimeEndsAt": {
+        "description": "Progress bar time option showing the clock time playback finishes"
+    },
+    "fullscreen": "",
+    "@fullscreen": {
+        "description": "Player button that toggles fullscreen"
+    },
+    "trickplayPauseWhileScrubbing": "",
+    "@trickplayPauseWhileScrubbing": {
+        "description": "Setting for whether seeking pauses playback so the trickplay preview holds still"
+    },
+    "trickplayPauseWhileScrubbingSubtitle": "",
+    "@trickplayPauseWhileScrubbingSubtitle": {
+        "description": "Description for the trickplay pause-while-scrubbing setting"
+    },
+    "resetProfile": "",
+    "@resetProfile": {
+        "description": "Button to reset a profile to defaults"
+    },
+    "settingsDownmixToStereoDescription": "",
+    "settingsAudioEac3IncludesAtmos": "",
+    "resetProfileTitle": "",
+    "@resetProfileTitle": {
+        "description": "Title of the dialog confirming a profile reset",
+        "placeholders": {
+            "profile": {
+                "type": "String"
+            }
+        }
+    },
+    "resetRatingsTitle": "",
+    "@resetRatingsTitle": {
+        "description": "Title of the dialog confirming a ratings reset"
+    },
+    "ratingsReset": "",
+    "@ratingsReset": {
+        "description": "Message after the ratings settings were reset"
+    },
+    "sdCard": "",
+    "@sdCard": {
+        "description": "Download location option for a removable storage volume"
+    },
+    "adminMetadataLockFieldName": "",
+    "adminMetadataLockFieldGenres": "",
+    "adminMetadataLockFieldOfficialRating": "",
+    "adminMetadataLockFieldProductionLocations": "",
+    "adminMetadataLockFieldBirthLocation": "",
+    "adminPluginsNoneRequireRestart": "",
+    "@adminPluginsNoneRequireRestart": {
+        "description": "Empty state for the installed-plugin filter showing changes that require a server restart"
+    },
+    "useNativeEmulatorSubtitle": "",
+    "@useNativeEmulatorSubtitle": {
+        "description": "Subtitle under the Native Emulation settings toggle. EmulatorJS is a product name and should not be translated."
+    },
+    "emulatorCoresDescription": "",
+    "emulatorCoreDownloadFailed": "",
+    "downloadedGamesEmpty": "",
+    "@downloadedGamesEmpty": {
+        "description": "Shown on the Downloaded Games screen when nothing is cached"
+    },
+    "removeAllDownloadedGames": "",
+    "@removeAllDownloadedGames": {
+        "description": "Button that deletes every downloaded game from the device"
+    },
+    "settingsSkipButtonAutoHideDescription": "",
+    "settingsDisplayIsSdrDescription": "",
+    "settingsDisplayNoHdrDetected": "",
+    "settingsDisplayMarkedSdr": "",
+    "displayStudiosRowsSubtitle": "",
+    "audioRowsSortOrderDescription": "",
+    "like": "",
+    "@like": {
+        "description": "Personal rating action for a positive rating."
+    },
+    "dislike": "",
+    "@dislike": {
+        "description": "Personal rating action for a negative rating."
+    },
+    "personalRatingClear": "",
+    "@personalRatingClear": {
+        "description": "Action that removes the personal rating from the media item."
+    },
+    "filterThemeVideos": "",
+    "@filterThemeVideos": {
+        "description": "Library filter for items that have a theme video."
+    },
+    "seerrShortcutsRow": "",
+    "@seerrShortcutsRow": {
+        "description": "Title of the Seerr shortcuts row that jumps to Discover, Movies, Series, Requests and Issues."
+    },
+    "seerrReleased": "",
+    "@seerrReleased": {
+        "description": "Heading for the release window filter in the Seerr browse dialog."
+    },
+    "subtitleHdrSeparateSubtitle": "",
+    "@subtitleHdrSeparateSubtitle": {
+        "description": "Explains why a separate HDR subtitle style is worth setting."
+    },
+    "mediaDetailsAndSpoilers": "",
+    "@mediaDetailsAndSpoilers": {
+        "description": "Section header for media details and spoiler settings"
+    },
+    "openTrailersExternally": "",
+    "@openTrailersExternally": {
+        "description": "Details screen setting that hands trailers to the system"
+    },
+    "openTrailersExternallySubtitle": "",
+    "@openTrailersExternallySubtitle": {
+        "description": "Subtitle for the external trailers setting"
+    },
+    "continueWatchingAndNextUpHeader": "",
+    "@continueWatchingAndNextUpHeader": {
+        "description": "Header for settings section containing Continue Watching and Next Up options"
+    },
+    "setupDetailQuestion": "",
+    "@setupDetailQuestion": {
+        "description": "Setup wizard question for the detail screen style"
+    },
+    "setupStyleModern": "",
+    "@setupStyleModern": {
+        "description": "Name of the newer layout, offered in the setup wizard"
+    },
+    "setupRowsClassicHint": "",
+    "@setupRowsClassicHint": {
+        "description": "What the classic home row style gives you"
+    },
+    "setupDetailClassicHint": "",
+    "@setupDetailClassicHint": {
+        "description": "What the classic detail screen style gives you"
+    },
+    "setupTourBulletDownloads": "",
+    "@setupTourBulletDownloads": {
+        "description": "Bullet on the closing setup screen for downloads"
+    },
+    "runSetupAgain": "",
+    "@runSetupAgain": {
+        "description": "Starts the first-run setup wizard again from settings"
+    },
+    "removeFromWatchlist": "",
+    "@removeFromWatchlist": {
+        "description": "Button label to remove media from the user's Seerr watchlist"
+    },
+    "adminLabelTmdbBoxSetId": "",
+    "@adminLabelTmdbBoxSetId": {
+        "description": "Label for the TheMovieDb collection identifier field in the Identify dialog. TheMovieDb is a brand name and is normally left untranslated"
+    },
+    "adminLabelTvdbSlug": "",
+    "@adminLabelTvdbSlug": {
+        "description": "Label for the TheTVDB slug identifier field in the Identify dialog. TheTVDB is a brand name and is normally left untranslated"
+    },
+    "adminBackToSearch": "",
+    "@adminBackToSearch": {
+        "description": "Tooltip on the button that returns from the Identify results list to the search form"
+    },
+    "audiobookPlaylistsSection": "",
+    "@audiobookPlaylistsSection": {
+        "description": "Section header above audiobook playlists when Group by Type is enabled"
+    },
+    "photoPlaylistsSection": "",
+    "@photoPlaylistsSection": {
+        "description": "Section header above photo playlists when Group by Type is enabled"
+    },
+    "mixedPlaylistsSection": "",
+    "@mixedPlaylistsSection": {
+        "description": "Section header above mixed playlists when Group by Type is enabled"
+    },
+    "currentTime": "",
+    "@currentTime": {
+        "description": "The current time as it appears on a clock"
+    },
+    "playbackTimeDisplay": "",
+    "@playbackTimeDisplay": {
+        "description": "Setting title for what is shown next to the playback progress bar"
+    },
+    "playbackTimeBelowBarRight": "",
+    "@playbackTimeBelowBarRight": {
+        "description": "Progress bar time slot below the bar on the right"
+    },
+    "settingsMusicPlaybackTimeDescription": "",
+    "@settingsMusicPlaybackTimeDescription": {
+        "description": "Setting description for the music progress bar time option"
+    },
+    "groupByTitle": "",
+    "@groupByTitle": {
+        "description": "Dialog title and button label for library group by options"
+    },
+    "groupByDecade": "",
+    "@groupByDecade": {
+        "description": "Option to group library items by release decade"
+    },
+    "groupByStudio": "",
+    "@groupByStudio": {
+        "description": "Option to group library items by production studio"
+    },
+    "showAlphabeticalFilters": "",
+    "@showAlphabeticalFilters": {
+        "description": "Checkbox label for toggling alphabetical picker visibility in Sort and Filter options"
+    },
+    "rate": "",
+    "@rate": {
+        "description": "Action that opens the personal rating control."
+    },
+    "personalRatingRated": "",
+    "@personalRatingRated": {
+        "description": "Tooltip for a media item that has a numeric personal rating."
+    },
+    "personalRatingMine": "",
+    "@personalRatingMine": {
+        "description": "Label under the viewer's own rating in the ratings row."
+    },
+    "decrease": "",
+    "@decrease": {
+        "description": "Action that decreases a numeric personal rating."
+    },
+    "personalRatingOutOfTen": "",
+    "@personalRatingOutOfTen": {
+        "description": "Numeric personal rating displayed on a scale out of ten.",
+        "placeholders": {
+            "rating": {
+                "type": "String"
+            }
+        }
+    },
+    "personalRatingOutOfFive": "",
+    "@personalRatingOutOfFive": {
+        "description": "Personal rating displayed on a five-star scale.",
+        "placeholders": {
+            "rating": {
+                "type": "String"
+            }
+        }
+    },
+    "filterInProgress": "",
+    "@filterInProgress": {
+        "description": "Library filter for items the viewer has started but not finished."
+    },
+    "filterUnreleased": "",
+    "@filterUnreleased": {
+        "description": "Series status filter for shows that have not started airing."
+    },
+    "filterExtras": "",
+    "@filterExtras": {
+        "description": "Library filter for items that have bonus features."
+    },
+    "filterThemeSongs": "",
+    "@filterThemeSongs": {
+        "description": "Library filter for items that have a theme song."
+    },
+    "source": "",
+    "@source": {
+        "description": "Heading for the disc source filters in the library filter picker."
+    },
+    "audioLanguage": "",
+    "@audioLanguage": {
+        "description": "Heading for the audio language filters in the library filter picker."
+    },
+    "subtitleLanguage": "",
+    "@subtitleLanguage": {
+        "description": "Heading for the subtitle language filters in the library filter picker."
+    },
+    "clearFilters": "",
+    "@clearFilters": {
+        "description": "Action that turns every library filter back off."
+    },
+    "seerrMinRating": "",
+    "@seerrMinRating": {
+        "description": "Heading for the TMDB score floor filter in the Seerr browse dialog."
+    },
+    "seerrMinVotes": "",
+    "@seerrMinVotes": {
+        "description": "Heading for the TMDB vote count floor filter in the Seerr browse dialog."
+    },
+    "seerrOriginalLanguage": "",
+    "@seerrOriginalLanguage": {
+        "description": "Heading for the original language filter in the Seerr browse dialog."
+    },
+    "subtitleHdrSeparate": "",
+    "@subtitleHdrSeparate": {
+        "description": "Toggle for a second subtitle appearance used only while HDR is playing."
+    },
+    "hideDetailsMediaDescription": "",
+    "@hideDetailsMediaDescription": {
+        "description": "Setting title to hide media description on details screen"
+    },
+    "hideDetailsMediaDescriptionSubtitle": "",
+    "@hideDetailsMediaDescriptionSubtitle": {
+        "description": "Description for setting to hide media description on details page"
+    },
+    "hideHomeMediaDescription": "",
+    "@hideHomeMediaDescription": {
+        "description": "Setting title to hide media description on home screen"
+    },
+    "setupSkip": "",
+    "@setupSkip": {
+        "description": "Leaves the first-run setup wizard without answering anything"
+    },
+    "setupTourQuestion": "",
+    "@setupTourQuestion": {
+        "description": "Heading of the final setup wizard screen"
+    },
+    "setupStyleClassic": "",
+    "@setupStyleClassic": {
+        "description": "Name of the original layout, offered in the setup wizard"
+    },
+    "setupRowsModernHint": "",
+    "@setupRowsModernHint": {
+        "description": "What the modern home row style gives you"
+    },
+    "serverMessagesShowButton": "",
+    "@serverMessagesShowButton": {
+        "description": "Setting that shows or hides the messages button in the menu"
+    },
+    "autoDownloadEnable": "",
+    "@autoDownloadEnable": {
+        "description": "Master switch for auto-download subscriptions"
+    },
+    "autoDownloadDelete": "",
+    "@autoDownloadDelete": {
+        "description": "Setting that picks how soon an auto-downloaded episode is removed after it was watched"
+    },
+    "autoDownloadDeleteSubtitle": "",
+    "@autoDownloadDeleteSubtitle": {
+        "description": "Explains the delete-after-watching setting"
+    },
+    "autoDownloadNeverChecked": "",
+    "@autoDownloadNeverChecked": {
+        "description": "Subtitle when no subscription check has run"
+    },
+    "autoDownloadStorageFull": "",
+    "@autoDownloadStorageFull": {
+        "description": "Appended to the last-check summary when the storage limit stopped queueing"
+    },
+    "autoDownloadWaitingForWifi": "",
+    "@autoDownloadWaitingForWifi": {
+        "description": "Last-check summary when Wi-Fi only is on and the device was on mobile data"
+    },
+    "downloadNotificationProgress": "",
+    "@downloadNotificationProgress": {
+        "description": "System notification body with the item label (for example Series S1E1) and its percentage",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "percent": {
+                "type": "int"
+            }
+        }
+    },
+    "downloadNotificationTransfer": "",
+    "@downloadNotificationTransfer": {
+        "description": "System notification body for a transfer the native engine reports on. The engine fills in progress (a percentage such as 42%) and timeRemaining (mm:ss) itself.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            },
+            "progress": {
+                "type": "String"
+            },
+            "timeRemaining": {
+                "type": "String"
+            }
+        }
+    },
+    "downloadNotificationStarting": "",
+    "@downloadNotificationStarting": {
+        "description": "System notification body before the size of a download is known",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "downloadNotificationCompleteTitle": "",
+    "@downloadNotificationCompleteTitle": {
+        "description": "System notification title once a download or a batch has finished",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "downloadNotificationSaved": "",
+    "@downloadNotificationSaved": {
+        "description": "System notification body for one finished download; name is the item label (for example Series S1E1)",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "downloadNotificationSavedCount": "",
+    "@downloadNotificationSavedCount": {
+        "description": "System notification body for a finished batch of mixed items",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "downloadNotificationSeriesEpisodes": "",
+    "@downloadNotificationSeriesEpisodes": {
+        "description": "System notification body for a finished batch that all belongs to one series",
+        "placeholders": {
+            "series": {
+                "type": "String"
+            },
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "downloadNotificationFailedTitle": "",
+    "@downloadNotificationFailedTitle": {
+        "description": "System notification title for a failed download"
+    },
+    "serverMessagesNotificationTitle": "",
+    "@serverMessagesNotificationTitle": {
+        "description": "System notification title for a message sent by the server when it carries no header"
+    },
+    "serverMessagesNotificationReceived": "",
+    "@serverMessagesNotificationReceived": {
+        "description": "System notification body for a server message with empty text"
+    },
+    "downloadStorageLimitReached": "",
+    "@downloadStorageLimitReached": {
+        "description": "Error shown when a download would exceed the storage limit set in the download settings"
+    },
+    "downloadNotEnoughStorage": "",
+    "@downloadNotEnoughStorage": {
+        "description": "Error shown when a download would not fit on the device; needed and free are formatted sizes",
+        "placeholders": {
+            "needed": {
+                "type": "String"
+            },
+            "free": {
+                "type": "String"
+            }
+        }
+    },
+    "autoDownloadStorageFullTitle": "",
+    "@autoDownloadStorageFullTitle": {
+        "description": "System notification title when the automatic check has to hold new episodes back"
+    },
+    "autoDownloadStorageFullBody": "",
+    "@autoDownloadStorageFullBody": {
+        "description": "System notification body when the automatic check has to hold new episodes back; name is the label of the first one (for example Series S1E1) and size its formatted size",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            },
+            "name": {
+                "type": "String"
+            },
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "libraryView": "",
+    "@libraryView": {
+        "description": "Section title for library view settings"
+    },
+    "orientationLock": "",
+    "@orientationLock": {
+        "description": "Player button that locks the screen orientation"
+    },
+    "downloadedGames": "",
+    "@downloadedGames": {
+        "description": "Settings screen title for managing game files stored on the device"
+    },
+    "emulatorCoresSubtitle": "",
+    "playlistTypeBook": "",
+    "@playlistTypeBook": {
+        "description": "Filter checkbox label for book playlists"
+    },
+    "playlistTypeMixed": "",
+    "@playlistTypeMixed": {
+        "description": "Filter checkbox label for mixed media playlists"
+    },
+    "videoPlaylistsSection": "",
+    "@videoPlaylistsSection": {
+        "description": "Section header above video playlists when Group by Type is enabled"
+    },
+    "audioPlaylistsSection": "",
+    "@audioPlaylistsSection": {
+        "description": "Section header above audio playlists when Group by Type is enabled"
+    },
+    "playbackTimeTotal": "",
+    "@playbackTimeTotal": {
+        "description": "Progress bar time option showing the full runtime"
+    },
+    "playbackTimeVideoSection": "",
+    "@playbackTimeVideoSection": {
+        "description": "Section header above the video progress bar time slots"
+    },
+    "playbackTimeMusicSection": "",
+    "@playbackTimeMusicSection": {
+        "description": "Section header above the music progress bar time option"
+    },
+    "playbackTimeSlotDescription": "",
+    "@playbackTimeSlotDescription": {
+        "description": "Setting description for a single progress bar time slot"
+    },
+    "playbackTimeAboveBarLeft": "",
+    "@playbackTimeAboveBarLeft": {
+        "description": "Progress bar time slot above the bar on the left"
+    },
+    "buttonOrderHint": "",
+    "@buttonOrderHint": {
+        "description": "Explains how to reorder the buttons in a row"
+    },
+    "settingsAudioDtsHdIncludesDtsX": "",
+    "profileReset": "",
+    "@profileReset": {
+        "description": "Message after a profile was reset",
+        "placeholders": {
+            "profile": {
+                "type": "String"
+            }
+        }
+    },
+    "failedToResetProfile": "",
+    "@failedToResetProfile": {
+        "description": "Message when a profile reset failed",
+        "placeholders": {
+            "profile": {
+                "type": "String"
+            }
+        }
+    },
+    "adminLabelYear": "",
+    "@adminLabelYear": {
+        "description": "Label for the release year field in the Identify dialog"
+    },
+    "hideHomeMediaDescriptionSubtitle": "",
+    "@hideHomeMediaDescriptionSubtitle": {
+        "description": "Description for setting to hide media description on home screen"
+    },
+    "setupTourBulletRequests": "",
+    "@setupTourBulletRequests": {
+        "description": "Bullet on the closing setup screen for the Seerr request feature"
+    },
+    "moveDown": "",
+    "@moveDown": {
+        "description": "Moves a button one place later in its row"
+    },
+    "settingsAudioPassthroughModeDisabled": "",
+    "emulatorCoreResetSettings": "",
+    "@emulatorCoreResetSettings": {
+        "description": "Semantic label for the button that resets one core's saved emulator settings",
+        "placeholders": {
+            "system": {
+                "type": "String"
+            }
+        }
+    },
+    "downloadedGamesSubtitle": "",
+    "@downloadedGamesSubtitle": {
+        "description": "Subtitle for the Downloaded Games settings entry"
+    },
+    "emulatorCores": "",
+    "playlistTypePhoto": "",
+    "@playlistTypePhoto": {
+        "description": "Filter checkbox label for photo playlists"
+    },
+    "tvOfflineDownloads": "",
+    "@tvOfflineDownloads": {
+        "description": "TV-only toggle in the Offline Downloads settings: offer download actions on item pages"
+    },
+    "tvOfflineDownloadsSubtitle": "",
+    "@tvOfflineDownloadsSubtitle": {
+        "description": "Subtitle for the TV-only offline downloads toggle"
+    },
+    "favoritesRowSortOrderDescription": "",
+    "deselectAllStudios": "",
+    "tvStudiosFilter": "",
+    "transcodingTimeRemainingUnavailable": "",
+    "@transcodingTimeRemainingUnavailable": {
+        "description": "Notice shown below downloading text when downloading a transcoded stream"
+    },
+    "mergeRecentRowsByTypeDescription": "",
+    "@mergeRecentRowsByTypeDescription": {
+        "description": "Description for merging recent home rows by media type"
+    },
+    "emulatorCoreDownloading": "",
+    "downloadedGamesTotal": "",
+    "@downloadedGamesTotal": {
+        "description": "Summary of how many games are stored and how much space they take, where size is a formatted amount such as 1.4 GB",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            },
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "collectionsRowShowEpisodes": "",
+    "genresRowSortOrderDescription": "",
+    "adminLabelImdbId": "",
+    "@adminLabelImdbId": {
+        "description": "Label for the IMDb identifier field in the Identify dialog. IMDb is a brand name and is normally left untranslated"
+    },
+    "playbackTimeAboveBarCenter": "",
+    "@playbackTimeAboveBarCenter": {
+        "description": "Progress bar time slot above the bar in the center"
+    },
+    "playbackTimeElapsed": "",
+    "@playbackTimeElapsed": {
+        "description": "Progress bar time option showing how far into the item playback is"
+    },
+    "years": "",
+    "@years": {
+        "description": "Heading for the release year filters in the library filter picker."
+    },
+    "scrollSensitivity": "",
+    "@scrollSensitivity": {
+        "description": "Title of the desktop setting that scales mouse wheel scrolling."
+    },
+    "scrollSensitivitySubtitle": "",
+    "@scrollSensitivitySubtitle": {
+        "description": "Explains the desktop scroll sensitivity slider."
+    },
+    "grouping": "",
+    "@grouping": {
+        "description": "Section header in the library display dialog for grouping options"
+    },
+    "setupTourBulletMore": "",
+    "@setupTourBulletMore": {
+        "description": "Closing bullet on the setup screen settings list"
+    },
+    "adminSearchParameters": "",
+    "@adminSearchParameters": {
+        "description": "Column header above the editable fields used to search metadata providers in the Identify dialog"
+    },
+    "adminCurrentMetadata": "",
+    "@adminCurrentMetadata": {
+        "description": "Column header above the read-only values currently stored on the item in the Identify dialog"
+    },
+    "adminLabelTvdbBoxSetId": "",
+    "@adminLabelTvdbBoxSetId": {
+        "description": "Label for the TheTVDB collection identifier field in the Identify dialog. TheTVDB is a brand name and is normally left untranslated"
+    },
+    "adminLabelTvdbId": "",
+    "@adminLabelTvdbId": {
+        "description": "Label for the numeric TheTVDB identifier field in the Identify dialog. TheTVDB is a brand name and is normally left untranslated"
+    },
+    "settingsAudioPassthroughModeDescription": "",
+    "adminMetadataLockFieldStudios": "",
+    "adminPluginsRestartRequired": "",
+    "@adminPluginsRestartRequired": {
+        "description": "Label for the installed-plugin filter showing changes that require a server restart"
+    },
+    "useNativeEmulator": "",
+    "@useNativeEmulator": {
+        "description": "Settings toggle title. When on, retro games run through native libretro emulator cores instead of the EmulatorJS browser-based emulator."
+    },
+    "settingsAudioPassthroughMode": "",
+    "@settingsAudioPassthroughMode": {
+        "description": "Title of the audio passthrough mode selector"
+    },
+    "emulatorCoreResetSettingsFailed": "",
+    "@emulatorCoreResetSettingsFailed": {
+        "description": "Snackbar shown when resetting a core's saved emulator settings fails"
+    },
+    "downloadLocationLimitedByAndroid": "",
+    "@downloadLocationLimitedByAndroid": {
+        "description": "Note shown when the only download location Android allows is the default one"
+    },
+    "bookPlaylistsSection": "",
+    "@bookPlaylistsSection": {
+        "description": "Section header above book playlists when Group by Type is enabled"
+    },
+    "personalRatingSaveFailed": "",
+    "@personalRatingSaveFailed": {
+        "description": "Error shown when saving a personal rating fails."
+    },
+    "increase": "",
+    "@increase": {
+        "description": "Action that increases a numeric personal rating."
+    },
+    "removeAllDownloadedGamesConfirm": "",
+    "@removeAllDownloadedGamesConfirm": {
+        "description": "Confirmation prompt before deleting every downloaded game"
+    },
+    "settingsMediaSegmentTypeAction": "",
+    "@settingsMediaSegmentTypeAction": {
+        "description": "Setting label for what to do with one type of media segment",
+        "placeholders": {
+            "segment": {
+                "type": "String"
+            }
+        }
+    },
+    "settingsCinemaModeEpisodesSubtitle": "",
+    "@settingsCinemaModeEpisodesSubtitle": {
+        "description": "Subtitle for the Cinema Mode for episodes toggle. A 'preroll' is a short video (trailer, bumper) played before the main video starts."
+    },
+    "sortOrder": "",
+    "descending": "",
+    "playlistsRowShowEpisodes": "",
+    "playlistsRowShowEpisodesSubtitle": "",
+    "adminReplaceImages": "",
+    "@adminReplaceImages": {
+        "description": "Checkbox label in the confirmation dialog shown before applying an identified metadata match"
+    },
+    "groupByParentalRating": "",
+    "@groupByParentalRating": {
+        "description": "Option to group library items by parental rating"
+    },
+    "personalRatingStyle": "",
+    "@personalRatingStyle": {
+        "description": "Selects how personal ratings are displayed and entered on media details."
+    },
+    "personalRatingThumbs": "",
+    "@personalRatingThumbs": {
+        "description": "Personal rating style using like and dislike actions."
+    },
+    "personalRatingStars": "",
+    "@personalRatingStars": {
+        "description": "Personal rating style using a five-star scale."
+    },
+    "personalRatingNumeric": "",
+    "@personalRatingNumeric": {
+        "description": "Personal rating style using a numeric score out of ten."
+    },
+    "setupMediaBarQuestion": "",
+    "@setupMediaBarQuestion": {
+        "description": "Setup wizard question for the media bar style"
+    },
+    "setupHomeRowsQuestion": "",
+    "@setupHomeRowsQuestion": {
+        "description": "Setup wizard question for the home row style"
+    },
+    "setupTourBulletSyncPlay": "",
+    "@setupTourBulletSyncPlay": {
+        "description": "Bullet on the closing setup screen for SyncPlay"
     }
 }

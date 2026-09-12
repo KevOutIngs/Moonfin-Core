@@ -5015,7 +5015,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get declinedStatus => 'Hylätty';
 
   @override
-  String get partiallyAvailable => 'Osittain saatavilla';
+  String get partiallyAvailable => 'Osittain Saatavilla';
 
   @override
   String get downloadingStatus => 'Ladataan';
@@ -5024,7 +5024,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get approvedStatus => 'Hyväksytty';
 
   @override
-  String get notRequestedStatus => 'Ei pyydetty';
+  String get notRequestedStatus => 'Ei Pyyntöjä';
 
   @override
   String get blocklistedStatus => 'Estolistalla';
@@ -5040,23 +5040,23 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String modifiedByName(String name) {
-    return 'Muokkaaja: $name';
+    return 'Muokkaaja $name';
   }
 
   @override
-  String get completedStatus => 'Valmis';
+  String get completedStatus => 'Käsitelty';
 
   @override
-  String get requestErrorDuplicate => 'Tämä nimike on jo pyydetty';
+  String get requestErrorDuplicate => 'Nimikettä on jo pyydetty';
 
   @override
-  String get requestErrorQuota => 'Pyyntöraja saavutettu';
+  String get requestErrorQuota => 'Kyselyjen enimmäismäärä on saavutettu';
 
   @override
   String get requestErrorBlocklisted => 'Tämä nimike on estolistalla';
 
   @override
-  String get requestErrorNoSeasons => 'Ei enää pyydettäviä kausia';
+  String get requestErrorNoSeasons => 'Ei jäljellä olevia kausia saatavilla';
 
   @override
   String get requestErrorPermission =>

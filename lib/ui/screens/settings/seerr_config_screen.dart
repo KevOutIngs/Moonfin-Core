@@ -606,8 +606,6 @@ class _SeerrConfigScreenState extends State<SeerrConfigScreen> {
               onChanged: _setShowAvailabilityBadges,
             ),
           ),
-        ],
-        if (showSeerrSettings) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
             child: Align(

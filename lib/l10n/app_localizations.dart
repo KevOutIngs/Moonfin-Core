@@ -3484,13 +3484,13 @@ abstract class AppLocalizations {
   /// **'Show controls, or play/pause if shown'**
   String get shortcutShowControlsOrPlayPause;
 
-  /// Player shortcut action; the step is the skip back length from settings
+  /// Player shortcut action. The step is the skip back length from settings
   ///
   /// In en, this message translates to:
   /// **'Seek back (hold for bigger jumps)'**
   String get shortcutSeekBack;
 
-  /// Player shortcut action; the step is the skip forward length from settings
+  /// Player shortcut action. The step is the skip forward length from settings
   ///
   /// In en, this message translates to:
   /// **'Seek forward (hold for bigger jumps)'**

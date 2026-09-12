@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 /// Something the video player can do from a key press. The desktop and
 /// mobile key handler switches on this rather than on a raw key, so those
 /// keys live in one table ([PlayerKeyBindings]) that the shortcut list reads
-/// as well. The TV remote path still matches keys directly; the list is not
-/// shown there.
+/// as well. The TV remote path still matches keys directly, and the list is
+/// not shown there.
 enum PlayerAction {
   playPause,
   play,
@@ -45,7 +45,7 @@ class KeyBinding {
   final bool shift;
 }
 
-/// Action to keys. [defaults] is the only table today; a user-editable set
+/// Action to keys. [defaults] is the only table today. A user-editable set
 /// can replace it later without touching the handler or the shortcut list,
 /// which both go through [actionFor] and [keysFor].
 class PlayerKeyBindings {
@@ -98,7 +98,7 @@ class PlayerKeyBindings {
       _bindings[action] ?? const [];
 
   /// The action bound to [key], or null. With Shift held a Shift binding
-  /// wins; without one the plain binding for the key still applies, so
+  /// wins. Without one the plain binding for the key still applies, so
   /// Shift+Space pauses like Space does.
   PlayerAction? actionFor(LogicalKeyboardKey key, {required bool shift}) {
     PlayerAction? plain;

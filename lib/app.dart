@@ -33,7 +33,6 @@ import 'preference/preference_constants.dart' show GlassSettledQuality;
 import 'preference/user_preferences.dart';
 import 'syncplay/syncplay_manager.dart';
 import 'ui/navigation/app_router.dart';
-import 'ui/navigation/destinations.dart';
 import 'ui/navigation/deep_link_navigator.dart';
 import 'ui/navigation/destinations.dart';
 import 'ui/navigation/home_refresh_bus.dart';
@@ -643,7 +642,7 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
 
   bool _shortcutsDialogOpen = false;
 
-  /// The shortcut list for wherever the user is; pressing the key again
+  /// The shortcut list for wherever the user is. Pressing the key again
   /// closes it rather than stacking another. The book reader sits under the
   /// player path, so it is checked first.
   void _showKeyboardShortcuts() {
@@ -767,7 +766,7 @@ class _GlobalShortcutScopeState extends State<_GlobalShortcutScope>
 
     // ? and F1 list the keyboard shortcuts on every screen, trimmed to the
     // ones that work where the user is. ? is a character, so a text field
-    // keeps it; F1 is not, so it still opens the list there.
+    // keeps it. F1 isn't, so it still opens the list there.
     if (!PlatformDetection.isTV &&
         isShowShortcutsKey(key) &&
         (key == LogicalKeyboardKey.f1 || !_isEditingText())) {

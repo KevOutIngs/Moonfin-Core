@@ -2684,11 +2684,11 @@
   },
   "shortcutSeekBack": "Seek back (hold for bigger jumps)",
   "@shortcutSeekBack": {
-    "description": "Player shortcut action; the step is the skip back length from settings"
+    "description": "Player shortcut action. The step is the skip back length from settings"
   },
   "shortcutSeekForward": "Seek forward (hold for bigger jumps)",
   "@shortcutSeekForward": {
-    "description": "Player shortcut action; the step is the skip forward length from settings"
+    "description": "Player shortcut action. The step is the skip forward length from settings"
   },
   "shortcutVolumeUp": "Volume up",
   "@shortcutVolumeUp": {

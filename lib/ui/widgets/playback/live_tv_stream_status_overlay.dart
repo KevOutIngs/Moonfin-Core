@@ -49,7 +49,6 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
       case LiveTvStreamStatus.playing:
         return const SizedBox.shrink();
       case LiveTvStreamStatus.buffering:
-        return _spinner(null);
       case LiveTvStreamStatus.connecting:
         return _spinner(null);
       case LiveTvStreamStatus.stillTrying:
@@ -57,18 +56,25 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
       case LiveTvStreamStatus.reconnecting:
         return _spinner(l10n.liveTvReconnecting);
       case LiveTvStreamStatus.unavailable:
-        return _failure(
-          context,
-          title: l10n.liveTvChannelUnavailableTitle,
-          body: l10n.liveTvChannelUnavailableBody,
-        );
       case LiveTvStreamStatus.lost:
-        return _failure(
-          context,
-          title: l10n.liveTvChannelLostTitle,
-          body: l10n.liveTvChannelLostBody,
-        );
+        final text = failureText(l10n, status);
+        return _failure(context, title: text.title, body: text.body);
     }
+  }
+
+  /// What the card says for a failure. The native Apple TV card says the
+  /// same thing for the same verdict, so both read it from here.
+  static ({String title, String body}) failureText(
+    AppLocalizations l10n,
+    LiveTvStreamStatus status,
+  ) {
+    assert(status.isFailure, '$status is not a failure');
+    return status == LiveTvStreamStatus.lost
+        ? (title: l10n.liveTvChannelLostTitle, body: l10n.liveTvChannelLostBody)
+        : (
+            title: l10n.liveTvChannelUnavailableTitle,
+            body: l10n.liveTvChannelUnavailableBody,
+          );
   }
 
   Widget _spinner(String? label) {
@@ -219,6 +225,7 @@ class _FailureActionsState extends State<_FailureActions> {
     final retryFocus = widget.retryFocusNode;
     final onDismiss = widget.onDismiss;
     final belowRetry = onDismiss != null ? _dismissFocus : _backFocus;
+    final aboveBack = onDismiss != null ? _dismissFocus : retryFocus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -262,9 +269,7 @@ class _FailureActionsState extends State<_FailureActions> {
           focusNode: _backFocus,
           label: l10n.back,
           onPressed: widget.onExit,
-          onNavigateUp: belowRetry == _backFocus
-              ? retryFocus.requestFocus
-              : _dismissFocus.requestFocus,
+          onNavigateUp: aboveBack.requestFocus,
         ),
       ],
     );

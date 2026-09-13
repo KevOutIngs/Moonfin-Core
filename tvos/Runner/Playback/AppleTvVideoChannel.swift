@@ -113,6 +113,15 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
             playerVC?.showStatusMessage((args["message"] as? String) ?? "")
         case "hideStatusMessage":
             playerVC?.hideStatusMessage()
+        case "showLiveTvFailure":
+            playerVC?.showLiveTvFailureCard(
+                title: (args["title"] as? String) ?? "",
+                body: (args["body"] as? String) ?? "",
+                retryLabel: (args["retryLabel"] as? String) ?? "",
+                dismissLabel: (args["dismissLabel"] as? String) ?? "",
+                backLabel: (args["backLabel"] as? String) ?? "")
+        case "hideLiveTvFailure":
+            playerVC?.hideLiveTvFailureCard()
         case "configureSubtitleStyle":
             lastSubtitleStyle = args
             applySubtitleStyle(args)
@@ -285,6 +294,9 @@ final class AppleTvVideoChannel: NSObject, FlutterStreamHandler {
         }
         vc.onNextUpDismiss = { [weak self] in
             self?.send(["event": "nextUpDismiss"])
+        }
+        vc.onLiveTvRetry = { [weak self] in
+            self?.send(["event": "liveTvRetry"])
         }
         vc.onSkipSegmentSelect = { [weak self] in
             self?.send(["event": "skipSegment"])

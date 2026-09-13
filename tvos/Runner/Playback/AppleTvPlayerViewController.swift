@@ -69,6 +69,11 @@ final class AppleTvPlayerViewController: UIViewController {
     var onNextUpPlay: (() -> Void)?
     var onNextUpCancel: (() -> Void)?
     var onNextUpDismiss: (() -> Void)?
+    /// Retry on the Live TV failure card. The card stays up until the host
+    /// takes it down, so a retry the host refuses leaves the viewer with it.
+    /// Dismiss is the card's own affair, and Back dismisses this controller,
+    /// which reports through [onExit] as a Menu press does.
+    var onLiveTvRetry: (() -> Void)?
     var onSkipSegmentSelect: (() -> Void)?
     /// Fires with the target after a scrub or a direct jump the user made.
     /// Carrying the position lets the host hand it to SyncPlay, which is the
@@ -134,6 +139,10 @@ final class AppleTvPlayerViewController: UIViewController {
     // like the Flutter player. The deadline below only draws the countdown.
     private var nextUpVisible = false
     private var nextUpFocusOnPlay = true
+    /// The Live TV failure card owns the remote while it is up, the way the
+    /// Next Up card does. Focus walks the buttons top to bottom.
+    private var liveTvFailureVisible = false
+    private var liveTvFailureFocusIndex = 0
     private var nextUpCountdownDeadline: CFTimeInterval = 0
     private var nextUpCountdownTotalMs = 0
     private var nextUpCountdownStyle = "both"
@@ -271,6 +280,12 @@ final class AppleTvPlayerViewController: UIViewController {
     private var promptStrings = PromptStrings()
     private let statsStack = UIStackView()
 
+    private let liveTvFailureCard = UIView()
+    private let liveTvFailureTitleLabel = UILabel()
+    private let liveTvFailureBodyLabel = UILabel()
+    private let liveTvFailureRetryButton = PaddedLabel()
+    private let liveTvFailureDismissButton = PaddedLabel()
+    private let liveTvFailureBackButton = PaddedLabel()
     private let nextUpCard = UIView()
     private let nextUpImage = UIImageView()
     private let nextUpEpisodeLabel = UILabel()
@@ -414,6 +429,7 @@ final class AppleTvPlayerViewController: UIViewController {
         skipSegmentRingIcon.tintColor = accent
         skipSegmentRing.strokeColor = accent.cgColor
         nextUpPlayButton.backgroundColor = accent
+        liveTvFailureRetryButton.backgroundColor = accent
     }
 
     private func setupOsd() {
@@ -557,6 +573,7 @@ final class AppleTvPlayerViewController: UIViewController {
         setupSkipSegment()
         setupLoadingOverlay()
         setupStatusMessage()
+        setupLiveTvFailureCard()
     }
 
     private func setupStatusMessage() {
@@ -586,6 +603,147 @@ final class AppleTvPlayerViewController: UIViewController {
 
     func hideStatusMessage() {
         statusLabel.isHidden = true
+    }
+
+    /// The Live TV failure card: Retry over Dismiss over Back, centred over
+    /// the picture. The player underneath is left alone, so a channel the
+    /// tuner wrongly gave up on keeps playing behind the card and Dismiss
+    /// simply takes the card away.
+    private func setupLiveTvFailureCard() {
+        let card = liveTvFailureCard
+        card.translatesAutoresizingMaskIntoConstraints = false
+        card.backgroundColor = UIColor(white: 0.08, alpha: 0.96)
+        card.layer.cornerRadius = 18
+        card.clipsToBounds = true
+        card.isHidden = true
+        view.addSubview(card)
+
+        let icon = UIImageView(
+            image: UIImage(
+                systemName: "tv.slash",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 44, weight: .regular)))
+        icon.tintColor = UIColor(white: 1, alpha: 0.8)
+        icon.contentMode = .scaleAspectFit
+
+        liveTvFailureTitleLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        liveTvFailureTitleLabel.textColor = .white
+        liveTvFailureTitleLabel.textAlignment = .center
+        liveTvFailureTitleLabel.numberOfLines = 2
+
+        liveTvFailureBodyLabel.font = .systemFont(ofSize: 22, weight: .regular)
+        liveTvFailureBodyLabel.textColor = UIColor(white: 1, alpha: 0.62)
+        liveTvFailureBodyLabel.textAlignment = .center
+        liveTvFailureBodyLabel.numberOfLines = 0
+
+        for button in liveTvFailureButtons {
+            button.insets = UIEdgeInsets(top: 17, left: 24, bottom: 17, right: 24)
+            button.font = .systemFont(ofSize: 26, weight: .semibold)
+            button.textAlignment = .center
+            button.textColor = .white
+            button.backgroundColor = UIColor(white: 0.25, alpha: 0.9)
+            button.layer.cornerRadius = 12
+            button.layer.borderColor = UIColor.white.cgColor
+            button.clipsToBounds = true
+        }
+        liveTvFailureRetryButton.backgroundColor = themeAccent
+        liveTvFailureRetryButton.textColor = .black
+
+        let stack = UIStackView(
+            arrangedSubviews: [icon, liveTvFailureTitleLabel, liveTvFailureBodyLabel]
+                + liveTvFailureButtons)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.layoutMargins = UIEdgeInsets(top: 40, left: 48, bottom: 40, right: 48)
+        stack.setCustomSpacing(20, after: icon)
+        stack.setCustomSpacing(12, after: liveTvFailureTitleLabel)
+        stack.setCustomSpacing(36, after: liveTvFailureBodyLabel)
+        card.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            card.widthAnchor.constraint(equalToConstant: 640),
+            icon.heightAnchor.constraint(equalToConstant: 52),
+            stack.topAnchor.constraint(equalTo: card.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+        ])
+    }
+
+    /// Top to bottom, which is also the focus order.
+    private var liveTvFailureButtons: [PaddedLabel] {
+        [liveTvFailureRetryButton, liveTvFailureDismissButton, liveTvFailureBackButton]
+    }
+
+    func showLiveTvFailureCard(
+        title: String, body: String, retryLabel: String, dismissLabel: String,
+        backLabel: String
+    ) {
+        finishPanScrub(commit: false)
+        liveTvFailureTitleLabel.text = title
+        liveTvFailureBodyLabel.text = body
+        liveTvFailureRetryButton.text = retryLabel
+        liveTvFailureDismissButton.text = dismissLabel
+        liveTvFailureBackButton.text = backLabel
+        liveTvFailureVisible = true
+        liveTvFailureFocusIndex = 0
+        updateLiveTvFailureFocusHighlight()
+        hideOsd()
+        fadeCard(liveTvFailureCard, in: true)
+    }
+
+    func hideLiveTvFailureCard() {
+        liveTvFailureVisible = false
+        fadeCard(liveTvFailureCard, in: false)
+    }
+
+    private func updateLiveTvFailureFocusHighlight() {
+        for (index, button) in liveTvFailureButtons.enumerated() {
+            button.layer.borderWidth = index == liveTvFailureFocusIndex ? 4 : 0
+        }
+    }
+
+    private func moveLiveTvFailureFocus(by delta: Int) {
+        let count = liveTvFailureButtons.count
+        liveTvFailureFocusIndex = min(count - 1, max(0, liveTvFailureFocusIndex + delta))
+        updateLiveTvFailureFocusHighlight()
+    }
+
+    private func activateLiveTvFailureButton() {
+        switch liveTvFailureFocusIndex {
+        case 0:
+            onLiveTvRetry?()
+        case 1:
+            hideLiveTvFailureCard()
+        default:
+            dismiss(animated: true)
+        }
+    }
+
+    /// Fades a card in or out. Hidden follows alpha, so a card that is down
+    /// takes part in neither layout nor the remote. A fade-in that cuts a
+    /// fade-out short wins: the fade-out's completion then sees it did not
+    /// finish and leaves the card up.
+    private func fadeCard(_ card: UIView, in visible: Bool) {
+        if visible {
+            if card.isHidden {
+                card.alpha = 0
+                card.isHidden = false
+            }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .beginFromCurrentState) {
+                card.alpha = 1
+            }
+        } else {
+            guard !card.isHidden else { return }
+            UIView.animate(withDuration: 0.2, delay: 0, options: .beginFromCurrentState) {
+                card.alpha = 0
+            } completion: { finished in
+                if finished && card.alpha == 0 { card.isHidden = true }
+            }
+        }
     }
 
     private func setupLoadingOverlay() {
@@ -1548,6 +1706,11 @@ final class AppleTvPlayerViewController: UIViewController {
             onNextUpDismiss?()
             return
         }
+        // Menu on the failure card is its Back button.
+        if liveTvFailureVisible {
+            dismiss(animated: true)
+            return
+        }
         // Back dismisses the skip button for the rest of the segment, the way
         // the Flutter player does. The segment state machine keeps it from
         // showing again until the segment is left and reentered.
@@ -1574,7 +1737,9 @@ final class AppleTvPlayerViewController: UIViewController {
     }
 
     @objc private func handleSwipe(_ recognizer: UISwipeGestureRecognizer) {
-        guard presentedViewController == nil, !nextUpVisible else { return }
+        guard presentedViewController == nil, !nextUpVisible, !liveTvFailureVisible else {
+            return
+        }
         switch recognizer.direction {
         case .up:
             if !isLive {
@@ -1607,7 +1772,8 @@ final class AppleTvPlayerViewController: UIViewController {
         default:
             break
         }
-        guard presentedViewController == nil, !nextUpVisible, !isLive else { return }
+        guard presentedViewController == nil, !nextUpVisible, !liveTvFailureVisible, !isLive
+        else { return }
         switch recognizer.state {
         case .began:
             panScrubEngaged = false
@@ -1684,6 +1850,22 @@ final class AppleTvPlayerViewController: UIViewController {
                 case .rightArrow:
                     nextUpFocusOnPlay = false
                     updateNextUpFocusHighlight()
+                default:
+                    // Menu is handled by the tap recognizer.
+                    break
+                }
+            }
+            return
+        }
+        if liveTvFailureVisible {
+            for press in presses {
+                switch press.type {
+                case .upArrow:
+                    moveLiveTvFailureFocus(by: -1)
+                case .downArrow:
+                    moveLiveTvFailureFocus(by: 1)
+                case .select:
+                    activateLiveTvFailureButton()
                 default:
                     // Menu is handled by the tap recognizer.
                     break
@@ -2767,21 +2949,14 @@ final class AppleTvPlayerViewController: UIViewController {
         // updateOsd keeps the OSD down while the card is visible, so this
         // doesn't need to latch osdDismissed the way an explicit dismiss does.
         hideOsd()
-        if nextUpCard.isHidden {
-            nextUpCard.alpha = 0
-            nextUpCard.isHidden = false
-            UIView.animate(withDuration: 0.25) { self.nextUpCard.alpha = 1 }
-        }
+        fadeCard(nextUpCard, in: true)
         view.layoutIfNeeded()
         updateNextUpRingPath()
     }
 
     func hideNextUpCard() {
-        guard nextUpVisible || !nextUpCard.isHidden else { return }
         nextUpVisible = false
-        UIView.animate(withDuration: 0.2) { self.nextUpCard.alpha = 0 } completion: { _ in
-            self.nextUpCard.isHidden = true
-        }
+        fadeCard(nextUpCard, in: false)
     }
 
     private func updateNextUpFocusHighlight() {
@@ -2941,7 +3116,7 @@ final class AppleTvPlayerViewController: UIViewController {
         updateLoadingOverlay()
 
         let shouldShow =
-            !osdDismissed && !nextUpVisible
+            !osdDismissed && !nextUpVisible && !liveTvFailureVisible
             && (isPaused() || scrubTargetMs != nil || scrubFrozenMs != nil
                 || (CACurrentMediaTime() - lastShowAt < 4.0))
         let visible = osdContainer.alpha > 0.5

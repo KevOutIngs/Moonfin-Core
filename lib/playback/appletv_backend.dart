@@ -58,6 +58,10 @@ class AppleTvBackend implements PlayerBackend {
   bool? _engineLogForwarding;
   EngineTrust? _trust;
   bool _playerPresented = false;
+
+  /// Whether the presented player has a view on screen. An audio-only
+  /// presentation runs the engine with no view controller.
+  bool _playerOnScreen = false;
   Timer? _audioDelayDebounce;
 
   final _positionStream = StreamController<Duration>.broadcast();
@@ -102,16 +106,23 @@ class AppleTvBackend implements PlayerBackend {
   Future<void> _ensurePlayerPresented({bool audioOnly = false}) async {
     if (_disposed || _playerPresented) return;
     _playerPresented = true;
+    _playerOnScreen = !audioOnly;
     await _invoke<void>('present', {'audioOnly': audioOnly});
   }
 
   Future<void> _dismissPlayer() async {
     if (!_playerPresented) return;
     _playerPresented = false;
+    _playerOnScreen = false;
     await _invoke<void>('dismiss');
   }
 
   Future<void> dismissPlayer() => _dismissPlayer();
+
+  /// Whether the native player's view is on screen. A Live TV failure card
+  /// goes onto the player when it is, and onto the host route when it is
+  /// not, which includes an audio-only channel.
+  bool get isPlayerOnScreen => _playerOnScreen;
 
   void _handleEvent(dynamic event) {
     if (_disposed || event is! Map) return;
@@ -142,6 +153,7 @@ class AppleTvBackend implements PlayerBackend {
         _playerPresented = true;
       case 'dismissed':
         _playerPresented = false;
+        _playerOnScreen = false;
         _isPlaying = false;
         _isBuffering = false;
         _playingStream.add(false);
@@ -165,6 +177,7 @@ class AppleTvBackend implements PlayerBackend {
       case 'nextUpPlay':
       case 'nextUpCancel':
       case 'nextUpDismiss':
+      case 'liveTvRetry':
       case 'skipSegment':
       case 'userSeeked':
       case 'searchSubtitles':
@@ -620,6 +633,31 @@ class AppleTvBackend implements PlayerBackend {
 
   Future<void> hideStatusMessage() async {
     await _invoke<void>('hideStatusMessage');
+  }
+
+  /// The Live TV failure card over the picture: Retry, Dismiss and Back.
+  /// The player underneath is left as it is, so a channel the tracker
+  /// wrongly gave up on keeps playing behind the card. Retry comes back as
+  /// the `liveTvRetry` UI action, Dismiss only takes the card down, and
+  /// Back dismisses the player and reports a user exit.
+  Future<void> showLiveTvFailureCard({
+    required String title,
+    required String body,
+    required String retryLabel,
+    required String dismissLabel,
+    required String backLabel,
+  }) async {
+    await _invoke<void>('showLiveTvFailure', {
+      'title': title,
+      'body': body,
+      'retryLabel': retryLabel,
+      'dismissLabel': dismissLabel,
+      'backLabel': backLabel,
+    });
+  }
+
+  Future<void> hideLiveTvFailureCard() async {
+    await _invoke<void>('hideLiveTvFailure');
   }
 
   Future<void> setThemeConfig({

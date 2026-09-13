@@ -243,6 +243,61 @@ class MediaKitPlayerBackend extends PlayerBackend {
   VideoParams? _decodedVideoParams;
   StreamSubscription<VideoParams>? _videoParamsSub;
 
+  // Whether a live channel is showing a picture, from the video bit rate
+  // mpv measures at its demuxer: see [StreamPictureEvidence]. Read once a
+  // second while a live source is open; nothing else asks.
+  final _pictureEvidence = StreamPictureEvidence();
+  final _pictureShownStream = StreamController<bool>.broadcast();
+  bool _pictureShown = false;
+  Timer? _pictureTimer;
+  static const _pictureSampleInterval = Duration(seconds: 1);
+
+  @override
+  Stream<bool> get pictureShownStream => _pictureShownStream.stream;
+
+  void _watchPicture(bool live) {
+    _pictureTimer?.cancel();
+    _pictureTimer = null;
+    _pictureEvidence.reset();
+    _setPictureShown(false);
+    if (!live) return;
+    _pictureTimer = Timer.periodic(
+      _pictureSampleInterval,
+      (_) => unawaited(_samplePicture()),
+    );
+  }
+
+  Future<void> _samplePicture() async {
+    if (_isDisposed || _isStale) return;
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    final values = await Future.wait([
+      _tryNativeGetProperty(native, 'video-bitrate'),
+      _tryNativeGetProperty(native, 'width'),
+      _tryNativeGetProperty(native, 'height'),
+    ]);
+    if (_isDisposed || _isStale) return;
+    final width = int.tryParse(values[1] ?? '') ?? 0;
+    final height = int.tryParse(values[2] ?? '') ?? 0;
+    final now = DateTime.now();
+    _pictureEvidence.onSample(
+      at: now,
+      videoBitsPerSecond: double.tryParse(values[0] ?? '')?.round() ?? 0,
+      width: width,
+      height: height,
+    );
+    // A decoded frame size is a frame drawn; from there the picture is
+    // taken on trust until the stream proves there is nothing in it.
+    final frameDrawn = width > 0 && height > 0;
+    _setPictureShown(frameDrawn && _pictureEvidence.noPicture(now) != true);
+  }
+
+  void _setPictureShown(bool shown) {
+    if (shown == _pictureShown) return;
+    _pictureShown = shown;
+    if (!_pictureShownStream.isClosed) _pictureShownStream.add(shown);
+  }
+
   late final Stream<bool> _playingStream = _mergeWithStale<bool>(
     _player.stream.playing,
     () => _isStale ? false : _player.state.playing,
@@ -661,6 +716,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     _isStale = true;
     _embeddedCaptionTracks = const [];
     _ccTrackSids = const [];
+    _watchPicture(payload['isLive'] == true);
 
     await _notifyNativeHandleReady();
     await _configureAppleMobileLibassFont();
@@ -1853,6 +1909,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
   @override
   Future<void> stop() async {
     _isStale = true;
+    _watchPicture(false);
     await _player.stop();
   }
 
@@ -2431,6 +2488,8 @@ class MediaKitPlayerBackend extends PlayerBackend {
     _prefs.removeListener(_onPreferencesChanged);
     _ccTracksSub?.cancel();
     _videoParamsSub?.cancel();
+    _pictureTimer?.cancel();
+    _pictureShownStream.close();
     _tracksChangedController.close();
     _player.dispose();
   }

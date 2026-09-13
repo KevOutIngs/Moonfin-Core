@@ -12,6 +12,7 @@ export 'src/player_service.dart';
 export 'src/queue_service.dart';
 export 'src/player_state.dart';
 export 'src/live_source_probe.dart';
+export 'src/stream_picture_evidence.dart';
 export 'src/media_stream_resolver.dart';
 export 'src/track_ordinal_mapper.dart';
 export 'src/stream_resolution_result.dart';

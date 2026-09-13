@@ -239,13 +239,19 @@ class Media3PlayerBackend extends PlayerBackend {
           _completedStream.add(_completed);
         }
 
-        // The view reads its own pixels once a frame is drawn: true while
-        // the picture is black, null where it cannot look, so a drawn frame
-        // is then taken on trust.
-        final pictureShown = _sawFirstFrame && map['pictureBlack'] != true;
+        // The view judges a live picture from the stream's own bit rate and
+        // from reads of its screen with something in them: true while the
+        // stream cannot be showing a picture, null before a frame or while
+        // there is not enough to say, so a drawn frame is taken on trust
+        // until the stream proves otherwise.
+        final pictureShown = _sawFirstFrame && map['noPicture'] != true;
         if (pictureShown != _pictureShown) {
           _pictureShown = pictureShown;
-          _diag('Media3: picture ${pictureShown ? 'shown' : 'none'}');
+          final evidence = map['pictureEvidence'];
+          _diag(
+            'Media3: picture ${pictureShown ? 'shown' : 'none'}'
+            '${evidence == null ? '' : ' ($evidence)'}',
+          );
           _pictureShownStream.add(pictureShown);
         }
 

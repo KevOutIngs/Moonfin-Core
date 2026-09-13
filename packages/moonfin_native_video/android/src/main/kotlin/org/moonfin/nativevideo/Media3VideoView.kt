@@ -123,6 +123,7 @@ private class MoonfinRenderersFactory(
     private val stereoDownmixRequested: () -> Boolean,
     private val onPassthroughRecoveryNeeded: (String) -> Unit,
     private val iecOutputProvider: Iec61937AudioOutputProvider?,
+    private val onVideoFrame: (bytes: Int, presentationTimeUs: Long) -> Unit,
 ) : DefaultRenderersFactory(context) {
     override fun buildVideoRenderers(
         context: Context,
@@ -137,7 +138,7 @@ private class MoonfinRenderersFactory(
         var videoRendererBuilder =
             MediaCodecVideoRenderer
                 .Builder(context)
-                .setCodecAdapterFactory(codecAdapterFactory)
+                .setCodecAdapterFactory(VideoFrameMeter(codecAdapterFactory, onVideoFrame))
                 .setMediaCodecSelector(mediaCodecSelector)
                 .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
                 .setEnableDecoderFallback(enableDecoderFallback)
@@ -866,6 +867,8 @@ class Media3VideoView(
     private var videoPixelRatio = 1f
     private var currentNormalizationGainDb: Float? = null
     private var currentContainer: String? = null
+    // Read on the playback thread by the frame meter's gate.
+    @Volatile
     private var currentIsLive = false
     private var currentIsPreview = false
     private var currentMediaType: String = "video"
@@ -916,14 +919,13 @@ class Media3VideoView(
     private var isPlayerReleased = false
     private var firstFrameRendered = false
 
-    // Picture sampling. A tuner's failover placeholder is a black video that
-    // decodes, renders and runs its clock like any channel; only the pixels
-    // say there is nothing to see. A thumbnail of the surface is read about
-    // once a second while a live channel plays, every five once a picture
-    // has been seen; tunneled playback and old APIs cannot be read, and
-    // then a drawn frame is taken on trust. Only live is sampled: nothing
-    // else asks.
-    private var pictureBlack: Boolean? = null
+    // Whether a live channel is showing a picture: see [PictureEvidence].
+    // Fed every video frame while live, and a read of the screen about once
+    // a second whenever the bit rate alone does not already say there is a
+    // picture; tunneled playback and old APIs cannot be read, and then the
+    // bit rate alone decides. Only live is judged: nothing else asks.
+    private val pictureEvidence = PictureEvidence()
+    private var lastNoPictureWire: Boolean? = null
     private var pictureSamplingUnavailable = false
     private var pictureSampleInFlight = false
     private var lastPictureSampleMs = 0L
@@ -936,23 +938,28 @@ class Media3VideoView(
     private fun hideVideoUntilFirstFrame() {
         firstFrameRendered = false
         firstFrameCover.visibility = View.VISIBLE
-        pictureBlack = null
+        pictureEvidence.reset()
+        lastNoPictureWire = null
         pictureSamplingUnavailable = false
         lastPictureSampleMs = 0L
     }
 
-    /** True while the picture is black, null before a frame or where the pixels cannot be read. */
-    private fun pictureBlackWire(): Boolean? = when {
-        !firstFrameRendered || pictureSamplingUnavailable -> null
-        else -> pictureBlack ?: true
+    /**
+     * True while the stream cannot be showing a picture, false while it is; null before a frame
+     * or while there is not enough to say.
+     */
+    private fun noPictureWire(): Boolean? = when {
+        !firstFrameRendered || !currentIsLive -> null
+        else -> pictureEvidence.noPicture(SystemClock.elapsedRealtime())
     }
 
     private fun samplePicture() {
         if (!firstFrameRendered || !currentIsLive || isDisposed || pictureSamplingUnavailable) return
         val now = SystemClock.elapsedRealtime()
-        val interval =
-            if (pictureBlack == false) PICTURE_SAMPLE_SHOWN_INTERVAL_MS else PICTURE_SAMPLE_INTERVAL_MS
-        if (pictureSampleInFlight || now - lastPictureSampleMs < interval) return
+        // A read can only add proof of a picture; while the bit rate already
+        // says there is one, it has nothing to add.
+        if (pictureEvidence.noPicture(now) == false) return
+        if (pictureSampleInFlight || now - lastPictureSampleMs < PICTURE_SAMPLE_INTERVAL_MS) return
         val view = videoView as? SurfaceView
         if (view == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.N || tunnelingActive) {
             pictureSamplingUnavailable = true
@@ -978,7 +985,9 @@ class Media3VideoView(
                     val m = maxOf(Color.red(p), Color.green(p), Color.blue(p))
                     if (m > brightest) brightest = m
                 }
-                pictureBlack = brightest < PICTURE_BLACK_LEVEL
+                if (brightest >= PICTURE_BLACK_LEVEL) {
+                    pictureEvidence.onPictureSeen(SystemClock.elapsedRealtime())
+                }
             }, mainHandler)
         } catch (e: Exception) {
             pictureSampleInFlight = false
@@ -1205,6 +1214,7 @@ class Media3VideoView(
             videoWidthPx = videoSize.width
             videoHeightPx = videoSize.height
             videoPixelRatio = videoSize.pixelWidthHeightRatio
+            pictureEvidence.onVideoSize(videoSize.width, videoSize.height)
             applyVideoLayout()
             resolveSelectedVideoFrameRate()?.let { frameRate ->
                 // detectedFrameRate holds the normalized rate, so compare like
@@ -1809,6 +1819,10 @@ class Media3VideoView(
             stereoDownmixRequested = ::effectiveStereoDownmix,
             onPassthroughRecoveryNeeded = ::recoverPassthroughSilence,
             iecOutputProvider = iecOutputProvider,
+            // Only live is judged; a film's frames are not worth the lock.
+            onVideoFrame = { bytes, ptsUs ->
+                if (currentIsLive) pictureEvidence.onVideoFrame(bytes, ptsUs)
+            },
         ).apply {
             setEnableDecoderFallback(true)
             setExtensionRendererMode(extensionRendererModeFor(passthroughPolicy))
@@ -4877,6 +4891,7 @@ class Media3VideoView(
         val duration = player.duration
         val bufferedPosition = player.bufferedPosition
         val videoSize = player.videoSize
+        val noPicture = noPictureWire()
         return mapOf(
             "positionMs" to player.currentPosition,
             "durationMs" to if (duration > 0) duration else 0L,
@@ -4893,7 +4908,15 @@ class Media3VideoView(
             "volumeBoostLevel" to userVolumeBoostLevel,
             "subtitleRendererMode" to activeSubtitleRendererMode.wireValue,
             "subtitleRendererModeRequested" to requestedSubtitleRendererMode.wireValue,
-            "pictureBlack" to pictureBlackWire(),
+            "noPicture" to noPicture,
+            // The reasons behind a verdict, for the log, on the tick it changes only.
+            "pictureEvidence" to
+                if (noPicture != lastNoPictureWire) {
+                    lastNoPictureWire = noPicture
+                    pictureEvidence.describe(SystemClock.elapsedRealtime())
+                } else {
+                    null
+                },
         )
     }
 
@@ -4944,6 +4967,5 @@ class Media3VideoView(
 private const val PICTURE_SAMPLE_W = 32
 private const val PICTURE_SAMPLE_H = 18
 private const val PICTURE_SAMPLE_INTERVAL_MS = 1000L
-private const val PICTURE_SAMPLE_SHOWN_INTERVAL_MS = 5000L
 // Brightest channel of any sampled pixel below this is a black picture.
 private const val PICTURE_BLACK_LEVEL = 24

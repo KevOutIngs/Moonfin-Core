@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:server_core/server_core.dart';
 
@@ -55,33 +54,17 @@ class AutoBitrateService {
   }
 
   Future<int?> _measure(MediaServerClient client) async {
-    // The probe runs on its own client, so without these lines it is
-    // invisible in the network log and a start waiting on it looks hung.
     final log = GetIt.instance<LogService>();
     log.log(LogCategory.playback, 'Auto bitrate: measuring');
-    final base = client.baseUrl.endsWith('/')
-        ? client.baseUrl.substring(0, client.baseUrl.length - 1)
-        : client.baseUrl;
-
-    final dio = Dio(
-      BaseOptions(
-        responseType: ResponseType.bytes,
-        receiveTimeout: _requestTimeout,
-        connectTimeout: _requestTimeout,
-        // Both server types accept this one, so the measurement does not need
-        // to know which it is talking to.
-        headers: {'X-Emby-Token': client.accessToken ?? ''},
-      ),
-    );
-
     try {
       final stopwatch = Stopwatch()..start();
-      final response = await dio.get<List<int>>(
-        '$base/Playback/BitrateTest?size=$_testBytes',
+      final body = await client.playbackApi.bitrateTest(
+        _testBytes,
+        timeout: _requestTimeout,
       );
       stopwatch.stop();
 
-      final bytes = response.data?.length ?? 0;
+      final bytes = body.length;
       final seconds = stopwatch.elapsedMicroseconds / 1000000;
       // A body that arrived short measures the server giving up, not the link.
       if (bytes < _testBytes ~/ 4 || seconds <= 0) return null;
@@ -93,8 +76,6 @@ class AutoBitrateService {
     } catch (e) {
       log.log(LogCategory.playback, 'Auto bitrate: measurement failed ($e)');
       return null;
-    } finally {
-      dio.close();
     }
   }
 }

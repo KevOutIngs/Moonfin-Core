@@ -1,4 +1,8 @@
 abstract class PlaybackApi {
+  /// Downloads the server's throwaway bitrate-test body of about [bytes]
+  /// bytes; the caller times it. Both server types serve it.
+  Future<List<int>> bitrateTest(int bytes, {Duration? timeout});
+
   Future<void> reportPlaybackStart(Map<String, dynamic> info);
   Future<void> reportPlaybackProgress(Map<String, dynamic> info);
   Future<void> reportPlaybackStopped(Map<String, dynamic> info);

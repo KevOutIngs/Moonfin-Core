@@ -181,6 +181,47 @@ class PlaybackManager implements AudioOwnable {
   DateTime? _lastTrackSwitchReResolveAt;
   bool _transcodeSwitchRecoveryConsumed = false;
   Future<void>? _reResolveQueue;
+
+  /// The server releasing the last live stream this manager opened: the stop
+  /// report and the explicit close, issued without waiting when a session
+  /// ends. A tuner with a stream limit counts that stream until the release
+  /// lands, so the next live bringup waits for it (briefly) before asking the
+  /// server to open another; otherwise a channel change or a Retry races its
+  /// own release and is refused as if the tuner were busy.
+  Future<void>? _liveStreamRelease;
+
+  /// How long a live bringup waits for the previous stream's release.
+  static const _liveStreamReleaseWait = Duration(seconds: 4);
+
+  /// How long a live bringup waits for the auto bitrate measurement.
+  static const _liveBitrateMeasureWait = Duration(milliseconds: 1500);
+
+  /// Issues a stop report or live stream close without waiting for it, and
+  /// remembers it when it releases a live stream on the server. The one
+  /// owner of "report in the background": every path that ends a session
+  /// goes through here, so no release can be left untracked.
+  void _releaseInBackground(
+    StreamResolutionResult? resolution,
+    Future<void>? release,
+  ) {
+    if (release == null) return;
+    final settled = release.catchError((_) {});
+    unawaited(settled);
+    final liveStreamId = resolution?.liveStreamId;
+    if (liveStreamId == null || liveStreamId.isEmpty) return;
+    final pending = _liveStreamRelease;
+    _liveStreamRelease = pending == null ? settled : pending.then((_) => settled);
+  }
+
+  Future<void> _awaitLiveStreamRelease() async {
+    final release = _liveStreamRelease;
+    if (release == null) return;
+    try {
+      await release.timeout(_liveStreamReleaseWait);
+    } catch (_) {}
+    if (identical(_liveStreamRelease, release)) _liveStreamRelease = null;
+  }
+
   final _backendChangedController = StreamController<PlayerBackend>.broadcast();
   final _bringupStateController =
       StreamController<PlaybackBringupState>.broadcast();
@@ -1462,9 +1503,24 @@ class PlaybackManager implements AudioOwnable {
     if (_maxBitrateOverrideMbps != null) {
       profile['MaxStreamingBitrate'] = _maxBitrateOverrideMbps! * 1000000;
     }
+    final isLive = _isLiveTvItem(item);
+    // Started now so it runs alongside the bitrate measurement; awaited
+    // just before the resolve.
+    final releaseWait = _awaitLiveStreamRelease();
     var maxBitrate = profile['MaxStreamingBitrate'] as int?;
     if (maxBitrate == null && autoBitrateProvider != null) {
-      final measured = await autoBitrateProvider!();
+      // A fresh measurement downloads a few megabytes and can take most of
+      // ten seconds on a slow link. A channel change cannot sit behind that:
+      // the viewer reads it as the tuner struggling. A cached figure comes
+      // back at once; a measurement still running is left to finish in the
+      // background and caps the next channel instead of this one.
+      final measurement = autoBitrateProvider!();
+      final measured = isLive
+          ? await measurement.timeout(
+              _liveBitrateMeasureWait,
+              onTimeout: () => null,
+            )
+          : await measurement;
       if (sessionToken != _playbackSessionToken) return;
       if (measured != null && measured > 0) {
         // The measurement bounds how heavy a transcode the server is asked
@@ -1482,6 +1538,13 @@ class PlaybackManager implements AudioOwnable {
       }
     }
 
+    // A channel change or a Retry stops the previous stream without waiting
+    // for the server to release it, and the tuner counts that stream until
+    // it does. Opening the next one before then is refused on a tuner at its
+    // limit, so the release, if one is pending, has to land first.
+    await releaseWait;
+    if (sessionToken != _playbackSessionToken) return;
+
     final StreamResolutionResult resolution;
     try {
       resolution = await _resolver!.resolve(
@@ -1496,13 +1559,16 @@ class PlaybackManager implements AudioOwnable {
         enableDirectStream: enableDirectStream,
         enableTranscoding: enableTranscoding,
       );
-    } catch (_) {
+    } catch (e) {
       // A channel the server refuses outright (no tuner has it, every tuner
       // slot is busy, the tuner host is down) fails here with a server error.
       // The exception still reaches the caller, but the bringup state names
       // the failure so the live player can say the channel is unavailable
-      // instead of showing the raw exception text.
-      if (sessionToken == _playbackSessionToken && _isLiveTvItem(item)) {
+      // instead of showing the raw exception text. The server's own words
+      // (the status and body of the last attempt) go to the log, the one
+      // place they reach.
+      if (sessionToken == _playbackSessionToken && isLive) {
+        _diagnosticLogger?.call('Live TV: channel $itemId refused: $e');
         _setBringupState(
           PlaybackBringupState(
             phase: PlaybackBringupPhase.failed,
@@ -1528,7 +1594,10 @@ class PlaybackManager implements AudioOwnable {
     // probe is released the same way a stopped stream would release it.
     if (resolution.liveStreamId != null &&
         liveSourceProbeFailed(resolution.mediaStreams)) {
-      unawaited(_service?.closeLiveStream(resolution.liveStreamId!));
+      _releaseInBackground(
+        resolution,
+        _service?.closeLiveStream(resolution.liveStreamId!),
+      );
       _setBringupState(
         PlaybackBringupState(
           phase: PlaybackBringupPhase.failed,
@@ -2015,8 +2084,10 @@ class PlaybackManager implements AudioOwnable {
     if (resolution.playMethod == StreamPlayMethod.directPlay &&
         directLiveStreamId != null &&
         directLiveStreamId.isNotEmpty) {
-      final closeFuture = _service?.closeLiveStream(directLiveStreamId);
-      if (closeFuture != null) unawaited(closeFuture);
+      _releaseInBackground(
+        resolution,
+        _service?.closeLiveStream(directLiveStreamId),
+      );
     }
 
     _startProgressTimer();
@@ -2117,14 +2188,13 @@ class PlaybackManager implements AudioOwnable {
     final service = generation.service;
     if (service == null) return;
     try {
-      unawaited(
-        service
-            .onPlaybackStop(
-              generation.item,
-              generation.resolution,
-              generation.stopPosition,
-            )
-            .catchError((_) {}),
+      _releaseInBackground(
+        generation.resolution,
+        service.onPlaybackStop(
+          generation.item,
+          generation.resolution,
+          generation.stopPosition,
+        ),
       );
     } catch (_) {}
   }
@@ -2767,12 +2837,10 @@ class PlaybackManager implements AudioOwnable {
 
     if (item != null && resolution != null) {
       final stopReport = _service?.onPlaybackStop(item, resolution, currentPos);
-      if (resolution.playMethod == StreamPlayMethod.directPlay) {
-        // No server-side job to tear down, so don't delay the restart.
-        if (stopReport != null) {
-          unawaited(stopReport.catchError((_) {}));
-        }
-      } else {
+      _releaseInBackground(resolution, stopReport);
+      if (resolution.playMethod != StreamPlayMethod.directPlay) {
+        // Direct play has no server-side job to tear down, so nothing
+        // delays its restart.
         // The server kills the old encoder job on the stop report. The
         // ActiveEncodings delete is the deterministic backstop, since the
         // stop report is skipped for audiobooks and can fail transiently.
@@ -3164,11 +3232,9 @@ class PlaybackManager implements AudioOwnable {
           _issuePlaybackStop(progressGeneration);
         } else {
           try {
-            unawaited(
-              _service
-                      ?.onPlaybackStop(reportItem, resolution, pos)
-                      .catchError((_) {}) ??
-                  Future<void>.value(),
+            _releaseInBackground(
+              resolution,
+              _service?.onPlaybackStop(reportItem, resolution, pos),
             );
           } catch (_) {}
         }
@@ -3207,7 +3273,10 @@ class PlaybackManager implements AudioOwnable {
 
   void _cleanupPreemptedSession(dynamic item, StreamResolutionResult? resolution) {
     if (item != null && resolution != null) {
-      unawaited(_service?.onPlaybackStop(item, resolution, Duration.zero).catchError((_) => null));
+      _releaseInBackground(
+        resolution,
+        _service?.onPlaybackStop(item, resolution, Duration.zero),
+      );
     }
   }
 

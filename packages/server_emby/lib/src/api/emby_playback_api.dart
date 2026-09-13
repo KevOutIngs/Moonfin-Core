@@ -8,6 +8,19 @@ class EmbyPlaybackApi implements PlaybackApi {
   EmbyPlaybackApi(this._dio, this._getBaseUrl);
 
   @override
+  Future<List<int>> bitrateTest(int bytes, {Duration? timeout}) async {
+    final response = await _dio.get<List<int>>(
+      '/Playback/BitrateTest',
+      queryParameters: {'size': bytes},
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: timeout,
+      ),
+    );
+    return response.data ?? const [];
+  }
+
+  @override
   Future<void> reportPlaybackStart(Map<String, dynamic> info) async {
     await _dio.post('/Sessions/Playing', data: info);
   }

@@ -7,11 +7,14 @@ import '../focus/focusable_button.dart';
 
 /// What the live player shows over the video for a [LiveTvStreamStatus].
 ///
-/// Waiting states get a spinner with a line under it that says what is
-/// being waited for. The two failure states get a card with Retry and Back,
+/// A normal channel change is only a spinner; once the wait has run long
+/// enough to mean the tuner is retrying, or a playing channel has dropped,
+/// a line under it says so. The two failure states get a card with Retry and Back,
 /// since by then the tuner has already given up and a spinner would only
-/// hide that. [compact] is for the mini-player box behind the in-player
-/// guide, where there is no room for the card.
+/// hide that. A screen that still has something usable behind the card, such
+/// as its own channel controls and guide, passes [onDismiss] to add a
+/// Dismiss button between the two. [compact] is for the mini-player box
+/// behind the in-player guide, where there is no room for the card.
 class LiveTvStreamStatusOverlay extends StatelessWidget {
   const LiveTvStreamStatusOverlay({
     super.key,
@@ -19,12 +22,18 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
     required this.onRetry,
     required this.onExit,
     required this.retryFocusNode,
+    this.onDismiss,
     this.compact = false,
   });
 
   final LiveTvStreamStatus status;
   final VoidCallback onRetry;
   final VoidCallback onExit;
+
+  /// Hides the card and leaves the viewer in the player. Null when there is
+  /// nothing behind the card to go back to, in which case only Retry and
+  /// Back are offered.
+  final VoidCallback? onDismiss;
 
   /// The owning screen moves the remote's focus onto this node when the card
   /// appears. Autofocus alone loses to whatever player control already holds
@@ -42,7 +51,7 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
       case LiveTvStreamStatus.buffering:
         return _spinner(null);
       case LiveTvStreamStatus.connecting:
-        return _spinner(compact ? null : l10n.liveTvConnecting);
+        return _spinner(null);
       case LiveTvStreamStatus.stillTrying:
         return _spinner(l10n.liveTvTunerStillTrying);
       case LiveTvStreamStatus.reconnecting:
@@ -161,6 +170,7 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
             _FailureActions(
               retryFocusNode: retryFocusNode,
               onRetry: onRetry,
+              onDismiss: onDismiss,
               onExit: onExit,
             ),
           ],
@@ -170,19 +180,22 @@ class LiveTvStreamStatusOverlay extends StatelessWidget {
   }
 }
 
-/// Retry over Back, on the app's own focusable buttons. Material buttons
-/// never fire from a TV remote here: the select key is consumed by the
-/// focus wrapper layer, so the buttons have to be that layer. Up and down
-/// move between the two, and the remote's back key leaves the player.
+/// Retry over Dismiss over Back, on the app's own focusable buttons.
+/// Material buttons never fire from a TV remote here: the select key is
+/// consumed by the focus wrapper layer, so the buttons have to be that
+/// layer. Up and down move between them, and the remote's back key leaves
+/// the player. Dismiss is only there when the screen offers it.
 class _FailureActions extends StatefulWidget {
   const _FailureActions({
     required this.retryFocusNode,
     required this.onRetry,
+    required this.onDismiss,
     required this.onExit,
   });
 
   final FocusNode retryFocusNode;
   final VoidCallback onRetry;
+  final VoidCallback? onDismiss;
   final VoidCallback onExit;
 
   @override
@@ -190,10 +203,12 @@ class _FailureActions extends StatefulWidget {
 }
 
 class _FailureActionsState extends State<_FailureActions> {
+  final _dismissFocus = FocusNode(debugLabel: 'LiveTvDismiss');
   final _backFocus = FocusNode(debugLabel: 'LiveTvBack');
 
   @override
   void dispose() {
+    _dismissFocus.dispose();
     _backFocus.dispose();
     super.dispose();
   }
@@ -202,6 +217,8 @@ class _FailureActionsState extends State<_FailureActions> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final retryFocus = widget.retryFocusNode;
+    final onDismiss = widget.onDismiss;
+    final belowRetry = onDismiss != null ? _dismissFocus : _backFocus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -210,7 +227,7 @@ class _FailureActionsState extends State<_FailureActions> {
           borderRadius: 14,
           padding: EdgeInsets.zero,
           onPressed: widget.onRetry,
-          onNavigateDown: _backFocus.requestFocus,
+          onNavigateDown: belowRetry.requestFocus,
           onBack: widget.onExit,
           semanticLabel: l10n.retry,
           child: Container(
@@ -230,29 +247,57 @@ class _FailureActionsState extends State<_FailureActions> {
             ),
           ),
         ),
-        const SizedBox(height: AppSpacing.spaceSm),
-        FocusableButton(
-          focusNode: _backFocus,
-          borderRadius: 14,
-          padding: EdgeInsets.zero,
-          onPressed: widget.onExit,
-          onNavigateUp: retryFocus.requestFocus,
-          onBack: widget.onExit,
-          semanticLabel: l10n.back,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 11),
-            child: Text(
-              l10n.back,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColorScheme.onSurface.withValues(alpha: 0.75),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+        if (onDismiss != null) ...[
+          const SizedBox(height: AppSpacing.spaceSm),
+          _secondaryButton(
+            focusNode: _dismissFocus,
+            label: l10n.dismiss,
+            onPressed: onDismiss,
+            onNavigateUp: retryFocus.requestFocus,
+            onNavigateDown: _backFocus.requestFocus,
           ),
+        ],
+        const SizedBox(height: AppSpacing.spaceSm),
+        _secondaryButton(
+          focusNode: _backFocus,
+          label: l10n.back,
+          onPressed: widget.onExit,
+          onNavigateUp: belowRetry == _backFocus
+              ? retryFocus.requestFocus
+              : _dismissFocus.requestFocus,
         ),
       ],
+    );
+  }
+
+  Widget _secondaryButton({
+    required FocusNode focusNode,
+    required String label,
+    required VoidCallback onPressed,
+    required VoidCallback onNavigateUp,
+    VoidCallback? onNavigateDown,
+  }) {
+    return FocusableButton(
+      focusNode: focusNode,
+      borderRadius: 14,
+      padding: EdgeInsets.zero,
+      onPressed: onPressed,
+      onNavigateUp: onNavigateUp,
+      onNavigateDown: onNavigateDown,
+      onBack: widget.onExit,
+      semanticLabel: label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColorScheme.onSurface.withValues(alpha: 0.75),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

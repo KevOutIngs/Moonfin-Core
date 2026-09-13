@@ -162,7 +162,15 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
   // Tells the viewer what the tuner is doing: tuning, still retrying, the
   // feed dropped, or gone for good. Replaces the bare buffering spinner.
   late final LiveTvStreamStatusMonitor _streamStatus;
-  bool get _streamFailed => _streamStatus.value.isFailure;
+  /// Whether the channel failure card is up. It comes up on either failure
+  /// status and stays until the viewer dismisses it or a new channel change
+  /// starts; the tracker itself only leaves a failure on a new bringup.
+  bool get _streamFailed => _streamStatus.value.isFailure && !_failureDismissed;
+
+  /// The viewer chose Dismiss on the failure card: the channel is still
+  /// failed, but the card is out of the way so the player's own controls,
+  /// channel up/down and the guide are usable. Cleared by the next bringup.
+  bool _failureDismissed = false;
   bool _wasStreamFailed = false;
   final _retryFocus = FocusNode(debugLabel: 'LiveTvRetry');
 
@@ -699,6 +707,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     // On the way out the manager's stop still reaches the tracker; nothing
     // it says then is for this screen.
     if (!mounted || _isStopping) return;
+    if (!_streamStatus.value.isFailure) _failureDismissed = false;
     final failed = _streamFailed;
     if (failed != _wasStreamFailed) {
       _wasStreamFailed = failed;
@@ -714,6 +723,16 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
         }
       });
     }
+  }
+
+  /// Hides the failure card without leaving or retrying. The controls come
+  /// up so the viewer sees where they are, and the remote goes back to the
+  /// player the same way it does when the card leaves on its own.
+  void _dismissFailureCard() {
+    if (!_streamFailed) return;
+    setState(() => _failureDismissed = true);
+    _onStreamStatusChanged();
+    _showInfo();
   }
 
   Future<void> _retryCurrentChannel() async {
@@ -1852,10 +1871,13 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
         // stopped before it came up reads as unavailable, so the card would
         // show itself on the way out.
         builder: (context, status, _) => LiveTvStreamStatusOverlay(
-          status: _isStopping ? LiveTvStreamStatus.idle : status,
+          status: _isStopping || _failureDismissed
+              ? LiveTvStreamStatus.idle
+              : status,
           compact: _isGuidePickerOpen,
           retryFocusNode: _retryFocus,
           onRetry: _retryCurrentChannel,
+          onDismiss: _dismissFailureCard,
           onExit: _exitPlayback,
         ),
       ),

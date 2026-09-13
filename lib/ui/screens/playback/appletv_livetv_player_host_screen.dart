@@ -287,10 +287,14 @@ class _AppleTvLiveTvPlayerHostScreenState
 
     // The guide PiP is an AVPlayer texture, which can only ingest HLS. A raw
     // TS/upstream direct-play URL would fail to open, so skip the PiP for
-    // those and let the guide show the channel image instead.
+    // those and let the guide show the channel image instead. A channel the
+    // tuner has given up on has nothing to preview either, and opening its
+    // stream again would only hold a tuner slot the next channel wants.
     final resolvedUrl = _manager.currentResolution?.streamUrl;
     final streamUrl =
-        (resolvedUrl != null && resolvedUrl.toLowerCase().contains('.m3u8'))
+        (resolvedUrl != null &&
+            resolvedUrl.toLowerCase().contains('.m3u8') &&
+            !_streamStatus.value.isFailure)
         ? resolvedUrl
         : null;
 
@@ -828,6 +832,15 @@ class _AppleTvLiveTvPlayerHostScreenState
     }
   }
 
+  /// Dismiss on the failure card. The native player is already gone under
+  /// the card, so there is no player to go back to; the useful next step is
+  /// picking another channel, so this opens the guide. Backing out of the
+  /// guide without a pick re-tunes the same channel, like a Retry.
+  void _dismissFailureCard() {
+    if (!_streamStatus.value.isFailure) return;
+    unawaited(_enterGuideMode());
+  }
+
   Future<void> _retryCurrentChannel() async {
     if (_switching || _exiting) return;
     _switching = true;
@@ -843,9 +856,9 @@ class _AppleTvLiveTvPlayerHostScreenState
     // The native player is presented over this route only once a stream has
     // opened. Until then, and again once a failed stream has been torn down,
     // this Flutter surface is what is on screen, so the tuner status is
-    // drawn here: the spinner while connecting, and the Retry / Back card
-    // once the tuner has given up. While the native player is up this sits
-    // unseen behind it.
+    // drawn here: the spinner while connecting, and the Retry / Dismiss /
+    // Back card once the tuner has given up. While the native player is up
+    // this sits unseen behind it.
     return Scaffold(
       backgroundColor: Colors.black,
       body: ValueListenableBuilder<LiveTvStreamStatus>(
@@ -858,6 +871,7 @@ class _AppleTvLiveTvPlayerHostScreenState
             status: _exiting ? LiveTvStreamStatus.idle : status,
             retryFocusNode: _retryFocus,
             onRetry: _retryCurrentChannel,
+            onDismiss: _dismissFailureCard,
             onExit: _handleExit,
           );
         },

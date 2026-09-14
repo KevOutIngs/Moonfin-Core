@@ -149,9 +149,11 @@ class PlaybackManager implements AudioOwnable {
 
   /// Host supplied measurement of the link to the active server, in bits per
   /// second. Consulted when nothing else caps the stream, so Auto means a
-  /// measured ceiling rather than no ceiling. Null answers keep the request
-  /// uncapped.
-  Future<int?> Function()? autoBitrateProvider;
+  /// measured ceiling rather than no ceiling. A figure already measured
+  /// comes back synchronously; one that has to download first comes back as
+  /// a future, which a live channel change does not wait for. Null answers
+  /// keep the request uncapped.
+  FutureOr<int?> Function()? autoBitrateProvider;
   DateTime? _playbackStartTime;
   bool _waitingForMedia = false;
   SubtitleRendererMode _subtitleRendererMode = SubtitleRendererMode.native;
@@ -192,9 +194,6 @@ class PlaybackManager implements AudioOwnable {
 
   /// How long a live bringup waits for the previous stream's release.
   static const _liveStreamReleaseWait = Duration(seconds: 4);
-
-  /// How long a live bringup waits for the auto bitrate measurement.
-  static const _liveBitrateMeasureWait = Duration(milliseconds: 1500);
 
   /// Issues a stop report or live stream close without waiting for it, and
   /// remembers it when it releases a live stream on the server. The one
@@ -1509,29 +1508,31 @@ class PlaybackManager implements AudioOwnable {
     final releaseWait = _awaitLiveStreamRelease();
     var maxBitrate = profile['MaxStreamingBitrate'] as int?;
     if (maxBitrate == null && autoBitrateProvider != null) {
-      // A fresh measurement downloads a few megabytes and can take most of
-      // ten seconds on a slow link. A channel change cannot sit behind that:
-      // the viewer reads it as the tuner struggling. A cached figure comes
-      // back at once; a measurement still running is left to finish in the
-      // background and caps the next channel instead of this one.
       final measurement = autoBitrateProvider!();
-      final measured = isLive
-          ? await measurement.timeout(
-              _liveBitrateMeasureWait,
-              onTimeout: () => null,
-            )
-          : await measurement;
-      if (sessionToken != _playbackSessionToken) return;
+      final int? measured;
+      if (measurement is Future<int?>) {
+        // A fresh measurement downloads a few megabytes and can take most of
+        // ten seconds on a slow link, competing with the stream itself for
+        // the link. A channel change never sits behind it: the viewer reads
+        // the delay as the tuner struggling, and a link too slow to finish
+        // the download in time is one the measurement cannot read anyway.
+        // The download is left to finish in the background and caps the
+        // next channel instead of this one.
+        measured = isLive ? null : await measurement;
+        if (sessionToken != _playbackSessionToken) return;
+      } else {
+        measured = measurement;
+      }
       if (measured != null && measured > 0) {
         // The measurement bounds how heavy a transcode the server is asked
         // for, but the server reads it as a ceiling on direct play too, and a
-        // short sample under-reads a fast link. A source that outruns it keeps
-        // the uncapped request rather than becoming a transcode nothing asked
-        // for.
+        // short sample under-reads a fast link. A cap below the source's own
+        // bitrate would turn a direct play into a transcode nothing asked
+        // for, so that source keeps the uncapped request.
         final sourceBps = _sourceBitrate(item);
-        final vetoesDirectPlay =
+        final capWouldForceTranscode =
             enableDirectPlay && sourceBps != null && sourceBps > measured;
-        if (!vetoesDirectPlay) {
+        if (!capWouldForceTranscode) {
           maxBitrate = measured;
           profile['MaxStreamingBitrate'] = measured;
         }

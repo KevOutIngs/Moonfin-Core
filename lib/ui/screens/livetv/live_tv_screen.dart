@@ -3,12 +3,26 @@ import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../playback/auto_bitrate_service.dart';
 import '../../../util/focus/key_event_utils.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 
-class LiveTvScreen extends StatelessWidget {
+class LiveTvScreen extends StatefulWidget {
   const LiveTvScreen({super.key});
+
+  @override
+  State<LiveTvScreen> createState() => _LiveTvScreenState();
+}
+
+class _LiveTvScreenState extends State<LiveTvScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // A channel is likely next. The link measurement an Auto quality
+    // setting wants runs now, while the viewer is still choosing.
+    AutoBitrateService.warmIfRegistered();
+  }
 
   @override
   Widget build(BuildContext context) =>

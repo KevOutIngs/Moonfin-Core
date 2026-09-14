@@ -389,9 +389,11 @@ void registerPlaybackModule() {
           : LogLevel.debug,
     );
   });
-  manager.autoBitrateProvider = AutoBitrateService(
-    _getIt<MediaServerClientFactory>(),
-  ).measuredBpsForActiveServer;
+  // Registered so the Live TV screens can warm the measurement while the
+  // viewer is still choosing a channel.
+  final autoBitrate = AutoBitrateService(_getIt<MediaServerClientFactory>());
+  _getIt.registerSingleton<AutoBitrateService>(autoBitrate);
+  manager.autoBitrateProvider = autoBitrate.measuredBpsForActiveServer;
 
   // The streams of one kind belonging to whatever is playing, or null when
   // that isn't an episode and so has no series to remember a choice for.

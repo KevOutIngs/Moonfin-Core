@@ -10,6 +10,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../playback/auto_bitrate_service.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/idiom/app_ui_idiom.dart';
 import '../../navigation/destinations.dart';
@@ -207,6 +208,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   @override
   void initState() {
     super.initState();
+    // The link measurement an Auto quality setting wants runs now, while
+    // the viewer is still choosing, so the channel they pick does not have
+    // to go out uncapped or wait for the download.
+    AutoBitrateService.warmIfRegistered();
     _vm = LiveTvGuideViewModel(
       GetIt.instance<MediaServerClient>(),
       initialSortBy: _prefs.get(UserPreferences.liveTvChannelSortBy),

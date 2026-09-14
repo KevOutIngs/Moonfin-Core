@@ -32,18 +32,23 @@ class AutoBitrateService {
 
   /// Bits per second the active server can deliver, or null when nothing
   /// could be measured, which leaves the request uncapped as before.
-  Future<int?> measuredBpsForActiveServer() {
-    if (_clientFactory.clients.isEmpty) return Future.value(null);
+  ///
+  /// A figure measured within the last quarter hour comes back
+  /// synchronously, so a caller that cannot wait (a live channel change)
+  /// can tell a known link from one still being measured. Anything else
+  /// comes back as the measurement's future.
+  FutureOr<int?> measuredBpsForActiveServer() {
+    if (_clientFactory.clients.isEmpty) return null;
     // Offline playback would otherwise wait out the probe's timeout before
     // the local file starts.
-    if (shouldUseOfflineCatalog()) return Future.value(null);
+    if (shouldUseOfflineCatalog()) return null;
     final client = _clientFactory.getActiveClient();
 
     final key = client.baseUrl;
     final cached = _cache[key];
     if (cached != null &&
         DateTime.now().difference(cached.measuredAt) < _cacheLifetime) {
-      return Future.value(cached.bps);
+      return cached.bps;
     }
 
     // One measurement per server at a time, so a burst of plays does not
@@ -51,6 +56,23 @@ class AutoBitrateService {
     return _inFlight[key] ??= _measure(client).whenComplete(() {
       _inFlight.remove(key);
     });
+  }
+
+  /// Starts a measurement now if none is fresh, so a play that follows has
+  /// a figure waiting instead of a download to sit behind. Called where a
+  /// play is likely next (the Live TV screens), while the viewer is still
+  /// choosing and the link is otherwise idle.
+  void warm() {
+    final measurement = measuredBpsForActiveServer();
+    if (measurement is Future<int?>) unawaited(measurement);
+  }
+
+  /// [warm] on the registered service, or nothing where none is registered
+  /// (a screen under test, or one built before playback is wired up).
+  static void warmIfRegistered() {
+    final getIt = GetIt.instance;
+    if (!getIt.isRegistered<AutoBitrateService>()) return;
+    getIt<AutoBitrateService>().warm();
   }
 
   Future<int?> _measure(MediaServerClient client) async {

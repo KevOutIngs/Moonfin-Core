@@ -16,18 +16,31 @@ const _testBytes = 2500000;
 /// test says so, with as many bytes as the test says.
 class _FakePlaybackApi extends Fake implements PlaybackApi {
   final List<Completer<List<int>>> requests = <Completer<List<int>>>[];
+  final List<Duration?> timeouts = <Duration?>[];
 
   @override
   Future<List<int>> bitrateTest(int bytes, {Duration? timeout}) {
     final request = Completer<List<int>>();
     requests.add(request);
+    timeouts.add(timeout);
     return request.future;
   }
 
   void answer({int bytes = _testBytes}) =>
       requests.last.complete(List<int>.filled(bytes, 0));
 
+  /// The body takes [after] to arrive, the way it does on a slow link.
+  void answerAfter(Duration after) {
+    final request = requests.last;
+    Timer(after, () => request.complete(List<int>.filled(_testBytes, 0)));
+  }
+
   void fail() => requests.last.completeError(StateError('link down'));
+
+  /// The server client gave up on the download at the timeout it was given.
+  void timeOut() => requests.last.completeError(
+    TimeoutException('BitrateTest', timeouts.last),
+  );
 }
 
 class _FakeClient extends Fake implements MediaServerClient {
@@ -212,6 +225,54 @@ void main() {
       GetIt.instance.registerSingleton<AutoBitrateService>(service);
       AutoBitrateService.warmIfRegistered();
       expect(api.requests, hasLength(1));
+    });
+  });
+
+  group('on a slow link', () {
+    test('the download carries the request timeout, and running past it '
+        'leaves the link unmeasured and tried again next time', () async {
+      connect();
+
+      final first = service.measuredBpsForActiveServer() as Future<int?>;
+      expect(api.timeouts.single, const Duration(seconds: 8));
+
+      api.timeOut();
+      expect(await first, isNull);
+
+      expect(service.measuredBpsForActiveServer(), isA<Future<int?>>());
+      expect(api.requests, hasLength(2));
+    });
+
+    test('a body that took its time measures under what the link carried',
+        () async {
+      connect();
+      const took = Duration(milliseconds: 100);
+
+      final first = service.measuredBpsForActiveServer() as Future<int?>;
+      api.answerAfter(took);
+      final measured = (await first)!;
+
+      // The stopwatch ran at least as long as the body took, and the
+      // safety factor takes a fifth off what it saw.
+      final rawCeiling = _testBytes * 8 / (took.inMicroseconds / 1000000);
+      expect(measured, lessThanOrEqualTo(rawCeiling * 0.8));
+      expect(measured, greaterThan(0));
+    });
+
+    test('a slower body measures lower than a quick one', () async {
+      final quickApi = _FakePlaybackApi();
+      factory.add('quick', _FakeClient('https://quick.test', quickApi));
+      final quick = service.measuredBpsForActiveServer() as Future<int?>;
+      quickApi.answerAfter(const Duration(milliseconds: 20));
+      final quickBps = (await quick)!;
+
+      final slowApi = _FakePlaybackApi();
+      factory.add('slow', _FakeClient('https://slow.test', slowApi));
+      final slow = service.measuredBpsForActiveServer() as Future<int?>;
+      slowApi.answerAfter(const Duration(milliseconds: 200));
+      final slowBps = (await slow)!;
+
+      expect(slowBps, lessThan(quickBps));
     });
   });
 

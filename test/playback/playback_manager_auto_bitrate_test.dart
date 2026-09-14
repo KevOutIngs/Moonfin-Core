@@ -269,6 +269,22 @@ void main() {
       }
     });
 
+    test('takes a low figure from a slow link as it stands, since a channel '
+        'carries no source bitrate for the guard to compare against',
+        () async {
+      // The cap then reaches the server, which judges the channel against
+      // its own probe of the stream. Whether live TV should send the cap
+      // at all is the open question on the PR; this pins what happens now.
+      final h = _Harness(_Link()..measured = 1500000);
+      try {
+        await h.play(channel('1'));
+
+        expect(h.resolver.requestedCaps, <int?>[1500000]);
+      } finally {
+        await h.dispose();
+      }
+    });
+
     test('a link that could not be measured leaves every channel uncapped',
         () async {
       final h = _Harness(_Link());

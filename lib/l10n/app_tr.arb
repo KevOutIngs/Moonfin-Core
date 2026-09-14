@@ -10288,5 +10288,41 @@
     "nativeHdrOutputDescription": "HDR videoyu SDR'a dönüştürmek yerine ekrana olduğu gibi gönderir. Yalnızca ekran zaten HDR modundayken ve oynatılan içerik HDR olduğunda kullanılır.",
     "@nativeHdrOutputDescription": {
         "description": "Settings description for native HDR output"
+    },
+    "animeMarkerFiller": "Filtre",
+    "@animeMarkerFiller": {
+        "description": "Badge on an anime episode that is filler, meaning it is not adapted from the source manga"
+    },
+    "animeMarkerMixed": "Karışık",
+    "@animeMarkerMixed": {
+        "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
+    },
+    "animeMarkerAnimeCanon": "Anime Canon",
+    "@animeMarkerAnimeCanon": {
+        "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
+    },
+    "animeMarkerMangaCanon": "Manga Canon",
+    "@animeMarkerMangaCanon": {
+        "description": "Badge on an anime episode adapted from the source manga"
+    },
+    "animeMarkerSubbed": "Altyazılı",
+    "@animeMarkerSubbed": {
+        "description": "Badge on an anime episode or season whose only audio is Japanese, so it is watched with subtitles"
+    },
+    "animeMarkerDubbed": "Dublajlı",
+    "@animeMarkerDubbed": {
+        "description": "Badge on an anime episode or season that has an audio track in a language other than Japanese"
+    },
+    "animeMarkerSubbedAndDubbed": "Altyazılı/Dublajlı",
+    "@animeMarkerSubbedAndDubbed": {
+        "description": "Badge on anime that carries both the original Japanese audio and a dub, so it can be watched either way"
+    },
+    "animeMarkerPending": "Bekleniyor",
+    "@animeMarkerPending": {
+        "description": "Badge on an anime episode whose filler information the server has matched but not downloaded yet"
+    },
+    "animeMarkerRecap": "Özet",
+    "@animeMarkerRecap": {
+        "description": "Badge on an anime episode that recaps earlier episodes"
     }
 }

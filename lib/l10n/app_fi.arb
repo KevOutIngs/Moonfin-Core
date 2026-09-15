@@ -107,7 +107,7 @@
     "@unableToConnectToServer": {
         "description": "Error when a server connection attempt fails"
     },
-    "addServer": "Lisää palvelin",
+    "addServer": "Lisää Palvelin",
     "@addServer": {
         "description": "Button to manually add a server address"
     },
@@ -115,11 +115,11 @@
     "@embyConnect": {
         "description": "Emby Connect sign-in option label"
     },
-    "removeServer": "Poista palvelin",
+    "removeServer": "Poista Palvelin",
     "@removeServer": {
         "description": "Dialog title for removing a saved server"
     },
-    "removeServerConfirmation": "Poistetaanko \"{serverName}\" palvelimiltasi?",
+    "removeServerConfirmation": "Poistetaanko \"{serverName}\" palvelinlistalta?",
     "@removeServerConfirmation": {
         "description": "Confirmation message when removing a saved server",
         "placeholders": {
@@ -7313,7 +7313,7 @@
     "@accountPreferences": {
         "description": "Section header for account preferences settings"
     },
-    "interfaceLanguage": "Käyttöliittymän kieli",
+    "interfaceLanguage": "Käyttöliittymän Kieli",
     "@interfaceLanguage": {
         "description": "Label for the app interface language setting"
     },
@@ -11607,5 +11607,86 @@
     "liveTvChannelLostBody": "Lähetys keskeytyi, eikä viritin saanut sitä takaisin. Yritä uudelleen tai valitse toinen kanava.",
     "@liveTvChannelLostBody": {
         "description": "Explanation shown when a playing live TV channel stopped and did not recover"
-    }
+    },
+    "animeMarkerFiller": "Täytejakso",
+    "@animeMarkerFiller": {
+        "description": "Badge on an anime episode that is filler, meaning it is not adapted from the source manga"
+    },
+    "animeMarkerMixed": "MIxed",
+    "@animeMarkerMixed": {
+        "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
+    },
+    "animeMarkerAnimeCanon": "Anime Canon",
+    "@animeMarkerAnimeCanon": {
+        "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
+    },
+    "animeMarkerMangaCanon": "Manga Canon",
+    "@animeMarkerMangaCanon": {
+        "description": "Badge on an anime episode adapted from the source manga"
+    },
+    "animeMarkerSubbed": "Tekstitetty",
+    "@animeMarkerSubbed": {
+        "description": "Badge on an anime episode or season whose only audio is Japanese, so it is watched with subtitles"
+    },
+    "animeMarkerDubbed": "Dubattu",
+    "@animeMarkerDubbed": {
+        "description": "Badge on an anime episode or season that has an audio track in a language other than Japanese"
+    },
+    "animeMarkerSubbedAndDubbed": "Tekstitetty/Dubattu",
+    "@animeMarkerSubbedAndDubbed": {
+        "description": "Badge on anime that carries both the original Japanese audio and a dub, so it can be watched either way"
+    },
+    "animeMarkerPending": "Käsiteltävänä",
+    "@animeMarkerPending": {
+        "description": "Badge on an anime episode whose filler information the server has matched but not downloaded yet"
+    },
+    "animeMarkerRecap": "Yhteenveto",
+    "@animeMarkerRecap": {
+        "description": "Badge on an anime episode that recaps earlier episodes"
+    },
+    "subtitleDelayAuto": "Auto {value}",
+    "@subtitleDelayAuto": {
+        "description": "Read-only line under the subtitle delay showing a correction the player applied on its own, value is a formatted delay like +2000 ms",
+        "placeholders": {
+            "value": {
+                "type": "String"
+            }
+        }
+    },
+    "noProgramData": "Ohjelmatietoja ei ole",
+    "@noProgramData": {
+        "description": "Guide cell label for a real EPG schedule gap, not a genre-filtered program"
+    },
+    "watchChannelLive": "Katso kanavaa suorana",
+    "@watchChannelLive": {
+        "description": "Button label to tune a channel live when the selected program is not the one that will play (ended or upcoming)"
+    },
+    "actionButtonsOnScreen": "Näytön Toimintopainikkeet",
+    "@actionButtonsOnScreen": {
+        "description": "Setting title for choosing how many action buttons are visible before overflowing into More Actions"
+    },
+    "actionButtonsOnScreenDescription": "Määritä, kuinka monta toimintopainiketta näkyy ennen kuin ne piilotetaan Lisää toimintoja -valikkoon.",
+    "@actionButtonsOnScreenDescription": {
+        "description": "Subtitle explaining how action buttons overflow into More Actions"
+    },
+    "actionButtonsOnScreenAuto": "Auto (Oletusasetus)",
+    "@actionButtonsOnScreenAuto": {
+        "description": "Option showing theme default number of action buttons"
+    },
+    "actionButtonsOnScreenPlayOnly": "1 (Play only)",
+    "@actionButtonsOnScreenPlayOnly": {
+        "description": "Option showing only the play action button on screen"
+    },
+    "actionButtonsOnScreenAll": "Kaikki (Vaakasuora Vieritys)",
+    "@actionButtonsOnScreenAll": {
+        "description": "Option showing all action buttons in a horizontal scrollable row"
+    },
+    "settingsAudioPassthroughOutput": "Passthrough-lähtö",
+    "@settingsAudioPassthroughOutput": {
+        "description": "Title of the RAW-vs-IEC passthrough packer selector (Android TV, Media3 engine)"
+    },
+    "settingsAudioPassthroughOutputDescription": "Pakkaa bittivirrat HDMI-yhteyttä varten. Kokeile App Packer -sovellusta, jos signaalin läpivienti ei toimi tai toimii epävakaasti tällä laitteella.",
+    "settingsAudioPassthroughOutputPlatform": "Automaattinen järjestelmäpakkaaja (AudioTrack RAW)",
+    "settingsAudioPassthroughOutputIec": "Sovelluspakkaaja (AudioTrack IEC)",
+    "settingsAudioPassthroughOutputIecLabel": "App (IEC)"
 }

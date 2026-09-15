@@ -30,6 +30,11 @@ class SkipSegmentOverlay extends StatefulWidget {
   /// The item that will be played next, if any.
   final AggregatedItem? nextItem;
 
+  /// Distance from the bottom edge of the screen. The player passes the
+  /// measured height of the on-screen controls so the capsule clears the
+  /// time row instead of landing on top of it.
+  final double bottomInset;
+
   const SkipSegmentOverlay({
     super.key,
     required this.segment,
@@ -39,6 +44,7 @@ class SkipSegmentOverlay extends StatefulWidget {
     this.positionStream,
     this.initialPosition,
     this.nextItem,
+    this.bottomInset = _fallbackBottomInset,
   });
 
   @override
@@ -133,7 +139,7 @@ class _SkipSegmentOverlayState extends State<SkipSegmentOverlay> {
 
     return Positioned(
       right: 24,
-      bottom: 120,
+      bottom: widget.bottomInset,
       child: Material(
         color: Colors.transparent,
         child: Focus(
@@ -327,3 +333,7 @@ class _SkipDismissButton extends StatelessWidget {
 const double _capsuleRadius = 28;
 const double _dismissChipSize = 32;
 const double _dismissTapPadding = 6;
+
+// The capsule rides above the seekbar chrome, so the fallback before the
+// first measurement arrives is the same height the player reserves for it.
+const double _fallbackBottomInset = 150;

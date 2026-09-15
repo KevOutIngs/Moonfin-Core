@@ -145,4 +145,34 @@ void main() {
 
     expect(narrow, lessThan(wide), reason: 'the two variants differ in width');
   });
+
+  testWidgets('bottomInset lifts the capsule off the bottom edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Stack(
+          children: [
+            SkipSegmentOverlay(
+              segment: segment,
+              onSkip: () {},
+              onDismiss: () {},
+              bottomInset: 220,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final positioned = tester.widget<Positioned>(
+      find.ancestor(
+        of: find.textContaining('Skip'),
+        matching: find.byType(Positioned),
+      ),
+    );
+    expect(positioned.bottom, 220);
+  });
 }

@@ -4012,6 +4012,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                           positionStream: _state.positionStream,
                           initialPosition: _state.position,
                           nextItem: _nextUpItem,
+                          bottomInset:
+                              (_bottomOverlayHeight ??
+                                  TrickplayPreviewLayout
+                                      .verticalTravelBottomMargin) +
+                              AppSpacing.spaceXs,
                         ),
                       if (_showNextUp && _nextUpItem != null)
                         NextUpOverlay(

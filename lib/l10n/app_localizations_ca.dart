@@ -12309,6 +12309,13 @@ class AppLocalizationsCa extends AppLocalizations {
       'Afegeix un botó al menú per als missatges enviats per l\'administrador del teu servidor';
 
   @override
+  String get showBookDiscoverTab => 'Show Book Library Discovery';
+
+  @override
+  String get showBookDiscoverTabDescription =>
+      'Browse titles from Open Library and LibriVox in your book and audiobook libraries';
+
+  @override
   String get autoDownloadNewEpisodes =>
       'Baixa automàticament els episodis nous';
 

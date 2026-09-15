@@ -321,6 +321,7 @@ final List<SyncedField> syncedFields = <SyncedField>[
   SyncedField('screensaverRequireRating', UserPreferences.screensaverRequireRating, SyncCodec.boolean),
   SyncedField('screensaverSize', UserPreferences.screensaverSize, SyncCodec.enumName, enumValues: prefs.ScreensaverSize.values),
   SyncedField('screensaverTimeout', UserPreferences.screensaverTimeout, SyncCodec.enumName, enumValues: prefs.ScreensaverTimeout.values),
+  SyncedField('showBookDiscoverTab', UserPreferences.showBookDiscoverTab, SyncCodec.boolean),
   SyncedField('showDescriptionOnPause', UserPreferences.showDescriptionOnPause, SyncCodec.boolean),
   SyncedField('showLoadingAnimationText', UserPreferences.showLoadingAnimationText, SyncCodec.boolean),
   SyncedField('showMediaDetailsOnLibraryPage', UserPreferences.showMediaDetailsOnLibraryPage, SyncCodec.boolean),

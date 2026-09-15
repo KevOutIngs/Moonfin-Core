@@ -225,6 +225,7 @@ void main() {
     'seerrBlockNsfw',
     'seerrEnabled',
     'seerrShowMissingCollectionItems',
+    'showBookDiscoverTab',
     'showDescriptionOnPause',
     'showDownloadsButton',
     'showFavoritesButton',

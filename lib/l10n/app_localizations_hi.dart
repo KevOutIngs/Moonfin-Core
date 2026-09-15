@@ -12092,6 +12092,13 @@ class AppLocalizationsHi extends AppLocalizations {
       'Adds a button to the menu for messages sent by your server admin';
 
   @override
+  String get showBookDiscoverTab => 'Show Book Library Discovery';
+
+  @override
+  String get showBookDiscoverTabDescription =>
+      'Browse titles from Open Library and LibriVox in your book and audiobook libraries';
+
+  @override
   String get autoDownloadNewEpisodes => 'Auto-download new episodes';
 
   @override

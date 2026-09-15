@@ -21397,6 +21397,18 @@ abstract class AppLocalizations {
   /// **'Adds a button to the menu for messages sent by your server admin'**
   String get serverMessagesShowButtonSubtitle;
 
+  /// Setting that shows or hides the discovery tab in book and audiobook libraries
+  ///
+  /// In en, this message translates to:
+  /// **'Show Book Library Discovery'**
+  String get showBookDiscoverTab;
+
+  /// Explains the setting that shows or hides the discovery tab in book libraries
+  ///
+  /// In en, this message translates to:
+  /// **'Browse titles from Open Library and LibriVox in your book and audiobook libraries'**
+  String get showBookDiscoverTabDescription;
+
   /// Row in the download sheet of a series that subscribes it to automatic downloads
   ///
   /// In en, this message translates to:

@@ -1043,6 +1043,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       subtitle: l10n.showLibrariesFromAllServers,
     ),
     libraries.leaf(
+      'pref_show_book_discover_tab',
+      l10n.showBookDiscoverTab,
+      subtitle: l10n.showBookDiscoverTabDescription,
+      keywords: ['books', 'audiobooks', 'open library', 'librivox'],
+    ),
+    libraries.leaf(
       'pref_merge_recent_rows_by_type',
       l10n.mergeRecentRowsByType,
       subtitle: l10n.mergeRecentRowsByTypeDescription,

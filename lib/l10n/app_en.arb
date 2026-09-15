@@ -10926,6 +10926,14 @@
   "@serverMessagesShowButtonSubtitle": {
     "description": "Explains the setting that shows or hides the messages button"
   },
+  "showBookDiscoverTab": "Show Book Library Discovery",
+  "@showBookDiscoverTab": {
+    "description": "Setting that shows or hides the discovery tab in book and audiobook libraries"
+  },
+  "showBookDiscoverTabDescription": "Browse titles from Open Library and LibriVox in your book and audiobook libraries",
+  "@showBookDiscoverTabDescription": {
+    "description": "Explains the setting that shows or hides the discovery tab in book libraries"
+  },
   "autoDownloadNewEpisodes": "Auto-download new episodes",
   "@autoDownloadNewEpisodes": {
     "description": "Row in the download sheet of a series that subscribes it to automatic downloads"

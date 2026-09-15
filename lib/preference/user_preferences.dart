@@ -451,6 +451,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_show_seerr_button',
     'pref_show_seerr_availability_badges',
     'pref_show_server_messages_button',
+    'pref_show_book_discover_tab',
     'pref_show_media_details_on_library_page',
     'pref_use_detailed_sub_headings',
     'pref_hide_backdrops_in_libraries',
@@ -1568,6 +1569,13 @@ class UserPreferences extends ChangeNotifier {
   static final showServerMessagesButton = Preference(
     key: 'pref_show_server_messages_button',
     defaultValue: false,
+  );
+
+  /// On by default, so a server without Moonbase keeps the tab. An admin can
+  /// set a different default in the Moonbase default settings.
+  static final showBookDiscoverTab = Preference(
+    key: 'pref_show_book_discover_tab',
+    defaultValue: true,
   );
 
   static final adminDrawerOrder = Preference(

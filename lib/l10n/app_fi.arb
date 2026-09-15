@@ -11688,5 +11688,13 @@
     "settingsAudioPassthroughOutputDescription": "Pakkaa bittivirrat HDMI-yhteyttä varten. Kokeile App Packer -sovellusta, jos signaalin läpivienti ei toimi tai toimii epävakaasti tällä laitteella.",
     "settingsAudioPassthroughOutputPlatform": "Automaattinen järjestelmäpakkaaja (AudioTrack RAW)",
     "settingsAudioPassthroughOutputIec": "Sovelluspakkaaja (AudioTrack IEC)",
-    "settingsAudioPassthroughOutputIecLabel": "App (IEC)"
+    "settingsAudioPassthroughOutputIecLabel": "App (IEC)",
+    "siriRemoteSwipeSensitivity": "Kosketuslevyn pyyhkäisyherkkyys",
+    "@siriRemoteSwipeSensitivity": {
+        "description": "Apple TV settings label for how far a swipe on the Siri Remote touchpad moves the focus highlight"
+    },
+    "siriRemoteSwipeSensitivityDescription": "Kuinka paljon tarkennus siirtyy jokaisen Siri Remote -kaukosäätimen kosketuslevyllä tehdyn pyyhkäisyn yhteydessä",
+    "@siriRemoteSwipeSensitivityDescription": {
+        "description": "Apple TV settings subtitle for the Siri Remote touchpad swipe sensitivity option"
+    }
 }

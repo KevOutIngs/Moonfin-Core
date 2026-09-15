@@ -13,10 +13,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get appTitle => 'Moonfin';
 
   @override
-  String get animeMarkerFiller => 'Filler';
+  String get animeMarkerFiller => 'Täytejakso';
 
   @override
-  String get animeMarkerMixed => 'Mixed';
+  String get animeMarkerMixed => 'MIxed';
 
   @override
   String get animeMarkerAnimeCanon => 'Anime Canon';
@@ -25,25 +25,25 @@ class AppLocalizationsFi extends AppLocalizations {
   String get animeMarkerMangaCanon => 'Manga Canon';
 
   @override
-  String get animeMarkerSubbed => 'Subbed';
+  String get animeMarkerSubbed => 'Tekstitetty';
 
   @override
-  String get animeMarkerDubbed => 'Dubbed';
+  String get animeMarkerDubbed => 'Dubattu';
 
   @override
-  String get animeMarkerSubbedAndDubbed => 'Subbed/Dubbed';
+  String get animeMarkerSubbedAndDubbed => 'Tekstitetty/Dubattu';
 
   @override
-  String get animeMarkerPending => 'Pending';
+  String get animeMarkerPending => 'Käsiteltävänä';
 
   @override
-  String get animeMarkerRecap => 'Recap';
+  String get animeMarkerRecap => 'Yhteenveto';
 
   @override
   String get accountPreferences => 'TILIN ASETUKSET';
 
   @override
-  String get interfaceLanguage => 'Käyttöliittymän kieli';
+  String get interfaceLanguage => 'Käyttöliittymän Kieli';
 
   @override
   String get systemLanguageDefault => 'Järjestelmän Oletus';
@@ -125,17 +125,17 @@ class AppLocalizationsFi extends AppLocalizations {
       'Ei voida muodostaa yhteyttä palvelimeen';
 
   @override
-  String get addServer => 'Lisää palvelin';
+  String get addServer => 'Lisää Palvelin';
 
   @override
   String get embyConnect => 'Yhdistä Emby';
 
   @override
-  String get removeServer => 'Poista palvelin';
+  String get removeServer => 'Poista Palvelin';
 
   @override
   String removeServerConfirmation(String serverName) {
-    return 'Poistetaanko \"$serverName\" palvelimiltasi?';
+    return 'Poistetaanko \"$serverName\" palvelinlistalta?';
   }
 
   @override
@@ -2402,7 +2402,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get noChannelsFound => 'Kanavia ei löytynyt';
 
   @override
-  String get noProgramData => 'No program data';
+  String get noProgramData => 'Ohjelmatietoja ei ole';
 
   @override
   String get liveBadge => 'LIVE';
@@ -2477,7 +2477,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get watch => 'Katso';
 
   @override
-  String get watchChannelLive => 'Watch channel live';
+  String get watchChannelLive => 'Katso kanavaa suorana';
 
   @override
   String get close => 'Sulje';
@@ -3205,20 +3205,20 @@ class AppLocalizationsFi extends AppLocalizations {
       'Toisto on aina etusijalla, ja lukitut painikkeet näkyvät aina. Kaikki muu on sinun päätettävissäsi, ja jokaisella laitteella on oma luettelonsa.';
 
   @override
-  String get actionButtonsOnScreen => 'Action Buttons on Screen';
+  String get actionButtonsOnScreen => 'Näytön Toimintopainikkeet';
 
   @override
   String get actionButtonsOnScreenDescription =>
-      'Customize how many action buttons appear before folding into the More Actions menu.';
+      'Määritä, kuinka monta toimintopainiketta näkyy ennen kuin ne piilotetaan Lisää toimintoja -valikkoon.';
 
   @override
-  String get actionButtonsOnScreenAuto => 'Auto (Theme Default)';
+  String get actionButtonsOnScreenAuto => 'Auto (Oletusasetus)';
 
   @override
   String get actionButtonsOnScreenPlayOnly => '1 (Play only)';
 
   @override
-  String get actionButtonsOnScreenAll => 'All (Horizontal Scroll)';
+  String get actionButtonsOnScreenAll => 'Kaikki (Vaakasuora Vieritys)';
 
   @override
   String get detailMetadata => 'Metatietorivi';
@@ -3506,18 +3506,19 @@ class AppLocalizationsFi extends AppLocalizations {
       'Käyttöopas (valitse alla olevista tiedostomuodoista)';
 
   @override
-  String get settingsAudioPassthroughOutput => 'Passthrough output';
+  String get settingsAudioPassthroughOutput => 'Passthrough-lähtö';
 
   @override
   String get settingsAudioPassthroughOutputDescription =>
-      'Who packs bitstreams for the HDMI link. Try the app packer if passthrough is silent or glitchy on this device.';
+      'Pakkaa bittivirrat HDMI-yhteyttä varten. Kokeile App Packer -sovellusta, jos signaalin läpivienti ei toimi tai toimii epävakaasti tällä laitteella.';
 
   @override
   String get settingsAudioPassthroughOutputPlatform =>
-      'Automatic, system packer (AudioTrack RAW)';
+      'Automaattinen järjestelmäpakkaaja (AudioTrack RAW)';
 
   @override
-  String get settingsAudioPassthroughOutputIec => 'App packer (AudioTrack IEC)';
+  String get settingsAudioPassthroughOutputIec =>
+      'Sovelluspakkaaja (AudioTrack IEC)';
 
   @override
   String get settingsAudioPassthroughOutputIecLabel => 'App (IEC)';

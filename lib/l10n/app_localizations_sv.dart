@@ -601,7 +601,7 @@ class AppLocalizationsSv extends AppLocalizations {
   String get exitAppConfirmation => 'Är du säker på att du vill avsluta?';
 
   @override
-  String get exit => 'Utgång';
+  String get exit => 'Avsluta';
 
   @override
   String get gameMenu => 'Meny';

@@ -13,10 +13,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get appTitle => 'Moonfin';
 
   @override
-  String get animeMarkerFiller => 'Filler';
+  String get animeMarkerFiller => 'Filtre';
 
   @override
-  String get animeMarkerMixed => 'Mixed';
+  String get animeMarkerMixed => 'Karışık';
 
   @override
   String get animeMarkerAnimeCanon => 'Anime Canon';
@@ -25,19 +25,19 @@ class AppLocalizationsTr extends AppLocalizations {
   String get animeMarkerMangaCanon => 'Manga Canon';
 
   @override
-  String get animeMarkerSubbed => 'Subbed';
+  String get animeMarkerSubbed => 'Altyazılı';
 
   @override
-  String get animeMarkerDubbed => 'Dubbed';
+  String get animeMarkerDubbed => 'Dublajlı';
 
   @override
-  String get animeMarkerSubbedAndDubbed => 'Subbed/Dubbed';
+  String get animeMarkerSubbedAndDubbed => 'Altyazılı/Dublajlı';
 
   @override
-  String get animeMarkerPending => 'Pending';
+  String get animeMarkerPending => 'Bekleniyor';
 
   @override
-  String get animeMarkerRecap => 'Recap';
+  String get animeMarkerRecap => 'Özet';
 
   @override
   String get accountPreferences => 'Hesap Ayarları';

@@ -16,28 +16,28 @@ class AppLocalizationsCa extends AppLocalizations {
   String get animeMarkerFiller => 'Filler';
 
   @override
-  String get animeMarkerMixed => 'Mixed';
+  String get animeMarkerMixed => 'Mixt';
 
   @override
-  String get animeMarkerAnimeCanon => 'Anime Canon';
+  String get animeMarkerAnimeCanon => 'Cànon anime';
 
   @override
-  String get animeMarkerMangaCanon => 'Manga Canon';
+  String get animeMarkerMangaCanon => 'Cànon manga';
 
   @override
-  String get animeMarkerSubbed => 'Subbed';
+  String get animeMarkerSubbed => 'Subtitulat';
 
   @override
-  String get animeMarkerDubbed => 'Dubbed';
+  String get animeMarkerDubbed => 'Doblat';
 
   @override
-  String get animeMarkerSubbedAndDubbed => 'Subbed/Dubbed';
+  String get animeMarkerSubbedAndDubbed => 'Subtitulat/Doblat';
 
   @override
-  String get animeMarkerPending => 'Pending';
+  String get animeMarkerPending => 'Pendent';
 
   @override
-  String get animeMarkerRecap => 'Recap';
+  String get animeMarkerRecap => 'Resum';
 
   @override
   String get accountPreferences => 'Preferències del compte';
@@ -2414,7 +2414,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get noChannelsFound => 'No s\'han trobat canals';
 
   @override
-  String get noProgramData => 'No program data';
+  String get noProgramData => 'No hi ha dades del programa';
 
   @override
   String get liveBadge => 'En Viu';
@@ -2492,7 +2492,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get watch => 'Mira';
 
   @override
-  String get watchChannelLive => 'Watch channel live';
+  String get watchChannelLive => 'Mira el canal en directe';
 
   @override
   String get close => 'Tanca';
@@ -3228,20 +3228,20 @@ class AppLocalizationsCa extends AppLocalizations {
       'El boto de reproduir sempre és el primer i els botons bloquejats sempre es mostren. La resta depèn de tu, i cada tipus de dispositiu manté la seva pròpia llista.';
 
   @override
-  String get actionButtonsOnScreen => 'Action Buttons on Screen';
+  String get actionButtonsOnScreen => 'Botons d\'acció a la pantalla';
 
   @override
   String get actionButtonsOnScreenDescription =>
-      'Customize how many action buttons appear before folding into the More Actions menu.';
+      'Personalitza quants botons d\'acció apareixen abans de plegar-se al menú Més accions.';
 
   @override
-  String get actionButtonsOnScreenAuto => 'Auto (Theme Default)';
+  String get actionButtonsOnScreenAuto => 'Auto (predeterminat del tema)';
 
   @override
-  String get actionButtonsOnScreenPlayOnly => '1 (Play only)';
+  String get actionButtonsOnScreenPlayOnly => '1 (només Reprodueix)';
 
   @override
-  String get actionButtonsOnScreenAll => 'All (Horizontal Scroll)';
+  String get actionButtonsOnScreenAll => 'Tots (desplaçament horitzontal)';
 
   @override
   String get detailMetadata => 'Fila de metadades';
@@ -3531,21 +3531,22 @@ class AppLocalizationsCa extends AppLocalizations {
       'Manual (trieu els formats a continuació)';
 
   @override
-  String get settingsAudioPassthroughOutput => 'Passthrough output';
+  String get settingsAudioPassthroughOutput => 'Sortida del passthrough';
 
   @override
   String get settingsAudioPassthroughOutputDescription =>
-      'Who packs bitstreams for the HDMI link. Try the app packer if passthrough is silent or glitchy on this device.';
+      'Qui empaqueta els fluxos de bits per a l\'enllaç HDMI. Prova l\'empaquetador de l\'aplicació si el passthrough no té so o falla en aquest dispositiu.';
 
   @override
   String get settingsAudioPassthroughOutputPlatform =>
-      'Automatic, system packer (AudioTrack RAW)';
+      'Automàtic, empaquetador del sistema (AudioTrack RAW)';
 
   @override
-  String get settingsAudioPassthroughOutputIec => 'App packer (AudioTrack IEC)';
+  String get settingsAudioPassthroughOutputIec =>
+      'Empaquetador de l\'aplicació (AudioTrack IEC)';
 
   @override
-  String get settingsAudioPassthroughOutputIecLabel => 'App (IEC)';
+  String get settingsAudioPassthroughOutputIecLabel => 'Aplicació (IEC)';
 
   @override
   String get settingsDownmixToStereoDescription =>
@@ -11805,7 +11806,7 @@ class AppLocalizationsCa extends AppLocalizations {
   String get sortReleaseAscending => 'Ordre d\'estrena (ascendent)';
 
   @override
-  String get sortReleaseDescending => 'Ordre d\'estrena (Descendent)';
+  String get sortReleaseDescending => 'Ordre d\'estrena (descendent)';
 
   @override
   String get sortCustomDragDrop => 'Personalitzat (arrossega i deixa anar)';

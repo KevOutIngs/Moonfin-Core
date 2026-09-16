@@ -53,6 +53,7 @@ import '../../widgets/skeleton/skeleton_shimmer.dart';
 import '../../../data/repositories/seerr_repository.dart';
 import '../../../data/services/seerr/seerr_api_models.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../widgets/quick_return_wrapper.dart';
 import '../../widgets/progress_snack_bar.dart';
 import '../../../util/remote_subtitle_labels.dart';
@@ -682,8 +683,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              _viewModel.errorMessage ??
-                  AppLocalizations.of(context).failedToLoad,
+              describeError(_viewModel.error!, AppLocalizations.of(context)),
               style: const TextStyle(color: Colors.white54),
             ),
             const SizedBox(height: 16),

@@ -233,8 +233,8 @@ class LibraryBrowseViewModel extends ChangeNotifier {
 
   static const _catchAllCategories = {'Other', 'Unknown', 'Unrated'};
 
-  String? _errorMessage;
-  String? get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
   bool _isNetworkError = false;
   bool get isNetworkError => _isNetworkError;
 
@@ -581,7 +581,7 @@ class LibraryBrowseViewModel extends ChangeNotifier {
       await _fetchPage(0);
       _state = LibraryBrowseState.ready;
     } catch (e) {
-      _errorMessage = e.toString();
+      _error = e;
       _isNetworkError = isNetworkException(e);
       _state = LibraryBrowseState.error;
     }

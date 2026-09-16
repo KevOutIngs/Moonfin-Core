@@ -7,6 +7,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../data/services/socket_handler.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/error_message.dart';
 import 'bounded_network_image.dart';
 import 'overlay_sheet.dart';
 
@@ -120,7 +121,7 @@ class _RemoteControlSheetState extends State<_RemoteControlSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = describeError(e, AppLocalizations.of(context));
         _loading = false;
       });
     } finally {
@@ -180,7 +181,7 @@ class _RemoteControlSheetState extends State<_RemoteControlSheet> {
         final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.remoteCommandFailed(e.toString())),
+            content: Text(l10n.remoteCommandFailed(describeError(e, l10n))),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

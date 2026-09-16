@@ -5,6 +5,7 @@ import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../widgets/settings/settings_section_header.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
@@ -130,7 +131,7 @@ class _ParentalSettingsScreenState extends State<ParentalSettingsScreen> {
 
       setState(() {
         _loadingRatings = false;
-        _ratingsError = '$error';
+        _ratingsError = describeError(error, AppLocalizations.of(context));
       });
     }
   }

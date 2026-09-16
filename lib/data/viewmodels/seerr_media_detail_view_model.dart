@@ -174,7 +174,7 @@ class SeerrQualityStatus {
 
 class SeerrMediaDetailState {
   final bool isLoading;
-  final String? error;
+  final Object? error;
   final SeerrMovieDetails? movie;
   final SeerrTvDetails? tv;
   final List<SeerrDiscoverItem> similar;
@@ -300,7 +300,7 @@ class SeerrMediaDetailState {
 
   SeerrMediaDetailState copyWith({
     bool? isLoading,
-    String? error,
+    Object? error,
     SeerrMovieDetails? movie,
     SeerrTvDetails? tv,
     List<SeerrDiscoverItem>? similar,
@@ -546,7 +546,7 @@ class SeerrMediaDetailViewModel extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _state = SeerrMediaDetailState(error: e.toString());
+      _state = SeerrMediaDetailState(error: e);
     }
     notifyListeners();
     _syncDownloadPolling();

@@ -37,6 +37,7 @@ import '../detail/item_detail_screen.dart';
 import '../../widgets/local_search_field.dart';
 import '../../widgets/skeleton/skeleton_library_grid.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 
 Color get _navyBackground => AppColorScheme.background;
 Color get _jellyfinBlue => AppColorScheme.accent;
@@ -1060,7 +1061,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
                     Text(
                       _vm.isNetworkError
                           ? AppLocalizations.of(context).unableToConnectToServer
-                          : _vm.errorMessage ?? AppLocalizations.of(context).failedToLoadLibrary,
+                          : describeError(_vm.error!, AppLocalizations.of(context)),
                       style: TextStyle(
                         color: _vm.isBookLibrary ? const Color(0xFFF4E6D5) : Colors.white,
                       ),

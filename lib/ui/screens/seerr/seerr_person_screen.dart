@@ -16,6 +16,7 @@ import '../../widgets/library_row.dart';
 import '../../widgets/media_card.dart';
 import '../../widgets/navigation_layout.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 import '../../widgets/focus/step_scroll.dart';
 import '../../widgets/quick_return_wrapper.dart';
@@ -117,7 +118,7 @@ class _SeerrPersonScreenState extends State<SeerrPersonScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              s.error!,
+              describeError(s.error!, AppLocalizations.of(context)),
               style: TextStyle(
                 color: AppColorScheme.onSurface.withValues(alpha: 0.7),
               ),

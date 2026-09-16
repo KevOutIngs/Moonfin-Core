@@ -291,8 +291,8 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   GuideState _state = GuideState.loading;
   GuideState get state => _state;
 
-  String _errorMessage = '';
-  String get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
 
   List<GuideChannel> _channels = const [];
 
@@ -517,7 +517,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _reloadOnEntry = false;
     } catch (e) {
       if (_disposed || loadGeneration != _loadGeneration) return;
-      _errorMessage = e.toString();
+      _error = e;
       _state = GuideState.error;
     }
     _notifyListeners();
@@ -559,7 +559,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _state = GuideState.ready;
     } catch (e) {
       if (request != _categoryRequest) return;
-      _errorMessage = e.toString();
+      _error = e;
       _state = GuideState.error;
     }
     _categoryFetchInFlight = false;
@@ -688,7 +688,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _state = GuideState.ready;
     } catch (e) {
       if (_disposed || loadGeneration != _loadGeneration) return;
-      _errorMessage = e.toString();
+      _error = e;
       _state = GuideState.error;
     }
     _notifyListeners();

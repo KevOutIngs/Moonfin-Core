@@ -21,7 +21,6 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/seerr_preferences.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
-import '../../util/seerr_error_localizer.dart';
 import '../../widgets/adaptive/adaptive_glass.dart';
 import '../../widgets/navigation_layout.dart';
 import '../../widgets/overlay_sheet.dart';
@@ -33,6 +32,7 @@ import '../../widgets/skeleton/skeleton_library_grid.dart';
 import '../../widgets/seerr/seerr_tv_controls.dart';
 import '../../widgets/track_selector_dialog.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../widgets/focus/focusable_wrapper.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 
@@ -662,14 +662,14 @@ class _SeerrRequestsScreenState extends State<SeerrRequestsScreen>
     );
   }
 
-  Widget _buildError(String error, Future<void> Function() onRetry) {
+  Widget _buildError(Object error, Future<void> Function() onRetry) {
     final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            localizeSeerrError(error, l10n),
+            describeError(error, l10n),
             style: TextStyle(
               color: AppColorScheme.onSurface.withValues(alpha: 0.7),
             ),

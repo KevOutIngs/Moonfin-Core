@@ -49,8 +49,8 @@ class FolderBrowseViewModel extends ChangeNotifier {
 
   bool _loadingMore = false;
 
-  String _errorMessage = '';
-  String get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
 
   final List<BreadcrumbEntry> _breadcrumbs = [];
   List<BreadcrumbEntry> get breadcrumbs => List.unmodifiable(_breadcrumbs);
@@ -103,7 +103,7 @@ class FolderBrowseViewModel extends ChangeNotifier {
         _state = FolderBrowseState.ready;
       } catch (e) {
         if (_disposed) return;
-        _errorMessage = e.toString();
+        _error = e;
         _state = FolderBrowseState.error;
       }
       _notify();
@@ -160,7 +160,7 @@ class FolderBrowseViewModel extends ChangeNotifier {
       _state = FolderBrowseState.ready;
     } catch (e) {
       if (_disposed) return;
-      _errorMessage = e.toString();
+      _error = e;
       _state = FolderBrowseState.error;
     }
     _notify();

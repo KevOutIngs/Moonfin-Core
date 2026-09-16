@@ -6,6 +6,7 @@ import 'package:get_it/get_it.dart';
 import 'package:server_core/server_core.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../util/error_message.dart';
 import '../../../widgets/adaptive/adaptive_dialog.dart';
 import '../../../widgets/adaptive/adaptive_slider.dart';
 
@@ -64,7 +65,7 @@ class _SessionDetailSheetState extends State<SessionDetailSheet> {
         final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.adminCommandFailed(e.toString())),
+            content: Text(l10n.adminCommandFailed(describeError(e, l10n))),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );

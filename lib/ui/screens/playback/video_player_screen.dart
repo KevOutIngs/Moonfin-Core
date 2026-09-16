@@ -83,6 +83,7 @@ import '../../../playback/player_key_bindings.dart';
 import '../../widgets/syncplay/syncplay_player_button.dart';
 import '../../../syncplay/syncplay_manager.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../widgets/playback/delay_footer.dart';
 import '../../widgets/progress_snack_bar.dart';
 import '../../../util/remote_subtitle_labels.dart';
@@ -1239,8 +1240,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       await _castService.setVolume(kind, volume: volume);
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       _showThrottledCastError(
-        AppLocalizations.of(context).failedToSetCastVolume('$e'),
+        l10n.failedToSetCastVolume(describeError(e, l10n)),
       );
     }
   }
@@ -7582,7 +7584,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         CastTargetKind.dlna => 'DLNA',
         _ => l10n.cast,
       };
-      _showThrottledCastError(l10n.castActionFailed(label, '$e'));
+      _showThrottledCastError(l10n.castActionFailed(label, describeError(e, l10n)));
     }
   }
 

@@ -55,8 +55,8 @@ class FavoritesViewModel extends ChangeNotifier {
   late PosterSize _posterSize;
   PosterSize get posterSize => _posterSize;
 
-  String? _errorMessage;
-  String? get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
   bool _isNetworkError = false;
   bool get isNetworkError => _isNetworkError;
 
@@ -189,7 +189,7 @@ class FavoritesViewModel extends ChangeNotifier {
       }
       _state = FavoritesState.ready;
     } catch (e) {
-      _errorMessage = e.toString();
+      _error = e;
       _isNetworkError = isNetworkException(e);
       _state = FavoritesState.error;
     }

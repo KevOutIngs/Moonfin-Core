@@ -8,6 +8,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../data/models/aggregated_item.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/error_message.dart';
 import '../../util/focus/key_event_utils.dart';
 import '../../util/home_refresh_helper.dart';
 import '../../util/platform_detection.dart';
@@ -574,12 +575,13 @@ class _ChangeArtworkDialogState extends State<ChangeArtworkDialog> {
       await _showWriteAccessWarningDialog(l10n.libraryWriteAccessReactiveBody);
     } else {
       final l10n = AppLocalizations.of(context);
+      final detail = describeError(error, l10n);
       final message = switch (actionName) {
-        'download' => l10n.imageDownloadFailed(error.toString()),
-        'delete' => l10n.imageDeleteFailed(error.toString()),
-        'clear' => l10n.clearAllArtworkFailed(error.toString()),
-        'upload' => l10n.imageUploadFailed(error.toString()),
-        _ => error.toString(),
+        'download' => l10n.imageDownloadFailed(detail),
+        'delete' => l10n.imageDeleteFailed(detail),
+        'clear' => l10n.clearAllArtworkFailed(detail),
+        'upload' => l10n.imageUploadFailed(detail),
+        _ => detail,
       };
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),

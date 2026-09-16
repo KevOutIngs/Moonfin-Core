@@ -430,8 +430,8 @@ class ItemDetailViewModel extends ChangeNotifier {
   LyricsData _lyrics = LyricsData.empty;
   LyricsData get lyrics => _lyrics;
 
-  String? _errorMessage;
-  String? get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
 
   ImageApi get imageApi => _client.imageApi;
   String get baseUrl => _client.baseUrl;
@@ -652,7 +652,7 @@ class ItemDetailViewModel extends ChangeNotifier {
 
     final state = vm.state;
     if (state.error != null || state.tmdbId == 0) {
-      _errorMessage = state.error ?? 'Media not found on Seerr';
+      _error = state.error ?? 'Media not found on Seerr';
       _state = ItemDetailState.error;
       notifyListeners();
       return;
@@ -858,7 +858,7 @@ class ItemDetailViewModel extends ChangeNotifier {
 
       _loadSecondary();
     } catch (e) {
-      _errorMessage = e.toString();
+      _error = e;
       _state = ItemDetailState.error;
       notifyListeners();
     }

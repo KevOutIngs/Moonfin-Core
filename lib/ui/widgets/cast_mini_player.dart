@@ -8,6 +8,7 @@ import '../../data/services/cast/cast_service.dart';
 import '../../data/services/cast/cast_target.dart';
 import '../../data/services/media_server_client_factory.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/error_message.dart';
 import '../../util/audio_labels.dart';
 import 'overlay_sheet.dart';
 
@@ -106,8 +107,13 @@ class _CastMiniPlayerContentState extends State<_CastMiniPlayerContent> {
       await action();
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).castControlFailed(e.toString()))),
+        SnackBar(
+          content: Text(
+            l10n.castControlFailed(describeError(e, l10n)),
+          ),
+        ),
       );
     }
   }

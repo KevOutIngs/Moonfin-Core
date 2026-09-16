@@ -24,6 +24,7 @@ import '../../../util/platform_detection.dart';
 import '../../../util/game_library.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../util/search_group_title_localizer.dart';
 import '../../../util/focus/grid_focus_node_mixin.dart';
 import '../../../util/focus/row_focus_coordinator.dart';
@@ -983,9 +984,10 @@ class _SearchScreenState extends State<SearchScreen> with GridFocusNodeMixin {
       case SearchState.ready:
         return _buildResults();
       case SearchState.error:
+        final l10n = AppLocalizations.of(context);
         return Center(
           child: Text(
-            AppLocalizations.of(context).searchFailedError(_vm.errorMessage),
+            l10n.searchFailedError(describeError(_vm.error!, l10n)),
             style: const TextStyle(color: Colors.redAccent),
           ),
         );

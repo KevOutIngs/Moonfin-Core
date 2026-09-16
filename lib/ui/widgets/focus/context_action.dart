@@ -9,6 +9,7 @@ import '../../../auth/repositories/user_repository.dart';
 import '../../../data/models/aggregated_item.dart';
 import '../../../data/repositories/item_mutation_repository.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/home_refresh_helper.dart';
 import '../../../util/item_watch_state.dart';
@@ -265,7 +266,11 @@ List<ItemContextAction> contextActionsFor(
           } catch (e) {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.adminMetadataRefreshFailed('$e'))),
+              SnackBar(
+                content: Text(
+                  l10n.adminMetadataRefreshFailed(describeError(e, l10n)),
+                ),
+              ),
             );
           }
         },
@@ -394,7 +399,11 @@ Future<void> _confirmAndRemoveFromCollection(
   } catch (e) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${l10n.removeFromCollectionFailed}: $e')),
+      SnackBar(
+        content: Text(
+          '${l10n.removeFromCollectionFailed}: ${describeError(e, l10n)}',
+        ),
+      ),
     );
   }
 }

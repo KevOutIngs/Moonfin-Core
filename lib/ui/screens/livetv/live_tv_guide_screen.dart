@@ -10,6 +10,7 @@ import 'package:server_core/server_core.dart';
 
 import '../../../data/viewmodels/live_tv_guide_view_model.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/idiom/app_ui_idiom.dart';
 import '../../navigation/destinations.dart';
@@ -1005,9 +1006,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
       case GuideState.loading:
         return const Center(child: CircularProgressIndicator());
       case GuideState.error:
+        final l10n = AppLocalizations.of(context);
         return Center(
           child: Text(
-            AppLocalizations.of(context).failedToLoadGuide(_vm.errorMessage),
+            l10n.failedToLoadGuide(describeError(_vm.error!, l10n)),
             style: TextStyle(color: Colors.white.withAlpha(179)),
           ),
         );
@@ -1377,9 +1379,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
       case GuideState.loading:
         return const Center(child: CircularProgressIndicator());
       case GuideState.error:
+        final l10n = AppLocalizations.of(context);
         return Center(
           child: Text(
-            AppLocalizations.of(context).failedToLoadGuide(_vm.errorMessage),
+            l10n.failedToLoadGuide(describeError(_vm.error!, l10n)),
             style: TextStyle(color: Colors.white.withAlpha(179)),
           ),
         );

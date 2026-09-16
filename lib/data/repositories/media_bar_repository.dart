@@ -196,7 +196,7 @@ class MediaBarRepository {
         final items = selected.map(_toSlideItem).toList();
         return MediaBarReady(items);
       }
-      return MediaBarError('Failed to load: $e');
+      return MediaBarError(e);
     }
   }
 

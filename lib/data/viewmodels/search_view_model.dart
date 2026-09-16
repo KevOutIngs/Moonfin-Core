@@ -78,8 +78,8 @@ class SearchViewModel extends ChangeNotifier {
   // client-side since the plugin exposes no search endpoint.
   Future<List<GameSearchResult>>? _allGamesFuture;
 
-  String _errorMessage = '';
-  String get errorMessage => _errorMessage;
+  Object? _error;
+  Object? get error => _error;
 
   Timer? _debounceTimer;
 
@@ -198,7 +198,7 @@ class SearchViewModel extends ChangeNotifier {
       _state = SearchState.ready;
     } catch (e) {
       if (query != _query) return;
-      _errorMessage = e.toString();
+      _error = e;
       _state = SearchState.error;
     }
     notifyListeners();

@@ -10,6 +10,8 @@ import '../../widgets/focus/request_initial_focus.dart';
 import '../../widgets/overlay_sheet.dart';
 import '../../widgets/settings/clean_settings_typography.dart';
 import '../../widgets/settings/preference_tiles.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../util/error_message.dart';
 import 'settings_app_bar.dart';
 
 class DiagnosticsSettingsScreen extends StatefulWidget {
@@ -38,7 +40,8 @@ class _DiagnosticsSettingsScreenState extends State<DiagnosticsSettingsScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      _showSnack('Could not send report: $e');
+      final detail = describeError(e, AppLocalizations.of(context));
+      _showSnack('Could not send report: $detail');
     } finally {
       if (mounted) setState(() => _uploading = false);
     }

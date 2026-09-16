@@ -37,6 +37,7 @@ import '../../util/overlay_color_palette.dart';
 import '../../util/overview_text.dart';
 import '../../util/platform_detection.dart';
 import '../../l10n/app_localizations.dart';
+import '../util/error_message.dart';
 import '../../playback/appletv_preview_player.dart';
 import '../../playback/html_video_backend_profile.dart';
 import '../../playback/inline_preview_engine.dart';
@@ -1873,11 +1874,11 @@ class _MediaBarState extends State<MediaBar>
           ),
         ),
       MediaBarDisabled() => const SizedBox.shrink(),
-      MediaBarError(message: final message) => _wrapStatusFocus(
+      MediaBarError(:final error) => _wrapStatusFocus(
           _buildStatusPanel(
             context,
             title: l10n.mediaBarError,
-            detail: message,
+            detail: describeError(error, l10n),
             showRetry: true,
           ),
           onSelect: () => widget.viewModel.load(context: context, force: true),

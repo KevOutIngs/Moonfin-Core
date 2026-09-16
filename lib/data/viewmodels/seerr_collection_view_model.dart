@@ -20,7 +20,7 @@ class SeerrCollectionRequestResult {
 
 class SeerrCollectionState {
   final bool isLoading;
-  final String? error;
+  final Object? error;
   final SeerrCollection? collection;
   final SeerrUser? currentUser;
   final SeerrQuota? quota;
@@ -41,7 +41,7 @@ class SeerrCollectionState {
 
   SeerrCollectionState copyWith({
     bool? isLoading,
-    String? error,
+    Object? error,
     SeerrCollection? collection,
     SeerrUser? currentUser,
     SeerrQuota? quota,
@@ -133,7 +133,7 @@ class SeerrCollectionViewModel extends ChangeNotifier {
 
       _loadQuota(user);
     } catch (e) {
-      _state = SeerrCollectionState(error: e.toString());
+      _state = SeerrCollectionState(error: e);
       notifyListeners();
     }
   }

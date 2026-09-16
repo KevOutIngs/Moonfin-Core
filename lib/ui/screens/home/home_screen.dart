@@ -5020,7 +5020,7 @@ class _ContentRowsState extends State<_ContentRows>
                   final String? cardSubtitle;
                   final Widget? cardSubtitleWidget;
 
-          if (isRowsV2 && item.type == 'Episode') {
+          if (item.type == 'Episode') {
             final s = item.parentIndexNumber;
             final e = item.indexNumber;
             final episodeInfo = switch ((s, e)) {
@@ -5028,7 +5028,7 @@ class _ContentRowsState extends State<_ContentRows>
               _ => null,
             };
             cardTitle = item.seriesName ?? item.name;
-            if (effectiveV2Focused) {
+            if (isRowsV2 && effectiveV2Focused) {
               cardSubtitle = null;
               final row2Text = episodeInfo != null
                   ? '$episodeInfo - ${item.name}'
@@ -5065,8 +5065,15 @@ class _ContentRowsState extends State<_ContentRows>
                   ),
                 ],
               );
-            } else {
+            } else if (isRowsV2) {
               cardSubtitle = episodeInfo ?? item.name;
+              cardSubtitleWidget = null;
+            } else {
+              // Classic cards never expand, so their one subtitle line carries
+              // the episode name alongside the numbers.
+              cardSubtitle = episodeInfo != null
+                  ? '$episodeInfo - ${item.name}'
+                  : item.name;
               cardSubtitleWidget = null;
             }
           } else if (isRowsV2 && item.type == 'Season') {

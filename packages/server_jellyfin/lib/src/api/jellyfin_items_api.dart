@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:server_core/server_core.dart';
-import 'jellyfin_item_fields.dart';
 
 class JellyfinItemsApi implements ItemsApi {
   final Dio _dio;
@@ -172,7 +171,7 @@ class JellyfinItemsApi implements ItemsApi {
     final response = await _dio.get(
       '/Users/$userId/Items/$itemId',
       queryParameters: {
-        'Fields': fields ?? kItemFields,
+        'Fields': fields ?? kDetailItemFields,
         if (mediaSourceId != null) 'mediaSourceId': mediaSourceId,
       },
     );

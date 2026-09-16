@@ -943,6 +943,13 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     context.push(Destinations.audioPlayer);
   }
 
+  /// What a player shows for a queued track. These go straight into the queue
+  /// rather than onto a grid, so they carry none of the poster and series
+  /// artwork a browse card needs.
+  static const _audioShuffleFields =
+      'Type,UserData,RunTimeTicks,ImageTags,Album,AlbumId,'
+      'AlbumPrimaryImageTag,AlbumArtist,Artists';
+
   Future<void> _shuffleSongsLibrary() async {
     final client = GetIt.instance<MediaServerClientFactory>()
         .clientForServerOrActive(widget.serverId);
@@ -953,7 +960,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
         recursive: true,
         sortBy: 'Random',
         limit: 300,
-        fields: 'PrimaryImageAspectRatio,SortName,Type,IsFolder,UserData,CommunityRating,OfficialRating,RunTimeTicks,ProductionYear,ProviderIds,ImageTags,BackdropImageTags,ParentBackdropItemId,ParentBackdropImageTags,ParentThumbItemId,ParentThumbImageTag,SeriesId,SeriesPrimaryImageTag,Album,AlbumId,AlbumArtist,Artists',
+        fields: _audioShuffleFields,
       );
       final rawItems = (response['Items'] as List?) ?? [];
       final mapped = rawItems

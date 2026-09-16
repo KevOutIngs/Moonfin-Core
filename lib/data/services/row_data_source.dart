@@ -59,6 +59,29 @@ class RowDataSource {
   static const _musicFields = '$_fields,Artists,AlbumArtist';
   static const _musicFallbackFields = '$_fallbackFields,Artists,AlbumArtist';
 
+  /// Changes whenever a row's field list changes, so the home cache retires
+  /// rows written in the old shape rather than hydrating from them. Reading
+  /// the lists themselves beats a number someone has to remember to bump.
+  static final String fieldShapeToken = _computeFieldShapeToken();
+
+  static String _computeFieldShapeToken() {
+    final shape = [
+      _fields,
+      _fallbackFields,
+      _minimalFields,
+      _musicFields,
+      _musicFallbackFields,
+    ].join('|');
+    // FNV-1a, since Dart's String.hashCode makes no promise of being the same
+    // on another platform or VM, and a token that drifted would throw the
+    // cache away on every launch.
+    var hash = 0x811c9dc5;
+    for (final unit in shape.codeUnits) {
+      hash = ((hash ^ unit) * 0x01000193) & 0xFFFFFFFF;
+    }
+    return hash.toRadixString(16);
+  }
+
   /// Picks the field list off what the query asks for, so a music row added
   /// later can't quietly lose its artist line.
   static bool _wantsMusicFields({
@@ -2982,7 +3005,12 @@ class RowDataSource {
       var tmdbId = baseItem.tmdbId;
       if (tmdbId == null || tmdbId.isEmpty) {
         try {
-          final details = await _client.itemsApi.getItem(baseItem.id);
+          // Only the provider ids are read here, and this runs while a row is
+          // still building, so it must not pull a whole item behind it.
+          final details = await _client.itemsApi.getItem(
+            baseItem.id,
+            fields: 'ProviderIds',
+          );
           final pIds = details['ProviderIds'] as Map?;
           tmdbId = pIds?['Tmdb']?.toString();
           if (tmdbId == null || tmdbId.isEmpty) {

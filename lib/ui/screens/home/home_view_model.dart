@@ -129,7 +129,8 @@ class HomeViewModel extends ChangeNotifier {
     // Offline rows are cached separately so cached online rows never hydrate
     // an offline home (and vice versa).
     final offline = _isOffline;
-    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline';
+    final shape = RowDataSource.fieldShapeToken;
+    return '$_serverId|$userId|$sections|$multiServer|$merge|$blocked|offline:$offline|fields:$shape';
   }
 
   static bool _isFavoriteSectionType(HomeSectionType type) {

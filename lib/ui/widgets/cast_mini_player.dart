@@ -123,7 +123,6 @@ class _CastMiniPlayerContentState extends State<_CastMiniPlayerContent> {
     final l10n = AppLocalizations.of(context);
     final stateVal = _castService.remoteStateNotifier.value;
     final positionTicks = _castService.remotePositionNotifier.value;
-    final volume = _castService.remoteVolumeNotifier.value;
 
     showFocusRestoringModalBottomSheet<void>(
       context: context,
@@ -146,15 +145,18 @@ class _CastMiniPlayerContentState extends State<_CastMiniPlayerContent> {
                       )
                     : null,
               ),
-              if (_kind == CastTargetKind.googleCast || _kind == CastTargetKind.dlna)
-                ListTile(
-                  leading: Icon(Icons.volume_up_rounded, color: AppColorScheme.onSurface),
-                  title: Text(l10n.castDeviceVolume, style: TextStyle(color: AppColorScheme.onSurface)),
-                  subtitle: volume == null
-                      ? Text(l10n.castVolumeUnavailable, style: TextStyle(color: AppColorScheme.onSurface.withValues(alpha: 0.54)))
-                      : ValueListenableBuilder<double?>(
-                          valueListenable: _castService.remoteVolumeNotifier,
-                          builder: (context, vol, _) => SliderTheme(
+              if (_kind != CastTargetKind.airPlay)
+                // The level arrives after the sheet is already open for a
+                // receiver that has to be asked for it, so the whole tile
+                // follows the notifier rather than a value read once here.
+                ValueListenableBuilder<double?>(
+                  valueListenable: _castService.remoteVolumeNotifier,
+                  builder: (context, vol, _) => ListTile(
+                    leading: Icon(Icons.volume_up_rounded, color: AppColorScheme.onSurface),
+                    title: Text(l10n.castDeviceVolume, style: TextStyle(color: AppColorScheme.onSurface)),
+                    subtitle: vol == null
+                        ? Text(l10n.castVolumeUnavailable, style: TextStyle(color: AppColorScheme.onSurface.withValues(alpha: 0.54)))
+                        : SliderTheme(
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: AppColorScheme.accent,
                               inactiveTrackColor: AppColorScheme.onSurface.withValues(alpha: 0.24),
@@ -162,7 +164,7 @@ class _CastMiniPlayerContentState extends State<_CastMiniPlayerContent> {
                               overlayColor: AppColorScheme.onSurface.withValues(alpha: 0.24),
                             ),
                             child: Slider(
-                              value: (vol ?? 0).clamp(0.0, 1.0),
+                              value: vol.clamp(0.0, 1.0),
                               min: 0,
                               max: 1,
                               onChanged: (value) {
@@ -173,16 +175,13 @@ class _CastMiniPlayerContentState extends State<_CastMiniPlayerContent> {
                               },
                             ),
                           ),
-                        ),
-                  trailing: volume == null
-                      ? null
-                      : ValueListenableBuilder<double?>(
-                          valueListenable: _castService.remoteVolumeNotifier,
-                          builder: (context, vol, _) => Text(
-                            '${((vol ?? 0) * 100).round()}%',
+                    trailing: vol == null
+                        ? null
+                        : Text(
+                            '${(vol * 100).round()}%',
                             style: TextStyle(color: AppColorScheme.onSurface.withValues(alpha: 0.7)),
                           ),
-                        ),
+                  ),
                 ),
               ListTile(
                 leading: Icon(Icons.play_arrow_rounded, color: AppColorScheme.onSurface),

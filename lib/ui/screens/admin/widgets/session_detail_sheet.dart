@@ -133,7 +133,7 @@ class _SessionDetailSheetState extends State<SessionDetailSheet> {
   }
 
   void _showVolumeDialog() {
-    final volumeData = _session['PlayState']?['VolumeLevel'] as int?;
+    final volumeData = _session['PlayState']?['VolumeLevel'] as num?;
     var volume = volumeData?.toDouble() ?? 50.0;
     final l10n = AppLocalizations.of(context);
     showDialog<void>(
@@ -189,8 +189,8 @@ class _SessionDetailSheetState extends State<SessionDetailSheet> {
 
     final isPaused = playState?['IsPaused'] as bool? ?? false;
     final isMuted = playState?['IsMuted'] as bool? ?? false;
-    final positionTicks = playState?['PositionTicks'] as int?;
-    final runtimeTicks = nowPlaying?['RunTimeTicks'] as int?;
+    final positionTicks = (playState?['PositionTicks'] as num?)?.toInt();
+    final runtimeTicks = (nowPlaying?['RunTimeTicks'] as num?)?.toInt();
 
     String ticksToTime(int ticks) {
       final duration = Duration(microseconds: ticks ~/ 10);

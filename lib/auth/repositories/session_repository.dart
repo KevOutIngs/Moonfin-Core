@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 
+import '../../l10n/current_app_localizations.dart';
 import '../../ui/navigation/app_router.dart';
 import '../../ui/navigation/destinations.dart';
 import '../../ui/navigation/home_refresh_bus.dart';
+import '../../ui/widgets/floating_notification.dart';
 
 import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
@@ -56,6 +59,7 @@ class SessionRepository {
     'SetSubtitleStreamIndex',
     'SetRepeatMode',
     'SetShuffleQueue',
+    'GoHome',
   ];
   static const Duration _initialLoginSyncWait = Duration(seconds: 3);
 
@@ -614,6 +618,12 @@ class SessionRepository {
     }
   }
 
+  /// Lets a test drive a command straight in, so every name a control surface
+  /// sends can be checked against what the receiver does with it.
+  @visibleForTesting
+  Future<void> handleRemoteCommandForTest(ServerWebSocketMessage event) =>
+      _handleRemoteCommand(event);
+
   int? _parseIntArg(Map<String, String> args, String key) {
     final value = args[key];
     if (value == null) {
@@ -796,9 +806,51 @@ class SessionRepository {
         await manager.next();
       case 'previoustrack':
         await manager.previous();
+      case 'playpause':
+        // The backend knows before the state does, so a track still being
+        // brought up reads as paused rather than as already playing.
+        if (manager.backend?.isPlaying ?? manager.state.isPlaying) {
+          await manager.pause();
+        } else {
+          await manager.resume();
+        }
+      case 'rewind':
+        await _remoteSkip(manager, forward: false);
+      case 'fastforward':
+        await _remoteSkip(manager, forward: true);
       default:
         break;
     }
+  }
+
+  /// Moves playback by the same amount this device's own skip buttons use, so
+  /// a jump from a remote lands where a local one would.
+  Future<void> _remoteSkip(
+    PlaybackManager manager, {
+    required bool forward,
+  }) async {
+    final prefs = GetIt.instance<UserPreferences>();
+    final length = Duration(
+      milliseconds: prefs.get(
+        forward
+            ? UserPreferences.skipForwardLength
+            : UserPreferences.skipBackLength,
+      ),
+    );
+    final position = manager.state.position;
+    final target = forward ? position + length : position - length;
+    if (target < Duration.zero) {
+      await manager.seekTo(Duration.zero);
+      return;
+    }
+    // A duration of zero means nothing has reported one yet, and clamping to
+    // it would send every skip back to the start.
+    final duration = manager.state.duration;
+    if (duration > Duration.zero && target > duration) {
+      await manager.seekTo(duration);
+      return;
+    }
+    await manager.seekTo(target);
   }
 
   Future<void> _handleGeneralCommandMessage(
@@ -809,10 +861,7 @@ class SessionRepository {
       case 'displaymessage':
         final text = message.arguments['Text'];
         if (text != null && text.trim().isNotEmpty) {
-          await GetIt.instance<DownloadNotificationService>().showRemoteMessage(
-            text: text,
-            header: message.arguments['Header'],
-          );
+          await _showRemoteMessage(text, message.arguments['Header']);
         }
       case 'setvolume':
         final raw = message.arguments['Volume'];
@@ -862,9 +911,33 @@ class SessionRepository {
         if (mode != null) {
           await _setShuffleMode(manager, mode);
         }
+      case 'gohome':
+        await manager.stop(userInitiated: false);
+        appRouter.go(Destinations.home);
       default:
         break;
     }
+  }
+
+  /// Shows a message another client sent to this one. It takes the system
+  /// notification where the device has them and an in-app banner where it
+  /// doesn't, so a message the sender saw go through always lands somewhere.
+  Future<void> _showRemoteMessage(String text, String? header) async {
+    final delivered = await GetIt.instance<DownloadNotificationService>()
+        .showRemoteMessage(text: text, header: header);
+    if (delivered) return;
+
+    final context = appRouter.routerDelegate.navigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    final l10n = currentAppLocalizations();
+    FloatingNotification.show(
+      context,
+      (header != null && header.trim().isNotEmpty)
+          ? header.trim()
+          : l10n.serverMessagesNotificationTitle,
+      text.trim(),
+      null,
+    );
   }
 
   void dispose() {

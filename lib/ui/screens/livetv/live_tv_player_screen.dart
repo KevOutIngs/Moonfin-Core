@@ -699,15 +699,22 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     // Not our turn: a dialog or another screen is legitimately on top.
     if (route != null && !route.isCurrent) return;
     final focused = FocusManager.instance.primaryFocus;
-    if (focused == null) return;
     // Anything inside this screen -- the overlay buttons, the channel
     // carousel -- is ours and keeps what it took.
-    if (focused == _overlayFocus || _overlayFocus.descendants.contains(focused)) {
+    if (focused != null &&
+        (focused == _overlayFocus ||
+            _overlayFocus.descendants.contains(focused))) {
       return;
     }
+    // A null focus counts. When the OSD hides, the control that had focus is
+    // unmounted, and focus is left for the framework to place: it walks up and
+    // hands it to whichever scope still remembers a focused child, which can
+    // be the screen underneath. That is how the remote goes dead after the
+    // overlay has been used once, with no code here ever asking for it.
     _reclaimingFocus = true;
     GetIt.instance<LogService>().playback(
-      'Live TV: focus left the player for ${focused.debugLabel ?? focused}, taking it back',
+      'Live TV: focus left the player for '
+      '${focused?.debugLabel ?? focused ?? 'nothing'}, taking it back',
       level: LogLevel.warning,
     );
     // After this frame: reclaiming mid-notification would re-enter the

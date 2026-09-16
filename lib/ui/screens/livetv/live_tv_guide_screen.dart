@@ -1895,6 +1895,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   void _applyPendingVerticalMove() {
     final pending = _pendingVerticalMove;
     if (pending == null) return;
+    // Deferred to a later frame, so the viewer may have opened a channel in
+    // the meantime. The move is theirs to finish when they come back, not
+    // something to take the remote for now.
+    if (!_mayTakeFocus) return;
     final cells = _cellsForRow(pending.targetRowIndex);
     if (cells.isEmpty || _cellsAreLoading(cells)) return;
     final rowState = _rowStates[pending.targetRowIndex];
@@ -1979,6 +1983,15 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   }
 
   void _focusSelectedCell(GuideSelection selection, List<GuideCell> cells) {
+    // The reanchor timer reaches here on its own, driven by the clock rather
+    // than by the viewer: when a programme boundary passes it re-resolves the
+    // selection and puts focus on the new cell. If the viewer has since opened
+    // a channel, that focus lands on a cell behind the player and every remote
+    // key goes to a screen nobody can see -- watching fine for a while, then
+    // the remote stops answering, with nothing the viewer did to cause it.
+    // Keep re-resolving the selection so the guide is correct when they come
+    // back; just do not take the remote to do it.
+    if (!_mayTakeFocus) return;
     if (_cellsAreLoading(cells)) return;
     final rowIndex = _vm.filteredChannels.indexWhere(
       (channel) => channel.id == selection.channelId,

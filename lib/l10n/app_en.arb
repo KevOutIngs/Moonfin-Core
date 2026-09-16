@@ -9267,6 +9267,22 @@
   "@contextMenuAddToCollection": {
     "description": "Context menu action to add an item to a collection"
   },
+  "contextMenuRemoveFromCollection": "Remove from Collection",
+  "@contextMenuRemoveFromCollection": {
+    "description": "Context menu action to remove an item from the collection whose page it is shown on"
+  },
+  "removeFromCollectionConfirm": "Remove {item} from {collection}? The item stays in your library.",
+  "@removeFromCollectionConfirm": {
+    "description": "Confirmation shown before removing an item from a collection",
+    "placeholders": {
+      "item": {"type": "String"},
+      "collection": {"type": "String"}
+    }
+  },
+  "removeFromCollectionFailed": "Failed to remove from collection",
+  "@removeFromCollectionFailed": {
+    "description": "Error shown when removing an item from a collection fails"
+  },
   "settingsAdministrationSubtitle": "Access the server administration panel",
   "settingsAccountSecurity": "Account & Security",
   "settingsAccountSecuritySubtitle": "Authentication, PIN code, and parental controls",

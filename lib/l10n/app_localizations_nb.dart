@@ -9520,6 +9520,17 @@ class AppLocalizationsNb extends AppLocalizations {
   String get contextMenuAddToCollection => 'Legg til i samling';
 
   @override
+  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+
+  @override
+  String removeFromCollectionConfirm(String item, String collection) {
+    return 'Remove $item from $collection? The item stays in your library.';
+  }
+
+  @override
+  String get removeFromCollectionFailed => 'Failed to remove from collection';
+
+  @override
   String get settingsAdministrationSubtitle =>
       'Få tilgang til serveradministrasjonspanelet';
 

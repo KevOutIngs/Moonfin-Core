@@ -9243,6 +9243,17 @@ class AppLocalizationsYue extends AppLocalizations {
   String get contextMenuAddToCollection => '加入合輯';
 
   @override
+  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+
+  @override
+  String removeFromCollectionConfirm(String item, String collection) {
+    return 'Remove $item from $collection? The item stays in your library.';
+  }
+
+  @override
+  String get removeFromCollectionFailed => 'Failed to remove from collection';
+
+  @override
   String get settingsAdministrationSubtitle => '存取伺服器管理面板';
 
   @override

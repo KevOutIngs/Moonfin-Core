@@ -95,6 +95,7 @@ import '../../widgets/track_selector_dialog.dart';
 import '../../widgets/remote_play_to_session_dialog.dart';
 import '../../widgets/fullscreen_backdrop_switcher.dart';
 import '../../widgets/seerr_icons.dart';
+import '../../widgets/focus/context_action.dart';
 import '../../widgets/focus/context_menu_sheet.dart';
 import '../../widgets/focus/dpad_list_tile.dart';
 import '../../widgets/focus/focusable_button.dart';
@@ -3767,6 +3768,24 @@ class _DetailContentState extends State<_DetailContent> {
     );
   }
 
+  /// The same menu, plus the entry that pulls the card out of this collection.
+  void _showBoxSetItemContextMenu(AggregatedItem item) {
+    unawaited(
+      showContextMenu(
+        context,
+        item,
+        onChanged: () {
+          if (!mounted) return;
+          setState(() {});
+        },
+        collectionRemoval: CollectionRemovalContext(
+          collectionName: viewModel.item?.name ?? '',
+          remove: viewModel.removeFromCollection,
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildBoxSetContent(BuildContext context, AggregatedItem item) {
     final l10n = AppLocalizations.of(context);
     int releaseSort(AggregatedItem a, AggregatedItem b) {
@@ -3851,7 +3870,7 @@ class _DetailContentState extends State<_DetailContent> {
             items: movies,
             imageApi: viewModel.imageApi,
             prefs: prefs,
-            onItemLongPress: _showItemContextMenu,
+            onItemLongPress: _showBoxSetItemContextMenu,
             scrollController: _trackSectionScrollController(
               moviesFocusNode,
               ctrl,
@@ -3874,7 +3893,7 @@ class _DetailContentState extends State<_DetailContent> {
             items: series,
             imageApi: viewModel.imageApi,
             prefs: prefs,
-            onItemLongPress: _showItemContextMenu,
+            onItemLongPress: _showBoxSetItemContextMenu,
             scrollController: _trackSectionScrollController(
               seriesFocusNode,
               ctrl,
@@ -3900,7 +3919,7 @@ class _DetailContentState extends State<_DetailContent> {
             items: other,
             imageApi: viewModel.imageApi,
             prefs: prefs,
-            onItemLongPress: _showItemContextMenu,
+            onItemLongPress: _showBoxSetItemContextMenu,
             scrollController: _trackSectionScrollController(
               otherFocusNode,
               ctrl,

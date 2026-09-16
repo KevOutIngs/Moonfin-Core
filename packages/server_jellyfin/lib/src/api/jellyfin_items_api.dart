@@ -563,6 +563,17 @@ class JellyfinItemsApi implements ItemsApi {
   }
 
   @override
+  Future<void> removeFromCollection(
+    String collectionId,
+    List<String> itemIds,
+  ) async {
+    await _dio.delete(
+      '/Collections/$collectionId/Items',
+      queryParameters: {'Ids': itemIds.join(',')},
+    );
+  }
+
+  @override
   Future<void> removeFromPlaylist(
     String playlistId,
     List<String> entryIds,

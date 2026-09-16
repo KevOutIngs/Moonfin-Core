@@ -9585,6 +9585,17 @@ class AppLocalizationsTe extends AppLocalizations {
   String get contextMenuAddToCollection => 'సేకరణకు జోడించండి';
 
   @override
+  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+
+  @override
+  String removeFromCollectionConfirm(String item, String collection) {
+    return 'Remove $item from $collection? The item stays in your library.';
+  }
+
+  @override
+  String get removeFromCollectionFailed => 'Failed to remove from collection';
+
+  @override
   String get settingsAdministrationSubtitle =>
       'సర్వర్ అడ్మినిస్ట్రేషన్ ప్యానెల్‌ను యాక్సెస్ చేయండి';
 

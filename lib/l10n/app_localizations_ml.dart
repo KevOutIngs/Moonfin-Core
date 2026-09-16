@@ -9630,6 +9630,17 @@ class AppLocalizationsMl extends AppLocalizations {
   String get contextMenuAddToCollection => 'ശേഖരത്തിലേക്ക് ചേർക്കുക';
 
   @override
+  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+
+  @override
+  String removeFromCollectionConfirm(String item, String collection) {
+    return 'Remove $item from $collection? The item stays in your library.';
+  }
+
+  @override
+  String get removeFromCollectionFailed => 'Failed to remove from collection';
+
+  @override
   String get settingsAdministrationSubtitle =>
       'സെർവർ അഡ്മിനിസ്ട്രേഷൻ പാനൽ ആക്സസ് ചെയ്യുക';
 

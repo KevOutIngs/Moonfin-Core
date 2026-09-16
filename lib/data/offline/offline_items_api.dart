@@ -900,6 +900,14 @@ class OfflineItemsApi implements ItemsApi {
   }
 
   @override
+  Future<void> removeFromCollection(
+    String collectionId,
+    List<String> itemIds,
+  ) async {
+    throw offlineUnavailable('/Collections/$collectionId/Items');
+  }
+
+  @override
   Future<void> removeFromPlaylist(
     String playlistId,
     List<String> entryIds,

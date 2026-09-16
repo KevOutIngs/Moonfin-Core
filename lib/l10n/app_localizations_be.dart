@@ -9570,6 +9570,17 @@ class AppLocalizationsBe extends AppLocalizations {
   String get contextMenuAddToCollection => 'Дадаць у калекцыю';
 
   @override
+  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+
+  @override
+  String removeFromCollectionConfirm(String item, String collection) {
+    return 'Remove $item from $collection? The item stays in your library.';
+  }
+
+  @override
+  String get removeFromCollectionFailed => 'Failed to remove from collection';
+
+  @override
   String get settingsAdministrationSubtitle =>
       'Доступ да панэлі адміністравання сервера';
 

@@ -1301,6 +1301,95 @@ class ItemDetailViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// Pulls one item out of this collection and rebuilds every list that
+  /// carries it, so the grid, the playlist tab and the saved order all stop
+  /// showing it without a page reload.
+  ///
+  /// The lists are edited locally first so the card disappears on the tap
+  /// that confirmed it, then the server call runs. A failure restores the
+  /// prior lists and rethrows, so the caller can say it didn't take.
+  Future<void> removeFromCollection(AggregatedItem item) async {
+    if (_item?.type != 'BoxSet') return;
+
+    final previousCollectionItems = _collectionItems;
+    final previousPlaylistItems = _playlistItems;
+    final previousFlattenedIds = _flattenedIds;
+    final previousCustomOrderIds = _customOrderIds;
+    final previousIndexEntries = _playlistIndexEntries;
+    final previousFetchedCount = _playlistFetchedCount;
+    final previousCollectionFetched = _collectionFetchedCount;
+    final previousCollectionTotal = _collectionTotalCount;
+    final previousPlaylistHasMore = _playlistHasMore;
+
+    // Where the item sits right now decides which read cursors move below, so
+    // both positions are taken before the splices erase them.
+    final wasInLoadedGridPage = _collectionItems.any(
+      (entry) => entry.id == item.id,
+    );
+    final flattenedIndex = _flattenedIds?.indexOf(item.id) ?? -1;
+    final wasInLoadedPlaylistPage =
+        flattenedIndex >= 0 && flattenedIndex < _playlistFetchedCount;
+
+    _collectionItems = _collectionItems
+        .where((entry) => entry.id != item.id)
+        .toList();
+    _playlistItems = _playlistItems
+        .where((entry) => entry.id != item.id)
+        .toList();
+    final flattened = _flattenedIds;
+    if (flattened != null) {
+      _flattenedIds = flattened.where((id) => id != item.id).toList();
+    }
+    // The drag order is user data, so it drops the id too and the save
+    // below pushes the shorter list. Leaving it in would put the title
+    // back on the next open.
+    _customOrderIds = _customOrderIds?.where((id) => id != item.id).toList();
+    final entries = _playlistIndexEntries;
+    if (entries != null) {
+      _playlistIndexEntries = entries
+          .where((entry) => entry.id != item.id)
+          .toList();
+    }
+    // Both lists count how far into the collection they have read, and they
+    // page independently in orders of their own. A cursor only steps back when
+    // the hole opened behind it: stepping one that sits ahead of the hole would
+    // re-read an id the list already shows and repeat a card on the next page.
+    if (wasInLoadedPlaylistPage) _playlistFetchedCount -= 1;
+    if (wasInLoadedGridPage && _collectionFetchedCount > 0) {
+      _collectionFetchedCount -= 1;
+    }
+    // The membership shrank for every list, wherever the card was showing.
+    if (_collectionTotalCount > 0) _collectionTotalCount -= 1;
+    final remainingIds = _flattenedIds;
+    if (remainingIds != null) {
+      // The paged read returns at its guard once the cursor reaches the end,
+      // so it never clears this itself.
+      _playlistHasMore = _playlistFetchedCount < remainingIds.length;
+    }
+    notifyListeners();
+
+    try {
+      await _client.itemsApi.removeFromCollection(itemId, [item.id]);
+      final syncService = GetIt.instance<PluginSyncService>();
+      final order = _customOrderIds;
+      if (syncService.pluginAvailable && order != null) {
+        await syncService.saveCustomCollectionOrder(_client, itemId, order);
+      }
+    } catch (_) {
+      _collectionItems = previousCollectionItems;
+      _playlistItems = previousPlaylistItems;
+      _flattenedIds = previousFlattenedIds;
+      _customOrderIds = previousCustomOrderIds;
+      _playlistIndexEntries = previousIndexEntries;
+      _playlistFetchedCount = previousFetchedCount;
+      _collectionFetchedCount = previousCollectionFetched;
+      _collectionTotalCount = previousCollectionTotal;
+      _playlistHasMore = previousPlaylistHasMore;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Fetches the first page of grid items.
   Future<void> _loadCollectionItems() async {
     try {

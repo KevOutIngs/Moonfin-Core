@@ -12600,7 +12600,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pageTransitionFadeLong => 'Fondu long';
 
   @override
-  String get siriRemoteSwipeSensitivity => 'Touchpad swipe sensitivity';
+  String get siriRemoteSwipeSensitivity =>
+      'Sensibilité du glissé sur le pavé tactile';
 
   @override
   String get siriRemoteSwipeSensitivityDescription =>

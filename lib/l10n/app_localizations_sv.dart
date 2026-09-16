@@ -1899,7 +1899,7 @@ class AppLocalizationsSv extends AppLocalizations {
   }
 
   @override
-  String get auto => 'Bil';
+  String get auto => 'Auto';
 
   @override
   String bitrateValueMbps(int mbps) {

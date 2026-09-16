@@ -12486,9 +12486,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get pageTransitionFadeLong => 'Hidas Häivytys';
 
   @override
-  String get siriRemoteSwipeSensitivity => 'Touchpad swipe sensitivity';
+  String get siriRemoteSwipeSensitivity => 'Kosketuslevyn pyyhkäisyherkkyys';
 
   @override
   String get siriRemoteSwipeSensitivityDescription =>
-      'How far focus moves for each swipe on the Siri Remote touchpad';
+      'Kuinka paljon tarkennus siirtyy jokaisen Siri Remote -kaukosäätimen kosketuslevyllä tehdyn pyyhkäisyn yhteydessä';
 }

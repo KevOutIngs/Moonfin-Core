@@ -4144,10 +4144,6 @@ class _ContentRowsState extends State<_ContentRows>
         navbarIsTop && PlatformDetection.isTV && !PlatformDetection.useMobileUi
         ? 48.0
         : 0.0;
-    final navbarLeftInset = navbarIsTop ? 16.0 + tvTopNavbarInset : 56.0;
-    final infoHeaderLeftInset = (!PlatformDetection.useMobileUi && navbarIsTop)
-        ? 8.0
-        : 0.0;
     final rowLeftInset =
         (navbarIsLeft && !PlatformDetection.useMobileUi
             ? 56.0
@@ -4492,9 +4488,7 @@ class _ContentRowsState extends State<_ContentRows>
                 child: IgnorePointer(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
-                      PlatformDetection.useMobileUi
-                          ? navbarLeftInset
-                          : rowLeftInset,
+                      rowLeftInset + _kHomeRowLabelInset,
                       infoTopPadding,
                       16,
                       8,
@@ -4502,10 +4496,7 @@ class _ContentRowsState extends State<_ContentRows>
                     child: ValueListenableBuilder<AggregatedItem?>(
                       valueListenable: widget.selectedItemNotifier,
                       builder: (context, selectedItem, _) {
-                        return InfoArea(
-                          item: selectedItem,
-                          headerLeftInset: infoHeaderLeftInset,
-                        );
+                        return InfoArea(item: selectedItem);
                       },
                     ),
                   ),

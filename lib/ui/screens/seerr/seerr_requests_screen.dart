@@ -21,6 +21,7 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/seerr_preferences.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
+import '../../util/seerr_error_localizer.dart';
 import '../../widgets/adaptive/adaptive_glass.dart';
 import '../../widgets/navigation_layout.dart';
 import '../../widgets/overlay_sheet.dart';
@@ -668,7 +669,7 @@ class _SeerrRequestsScreenState extends State<SeerrRequestsScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            error,
+            localizeSeerrError(error, l10n),
             style: TextStyle(
               color: AppColorScheme.onSurface.withValues(alpha: 0.7),
             ),

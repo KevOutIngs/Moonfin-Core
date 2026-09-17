@@ -26,7 +26,9 @@ Future<void> configureImageDiskCache({
   try {
     final key = DefaultCacheManager.key;
     const stalePeriod = Duration(days: 14);
-    const maxObjects = 600;
+    // Raised from 600 to leave room for the Live TV guide's per-program
+    // artwork, which shares this pool with movie and series posters.
+    const maxObjects = 1500;
     final fileService = buildImageFileService(tier: tier);
     Config config;
     if (PlatformDetection.isAppleTV) {

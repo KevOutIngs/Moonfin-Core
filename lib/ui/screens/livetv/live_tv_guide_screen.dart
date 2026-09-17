@@ -41,6 +41,12 @@ import 'guide/guide_window.dart';
 const _kProgramPrefetchRows = 12;
 const _kGuideScrollLead = 24.0;
 const _kGuideLogoPrecacheRows = 24;
+// Extra rows of slack above/below the viewport carried into the artwork
+// prefetch window, so a small scroll doesn't immediately fall outside it.
+const _kArtworkPrefetchRowMargin = 5;
+// Below this many channels the whole lineup is cheap enough to prefetch
+// outright, so the viewport bound only kicks in on large lineups.
+const _kArtworkPrefetchAllMaxChannels = 100;
 
 /// How far back the guide will page. Most EPG sources keep little history,
 /// so beyond this the grid would only ever show empty cells.
@@ -167,6 +173,15 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   final ValueNotifier<GuideProgram?> _focusedProgram = ValueNotifier(null);
   final ValueNotifier<GuideChannel?> _focusedChannel = ValueNotifier(null);
   final ValueNotifier<bool> _channelRailFocused = ValueNotifier(false);
+
+  /// Debounces the hero's per-program artwork lookup (see
+  /// [LiveTvGuideViewModel.artworkSourceFor]) so scrolling through the
+  /// channel column doesn't fire a request per row passed through.
+  Timer? _artworkLookupDebounce;
+
+  /// Debounces re-submitting the bounded artwork prefetch window on scroll, so
+  /// a fling doesn't resubmit on every frame.
+  Timer? _artworkPrefetchScrollDebounce;
   bool _didInitializeMiniPlayerMode = false;
   bool _didRestoreInitialChannelFocus = false;
   late EpgMobileView _mobileView;
@@ -215,6 +230,9 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     _vm.addListener(_onChanged);
     WidgetsBinding.instance.addObserver(this);
     _mobileView = _prefs.get(UserPreferences.epgMobileView);
+    _focusedProgram.addListener(_scheduleArtworkLookup);
+    _focusedChannel.addListener(_scheduleArtworkLookup);
+    _channelRailFocused.addListener(_scheduleArtworkLookup);
 
     _channelScrollController.addListener(_syncVerticalScroll);
     _programScrollController.addListener(_syncVerticalScroll);
@@ -269,6 +287,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   }
 
   void _syncVerticalScroll() {
+    _scheduleArtworkPrefetch();
     if (_syncingScroll) return;
     if (!_channelScrollController.hasClients ||
         !_programScrollController.hasClients) {
@@ -328,6 +347,9 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
         .map((channel) => channel.id)
         .toList();
     _precacheGuideLogos(_vm.filteredChannels);
+    // The whole lineup is submitted on ordinary lineups; only large ones are
+    // bounded to the rows around the current viewport.
+    _queueArtworkPrefetch();
     final lineupChanged = !listEquals(channelIds, _visibleChannelIds);
     _visibleChannelIds = channelIds;
     setState(_initializeMiniPlayerMode);
@@ -372,6 +394,71 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     }
   }
 
+  void _scheduleArtworkPrefetch() {
+    _artworkPrefetchScrollDebounce?.cancel();
+    _artworkPrefetchScrollDebounce = Timer(
+      const Duration(milliseconds: 250),
+      () {
+        if (mounted) _queueArtworkPrefetch();
+      },
+    );
+  }
+
+  /// Submits artwork prefetch for the whole filtered lineup when it's at
+  /// most [_kArtworkPrefetchAllMaxChannels] channels; otherwise bounds it to
+  /// channel rows near the current viewport (plus [_kArtworkPrefetchRowMargin]
+  /// rows of slack above and below). Falls back to the first screenful of
+  /// channels before the scroll controller has attached.
+  void _queueArtworkPrefetch() {
+    final channels = _vm.filteredChannels;
+    if (channels.isEmpty) return;
+
+    if (channels.length <= _kArtworkPrefetchAllMaxChannels) {
+      _vm.queueArtworkPrefetch([
+        for (final channel in channels) ..._vm.programsForChannel(channel.id),
+      ]);
+      return;
+    }
+
+    final rowHeight = _layoutProfile.rowHeight;
+
+    var firstRow = 0;
+    var visibleCount = _kGuideLogoPrecacheRows;
+    if (_channelScrollController.hasClients) {
+      final offset = _channelScrollController.offset;
+      final viewport = _channelScrollController.position.viewportDimension;
+      firstRow = (offset / rowHeight).floor();
+      visibleCount = (viewport / rowHeight).ceil();
+    }
+
+    final start = (firstRow - _kArtworkPrefetchRowMargin).clamp(
+      0,
+      channels.length,
+    );
+    final end = (firstRow + visibleCount + _kArtworkPrefetchRowMargin).clamp(
+      0,
+      channels.length,
+    );
+    if (start >= end) return;
+
+    _vm.queueArtworkPrefetch([
+      for (final channel in channels.sublist(start, end))
+        ..._vm.programsForChannel(channel.id),
+    ]);
+  }
+
+  /// True unless focus is sitting on one of this screen's non-grid controls.
+  /// A genre filter switch changes the lineup and would otherwise yank focus
+  /// back into the grid while the user is still on a filter chip or the
+  /// window bar.
+  bool get _gridHasFocus {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null) return false;
+    return !_filterFocusNodes.containsValue(focus) &&
+        !_windowBarFocusNodes.containsValue(focus) &&
+        focus != _miniPlayerFocusNode;
+  }
+
   void _rebindSelectionAfterLineupChange() {
     final selection = _selection;
     final channels = _vm.filteredChannels;
@@ -396,7 +483,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     final cells = _cellsForChannel(rebound.channelId);
     if (cells.isEmpty) return;
     _scrollToRow(rowIndex);
-    _focusSelectedCell(rebound, cells);
+    // Keep the selection and scroll position correct either way, so the
+    // grid is ready if the user comes back to it — just don't steal focus
+    // away from wherever they actually are (a filter chip, the window bar).
+    if (_gridHasFocus) _focusSelectedCell(rebound, cells);
   }
 
   void _initializeMiniPlayerMode() {
@@ -465,16 +555,18 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     _lastFocusedRowIndex = targetRow;
     if (_channelScrollController.hasClients) {
       final max = _channelScrollController.position.maxScrollExtent;
+      final clamped = offset.clamp(0.0, max);
       _channelScrollController.animateTo(
-        offset.clamp(0.0, max),
+        clamped,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
     }
     if (_programScrollController.hasClients) {
       final max = _programScrollController.position.maxScrollExtent;
+      final clamped = offset.clamp(0.0, max);
       _programScrollController.animateTo(
-        offset.clamp(0.0, max),
+        clamped,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
@@ -636,10 +728,15 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   void dispose() {
     _reanchorTimer?.cancel();
     _displayClockTimer?.cancel();
+    _artworkLookupDebounce?.cancel();
+    _artworkPrefetchScrollDebounce?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _vm.cancelBoundaryRefresh();
     _vm.removeListener(_onChanged);
     _vm.dispose();
+    _focusedProgram.removeListener(_scheduleArtworkLookup);
+    _focusedChannel.removeListener(_scheduleArtworkLookup);
+    _channelRailFocused.removeListener(_scheduleArtworkLookup);
     _channelScrollController.dispose();
     _programScrollController.dispose();
     _timeHeaderHorizontalScrollController.dispose();
@@ -849,6 +946,42 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     );
   }
 
+  /// The program the hero (and its artwork lookup) is currently previewing:
+  /// the focused program cell, or — when focus is on the channel column
+  /// instead — whatever that channel is airing now.
+  GuideProgram? _currentPreviewProgram() {
+    final program = _focusedProgram.value;
+    final channel = !_channelRailFocused.value && program != null
+        ? _vm.channelForId(program.channelId)
+        : _focusedChannel.value;
+    return program ??
+        (channel == null ? null : _vm.nowNextForChannel(channel.id).now);
+  }
+
+  /// The bulk guide fetch disables images to keep its payload small (issue
+  /// #666), so it never carries a program's own `ImageTags` even when the
+  /// server has one on file. This debounces a per-program re-fetch (see
+  /// [LiveTvGuideViewModel.artworkSourceFor]) so scrolling through the
+  /// channel column doesn't fire a request per row passed through, and skips
+  /// it entirely once cached. Not limited to currently-airing programs —
+  /// future programs carry artwork just as often as live ones.
+  void _scheduleArtworkLookup() {
+    _artworkLookupDebounce?.cancel();
+    final preview = _currentPreviewProgram();
+    if (preview == null ||
+        preview.artworkSource != null ||
+        _vm.hasArtworkResult(preview.id)) {
+      return;
+    }
+    final programId = preview.id;
+    _artworkLookupDebounce = Timer(const Duration(milliseconds: 500), () async {
+      await _vm.artworkSourceFor(preview);
+      if (mounted && _currentPreviewProgram()?.id == programId) {
+        setState(() {});
+      }
+    });
+  }
+
   Widget _buildHero() {
     return ListenableBuilder(
       listenable: Listenable.merge([
@@ -861,11 +994,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
         final channel = !_channelRailFocused.value && program != null
             ? _vm.channelForId(program.channelId)
             : _focusedChannel.value;
-        // Focus on the channel column has no program, so the band previews
-        // what that channel is airing now under the channel's name.
-        final preview =
-            program ??
-            (channel == null ? null : _vm.nowNextForChannel(channel.id).now);
+        final preview = _currentPreviewProgram();
         final now = DateTime.now();
         final isLive =
             preview != null &&
@@ -880,20 +1009,53 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
                 tag: channelWithLogo.imageTag,
               )
             : null;
-        if (channelLogoUrl != null) {
-          _precacheGuideLogoUrl(channelLogoUrl, layoutWidth: 100);
+        final artwork = preview == null
+            ? null
+            : preview.artworkSource ?? _vm.cachedArtworkFor(preview.id);
+        final programImageUrl = artwork == null
+            ? null
+            : _vm.imageApi.getPrimaryImageUrl(
+                artwork.itemId,
+                maxHeight: EpgHeroPreview.compactHeight.toInt(),
+                maxWidth: EpgHeroPreview.plateWidth.toInt(),
+                tag: artwork.tag,
+              );
+        for (final url in [channelLogoUrl, programImageUrl]) {
+          if (url != null) {
+            _precacheGuideLogoUrl(url, layoutWidth: EpgHeroPreview.plateWidth);
+          }
         }
+        final episodeTitle = preview?.episodeTitle;
+        final episodeSuffix =
+            episodeTitle != null &&
+                episodeTitle.isNotEmpty &&
+                episodeTitle != preview?.name
+            ? ' - $episodeTitle'
+            : '';
+        final seasonEpisodeSuffix = preview?.seasonEpisodeLabel != null
+            ? ' (${preview!.seasonEpisodeLabel})'
+            : '';
+        final l10n = AppLocalizations.of(context);
+        final badgeLabel = preview == null
+            ? null
+            : preview.isPremiere
+            ? l10n.premiere
+            : preview.isRepeat
+            ? l10n.guideRepeatBadge
+            : null;
         return EpgHeroPreview(
-          title:
-              channel?.name ??
-              preview?.name ??
-              AppLocalizations.of(context).guideTimeline,
+          title: channel?.name ?? preview?.name ?? l10n.guideTimeline,
           programTitle: channel == null ? null : preview?.name,
+          programSubtitle: '$episodeSuffix$seasonEpisodeSuffix',
           channelLogoUrl: channelLogoUrl,
+          programImageUrl: programImageUrl,
           timeLabel: preview == null
               ? null
               : '${_formatTime(preview.startDate)} - ${_formatTime(preview.endDate)}',
           genreLabel: preview == null ? null : epgGenreFor(preview).label,
+          officialRating: preview?.officialRating,
+          communityRating: preview?.communityRating,
+          badgeLabel: badgeLabel,
           synopsis: preview?.overview,
           isLive: isLive,
           apple: _apple,

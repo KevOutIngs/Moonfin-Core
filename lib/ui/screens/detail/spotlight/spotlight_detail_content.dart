@@ -34,6 +34,7 @@ import '../../../widgets/seerr/seerr_image_urls.dart';
 import '../../../widgets/seerr/seerr_item_status.dart';
 import '../../../widgets/seerr/seerr_status_pill.dart';
 import '../../../widgets/top_toolbar.dart';
+import '../detail_layout_metrics.dart';
 import '../item_detail_screen.dart'
     show
         DetailActionButtons,
@@ -1122,10 +1123,7 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
     final item = _vm.item;
     if (item == null) return const SizedBox.shrink();
 
-    _landscape =
-        PlatformDetection.isTV ||
-        PlatformDetection.useDesktopUi ||
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+    _landscape = detailUsesLandscapeLayout(context);
 
     return ListenableBuilder(
       listenable: _vm,

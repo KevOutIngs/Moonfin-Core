@@ -116,26 +116,17 @@ import '../../../util/language_matching.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/audio_track_logic.dart';
 import '../../../util/platform_detection.dart';
+import 'detail_layout_metrics.dart';
 
 const _textShadows = [Shadow(blurRadius: 4, color: Colors.black54)];
-const _kCompactBreakpoint = 600.0;
 
-bool _isCompact(BuildContext context) =>
-    !PlatformDetection.isTV &&
-    (PlatformDetection.useMobileUi ||
-        MediaQuery.sizeOf(context).width < _kCompactBreakpoint);
+bool _isCompact(BuildContext context) => detailIsCompact(context);
 
-bool _useDesktopDetailLayout(BuildContext context) {
-  final size = MediaQuery.sizeOf(context);
-  final isLandscape = size.width > size.height;
-  return !(_isCompact(context)) ||
-      (PlatformDetection.useMobileUi && isLandscape && size.width >= 700);
-}
+bool _useDesktopDetailLayout(BuildContext context) =>
+    useDesktopDetailLayout(context);
 
-double _desktopUiScale({UserPreferences? prefs}) {
-  final effectivePrefs = prefs ?? GetIt.instance<UserPreferences>();
-  return effectivePrefs.get(UserPreferences.desktopUiScale).scaleFactor;
-}
+double _desktopUiScale({UserPreferences? prefs}) =>
+    detailDesktopScale(prefs: prefs);
 
 /// Smoothly scrolls a position back to the top. Ignore if already there.
 void _animateScrollToTop(ScrollPosition position) {
@@ -4426,10 +4417,9 @@ class DetailPosterImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = !_useDesktopDetailLayout(context);
-    final desktopScale = _desktopUiScale();
-    final w = isMobile ? 120.0 : 165.0 * desktopScale;
-    final h = isMobile ? 180.0 : 248.0 * desktopScale;
+    final posterSize = classicDetailPosterSize(context);
+    final w = posterSize.width;
+    final h = posterSize.height;
     final dpr = MediaQuery.devicePixelRatioOf(context);
 
     final posterPath = item.rawData['PosterPath'] as String?;

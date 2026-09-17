@@ -649,7 +649,9 @@ class _CollectionRequestSheetState extends State<_CollectionRequestSheet> {
           ? Text(
               statusLabel,
               style: TextStyle(
-                color: status >= 4 ? Colors.green[300] : Colors.blue[200],
+                color: SeerrMediaStatus.isAvailable(status)
+                    ? Colors.green[300]
+                    : Colors.blue[200],
                 fontSize: 11.5,
               ),
             )

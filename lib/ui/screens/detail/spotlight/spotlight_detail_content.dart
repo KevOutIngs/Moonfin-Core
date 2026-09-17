@@ -30,11 +30,8 @@ import '../../../widgets/navigation_layout.dart';
 import '../../../widgets/offline_aware_image.dart';
 import '../../../widgets/quick_return_wrapper.dart';
 import '../../../widgets/rating_display.dart';
-import '../../../widgets/seerr/seerr_collection_banner.dart';
 import '../../../widgets/seerr/seerr_image_urls.dart';
-import '../../../widgets/seerr/seerr_item_chips.dart';
 import '../../../widgets/seerr/seerr_item_status.dart';
-import '../../../widgets/seerr/seerr_stats_card.dart';
 import '../../../widgets/seerr/seerr_status_pill.dart';
 import '../../../widgets/top_toolbar.dart';
 import '../item_detail_screen.dart'
@@ -284,6 +281,20 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
           ),
         );
       }),
+      openSeerrBrowse: (filterId, filterName, filterType, mediaType) =>
+          _closeModalThen(() {
+            context.push(
+              Destinations.seerrBrowseWith(
+                filterId: filterId,
+                filterName: filterName,
+                mediaType: mediaType,
+                filterType: filterType,
+              ),
+            );
+          }),
+      openSeerrCollection: (collectionId) => _closeModalThen(
+        () => context.push(Destinations.seerrCollection(collectionId)),
+      ),
       openStudio: (name) =>
           _closeModalThen(() => context.push(Destinations.studio(name))),
       playFromChapter: (position) =>
@@ -905,21 +916,6 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
         );
     final tagline = isPerson ? null : _buildTagline(context, item);
 
-    // A Seerr-only title's page is otherwise sparse, so its Seerr facts
-    // render inline: chips and stats in the hero, the collection banner under
-    // the action row. Library titles keep their Seerr data behind the status
-    // pills and the similar card.
-    final seerrState = _vm.isSeerrOnly ? seerrItemTabState(_vm) : null;
-    final l10n = AppLocalizations.of(context);
-    final seerrChips = seerrState != null && SeerrItemChips.hasContent(seerrState)
-        ? SeerrItemChips(state: seerrState)
-        : null;
-    final seerrStats =
-        seerrState != null && SeerrStatsCard.hasContent(seerrState, l10n)
-        ? SeerrStatsCard(state: seerrState)
-        : null;
-    final seerrCollection = seerrState?.movie?.collection;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -947,21 +943,12 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
             showBadges: widget.prefs.get(UserPreferences.showRatingBadges),
           ),
         ],
-        if (seerrChips != null) ...[const SizedBox(height: 10), seerrChips],
-        if (seerrStats != null) ...[const SizedBox(height: 10), seerrStats],
         if (showOverview) ...[
           const SizedBox(height: 10),
           _buildOverview(context, overview),
         ],
         const SizedBox(height: 16),
         _buildActions(context, item, cards),
-        if (seerrCollection != null) ...[
-          const SizedBox(height: 16),
-          SeerrCollectionBanner(
-            collection: seerrCollection,
-            onNavigateUp: () => widget.initialFocusNode?.requestFocus(),
-          ),
-        ],
       ],
     );
   }

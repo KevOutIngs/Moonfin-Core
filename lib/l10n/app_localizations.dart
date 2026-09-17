@@ -622,6 +622,18 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 person} other{{count} people}}'**
   String spotlightPeopleCount(int count);
 
+  /// Count fragment on spotlight summary cards: Seerr facts
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 fact} other{{count} facts}}'**
+  String spotlightFactsCount(int count);
+
+  /// Count fragment on spotlight summary cards: genres, networks and keywords
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 tag} other{{count} tags}}'**
+  String spotlightTagsCount(int count);
+
   /// Count fragment on spotlight summary cards: studios
   ///
   /// In en, this message translates to:

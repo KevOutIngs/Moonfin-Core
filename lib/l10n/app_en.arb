@@ -301,6 +301,24 @@
       }
     }
   },
+  "spotlightFactsCount": "{count, plural, =1{1 fact} other{{count} facts}}",
+  "@spotlightFactsCount": {
+    "description": "Count fragment on spotlight summary cards: Seerr facts",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "spotlightTagsCount": "{count, plural, =1{1 tag} other{{count} tags}}",
+  "@spotlightTagsCount": {
+    "description": "Count fragment on spotlight summary cards: genres, networks and keywords",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "spotlightStudiosCount": "{count, plural, =1{1 studio} other{{count} studios}}",
   "@spotlightStudiosCount": {
     "description": "Count fragment on spotlight summary cards: studios",

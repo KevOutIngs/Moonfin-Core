@@ -33,6 +33,7 @@ String _describeDioError(DioException error, AppLocalizations l10n) {
     case DioExceptionType.connectionTimeout:
     case DioExceptionType.sendTimeout:
     case DioExceptionType.receiveTimeout:
+    case DioExceptionType.transformTimeout:
     case DioExceptionType.connectionError:
     case DioExceptionType.badCertificate:
       return l10n.unableToConnectToServer;

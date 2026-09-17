@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import '../../../../util/seerr_credits.dart';
 import '../../../widgets/fullscreen_backdrop_switcher.dart';
 import '../../../widgets/navigation_layout.dart';
 import '../../../widgets/offline_aware_image.dart';
+import '../../../widgets/top_toolbar.dart';
 import '../item_detail_screen.dart';
 import 'chapters/nouveau_chapters_section.dart';
 import 'collection/nouveau_collection_section.dart';
@@ -730,9 +732,21 @@ class NouveauDetailContentState extends State<NouveauDetailContent> {
 
     final scale = _nouveauHeroScale(size);
 
-    final heroTop = navbarIsTop
+    // The designed inset is a share of a desktop screen, so on a 540 tall TV
+    // it takes a third of the viewport and leaves the action row no room.
+    // Cap it at a fifth of the screen, with the toolbar it sits under as the
+    // floor. Taller screens keep the inset they had.
+    final designedHeroTop = navbarIsTop
         ? (212.0 * scale).clamp(190.0, 232.0)
         : (152.0 * scale).clamp(136.0, 166.0);
+
+    final heroTop = math.min(
+      designedHeroTop,
+      math.max(
+        navbarIsTop ? TopToolbar.baseHeightFor(context) : 0.0,
+        size.height * 0.20,
+      ),
+    );
 
     final horizontalInset = _nouveauLandscapeExplicitHorizontalInset(size);
 

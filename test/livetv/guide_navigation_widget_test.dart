@@ -7,8 +7,10 @@ import 'package:get_it/get_it.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:playback_core/playback_core.dart';
+import 'package:moonfin/data/viewmodels/live_tv_guide_view_model.dart';
 import 'package:moonfin/l10n/app_localizations.dart';
 import 'package:moonfin/preference/user_preferences.dart';
+import 'package:moonfin/ui/screens/livetv/epg/widgets/epg_filter_rail.dart';
 import 'package:moonfin/ui/screens/livetv/guide/guide_window.dart';
 import 'package:moonfin/ui/screens/livetv/live_tv_guide_screen.dart';
 import 'package:server_core/server_core.dart';
@@ -651,4 +653,76 @@ void main() {
 
     expect(_focusedLabel(), 'GuideMiniPlayer');
   });
+
+  testWidgets(
+    'a back press is not consumed when the entry channel is filtered out',
+    (tester) async {
+      // ch5 is the only favorite; the entry channel (ch0, the default when no
+      // last-channel preference is set) is not, so switching to the
+      // favorites filter drops the entry channel from filteredChannels.
+      final favoriteChannel = _channelRaw(5)
+        ..['UserData'] = <String, dynamic>{'IsFavorite': true};
+      when(
+        () => liveTvApi.getChannels(
+          startIndex: any(named: 'startIndex'),
+          limit: any(named: 'limit'),
+          sortBy: any(named: 'sortBy'),
+          sortOrder: any(named: 'sortOrder'),
+          fields: any(named: 'fields'),
+          enableTotalRecordCount: any(named: 'enableTotalRecordCount'),
+          userId: any(named: 'userId'),
+        ),
+      ).thenAnswer(
+        (_) async => <String, dynamic>{
+          'Items': [
+            for (var i = 0; i < channelCount; i++)
+              if (i == 5) favoriteChannel else _channelRaw(i),
+          ],
+        },
+      );
+
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LiveTvGuideScreen(),
+                ),
+              ),
+              child: const Text('open guide'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open guide'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+
+      // Switch to the favorites filter, which excludes the entry channel.
+      final filterRail = tester.widget<EpgFilterRail>(
+        find.byType(EpgFilterRail),
+      );
+      filterRail.onSelect(GuideFilter.values.indexOf(GuideFilter.favorites));
+      await tester.pumpAndSettle();
+
+      // Move real focus onto the one remaining (favorited) channel row, so
+      // the guide's tracked focused channel differs from the entry channel.
+      _nodeLabelled(tester, 'GuideChannel:0').requestFocus();
+      await tester.pumpAndSettle();
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Back was NOT consumed by the guide's reset-to-entry handling, so the
+      // route popped back to the host screen instead of getting stuck.
+      expect(find.byType(LiveTvGuideScreen), findsNothing);
+    },
+  );
 }

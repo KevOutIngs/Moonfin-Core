@@ -44,6 +44,10 @@ class SlidingPillTabs extends StatefulWidget {
   /// Left D-pad from the first segment; e.g. hop to the sidebar.
   final VoidCallback? onExitLeft;
 
+  /// Where the strip sits once it has hugged its content. Search lines it up
+  /// under the field on the left, a panel centres it over its list.
+  final Alignment alignment;
+
   const SlidingPillTabs({
     super.key,
     required this.labels,
@@ -52,6 +56,7 @@ class SlidingPillTabs extends StatefulWidget {
     this.focusNode,
     this.onVerticalNavigation,
     this.onExitLeft,
+    this.alignment = Alignment.centerLeft,
   });
 
   @override
@@ -462,7 +467,7 @@ class _SlidingPillTabsState extends State<SlidingPillTabs> {
           // and let the segments scroll inside.
           final pillWidth = content < available ? content : available;
           return Align(
-            alignment: Alignment.centerLeft,
+            alignment: widget.alignment,
             child: SizedBox(width: pillWidth, child: framed),
           );
         },

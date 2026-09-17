@@ -18,6 +18,7 @@ import '../../preference/user_preferences.dart';
 import '../../util/overlay_color_palette.dart';
 import '../../util/game_library.dart';
 import '../../util/live_tv_library.dart';
+import '../../util/platform_detection.dart';
 import '../navigation/destinations.dart';
 import '../navigation/home_refresh_bus.dart';
 import '../screens/downloads/downloads_panel.dart';
@@ -334,7 +335,11 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
       );
     }
 
-    if (_prefs.get(UserPreferences.showDownloadsButton)) {
+    // Same gate the sidebar and the toolbar use: downloads exist on phones,
+    // tablets, desktops and Android TV, and nowhere else.
+    if (_prefs.get(UserPreferences.showDownloadsButton) &&
+        PlatformDetection.supportsOfflineDownloads &&
+        !PlatformDetection.isWeb) {
       actions.add(
         _BottomNavAction(
           icon: Icons.download_for_offline,

@@ -4690,6 +4690,126 @@ abstract class AppLocalizations {
   /// **'Downloaded Items'**
   String get downloadedItems;
 
+  /// Tab title for downloads that are transferring or queued
+  ///
+  /// In en, this message translates to:
+  /// **'Active Downloads'**
+  String get activeDownloads;
+
+  /// How many downloads the saved media list holds, shown beside the total size
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 item} other{{count} items}}'**
+  String savedMediaCount(int count);
+
+  /// Storage used against the configured limit, for example '56.4 GB of 80 GB'
+  ///
+  /// In en, this message translates to:
+  /// **'{used} of {limit}'**
+  String savedMediaOfLimit(String used, String limit);
+
+  /// Overflow menu entry that turns on multi-select in the saved media list
+  ///
+  /// In en, this message translates to:
+  /// **'Select items'**
+  String get savedMediaSelectItems;
+
+  /// Empty state title when no downloads are on the device
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing saved yet'**
+  String get savedMediaNoDownloads;
+
+  /// Empty state body when no downloads are on the device
+  ///
+  /// In en, this message translates to:
+  /// **'Downloads you start appear here and play without a connection.'**
+  String get savedMediaNoDownloadsDetail;
+
+  /// Empty state for the active downloads tab
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing downloading right now'**
+  String get savedMediaNoActiveDownloads;
+
+  /// Empty state when a search over saved media matches nothing
+  ///
+  /// In en, this message translates to:
+  /// **'No downloads match that search'**
+  String get savedMediaNoResults;
+
+  /// Row menu action that restarts a partly watched download from the beginning
+  ///
+  /// In en, this message translates to:
+  /// **'Play from start'**
+  String get savedMediaPlayFromStart;
+
+  /// Row menu action that opens the item's detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Go to details'**
+  String get savedMediaGoToDetails;
+
+  /// Row menu action that removes one downloaded file from the device
+  ///
+  /// In en, this message translates to:
+  /// **'Delete download'**
+  String get savedMediaDeleteDownload;
+
+  /// Menu action that removes every saved episode of one season
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {season}'**
+  String savedMediaDeleteSeason(String season);
+
+  /// Menu action that removes every saved episode of one series
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Delete 1 episode} other{Delete {count} episodes}}'**
+  String savedMediaDeleteEpisodes(int count);
+
+  /// Row menu action that opens a saved show's seasons and episodes
+  ///
+  /// In en, this message translates to:
+  /// **'Open show'**
+  String get savedMediaOpenShow;
+
+  /// Row menu action that plays the earliest unwatched saved episode of a show
+  ///
+  /// In en, this message translates to:
+  /// **'Play next unwatched'**
+  String get savedMediaPlayNextUnwatched;
+
+  /// Row menu action that opens a downloaded book in the reader
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get savedMediaRead;
+
+  /// Row menu action that stops a running or queued transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get savedMediaCancelDownload;
+
+  /// Sort option: largest download first
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get sortBySize;
+
+  /// Sort option: alphabetical by title
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get sortByName;
+
+  /// Sort option: most recently downloaded first
+  ///
+  /// In en, this message translates to:
+  /// **'Date added'**
+  String get sortByDateAdded;
+
   /// Setting for storage limit
   ///
   /// In en, this message translates to:

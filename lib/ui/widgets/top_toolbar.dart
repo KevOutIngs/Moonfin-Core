@@ -1271,28 +1271,14 @@ class _TopToolbarState extends State<TopToolbar> with RouteAware {
       iconColor: iconColor,
       alwaysExpanded: alwaysExpanded,
       onLibraryTap: (lib) {
-        if (lib.collectionType == 'music') {
-          context.navigateTopLevel('/music/${lib.id}');
-        } else if (lib.collectionType == 'books' ||
-            lib.collectionType == 'audiobooks') {
-          context.navigateTopLevel(
-            Destinations.bookLibrary(
-              lib.id,
-              collectionType: lib.collectionType,
-            ),
-          );
-        } else if (lib.collectionType == 'livetv') {
-          context.navigateTopLevel(Destinations.liveTvGuide);
-        } else {
-          context.navigateTopLevel(
-            gameOrLibraryRoute(
-              lib.id,
-              lib.collectionType,
-              lib.name,
-              serverId: lib.serverId,
-            ),
-          );
-        }
+        context.navigateTopLevel(
+          libraryRoute(
+            lib.id,
+            lib.collectionType,
+            lib.name,
+            serverId: lib.serverId,
+          ),
+        );
       },
     );
   }
@@ -1312,28 +1298,14 @@ class _TopToolbarState extends State<TopToolbar> with RouteAware {
       triggerFocusNode: _inlineLibrariesTriggerFocus,
       nextFocusNode: _settingsFocus,
       onLibraryTap: (lib) {
-        if (lib.collectionType == 'music') {
-          context.navigateTopLevel('/music/${lib.id}');
-        } else if (lib.collectionType == 'books' ||
-            lib.collectionType == 'audiobooks') {
-          context.navigateTopLevel(
-            Destinations.bookLibrary(
-              lib.id,
-              collectionType: lib.collectionType,
-            ),
-          );
-        } else if (lib.collectionType == 'livetv') {
-          context.navigateTopLevel(Destinations.liveTvGuide);
-        } else {
-          context.navigateTopLevel(
-            gameOrLibraryRoute(
-              lib.id,
-              lib.collectionType,
-              lib.name,
-              serverId: lib.serverId,
-            ),
-          );
-        }
+        context.navigateTopLevel(
+          libraryRoute(
+            lib.id,
+            lib.collectionType,
+            lib.name,
+            serverId: lib.serverId,
+          ),
+        );
       },
     );
   }

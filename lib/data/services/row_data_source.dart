@@ -97,6 +97,8 @@ class RowDataSource {
   static final Map<String, List<Map<String, dynamic>>> _recommendationCache = {};
   static final Map<String, List<AggregatedItem>> _scoredRecommendationsCache = {};
 
+  static const int _fillerCandidateCeiling = 30;
+
   static void clearRecommendationCache() {
     _recommendationCache.clear();
     _scoredRecommendationsCache.clear();
@@ -2737,17 +2739,17 @@ class RowDataSource {
           .where((p) => p['Type'] == 'Actor')
           .map((p) => p['Name']?.toString())
           .whereType<String>()
-          .toList();
+          .toSet();
       final directorNames = people
           .where((p) => p['Type'] == 'Director')
           .map((p) => p['Name']?.toString())
           .whereType<String>()
-          .toList();
+          .toSet();
       final writerNames = people
           .where((p) => p['Type'] == 'Writer')
           .map((p) => p['Name']?.toString())
           .whereType<String>()
-          .toList();
+          .toSet();
 
       final actorIds = people
           .where((p) => p['Type'] == 'Actor')
@@ -2926,8 +2928,9 @@ class RowDataSource {
         scoredCandidates.add(MapEntry(candidate, score));
       }
 
-      // If we have fewer than limit items after candidate scoring and filtering, fetch filler items
-      if (scoredCandidates.length < limit) {
+      // Asking for more than the filler can ever add would buy a request on every
+      // build that can't change the result.
+      if (scoredCandidates.length < limit.clamp(0, _fillerCandidateCeiling)) {
         try {
           final fallbackCacheKey = '$serverId:fallback:${types.join(",")}:${genres.join(",")}';
           final List<Map<String, dynamic>> items;
@@ -2977,8 +2980,7 @@ class RowDataSource {
               candidatesMap[id] = item;
               scoredCandidates.add(MapEntry(item, score));
 
-              // Cap the extra items to prevent bloating
-              if (scoredCandidates.length >= 30) {
+              if (scoredCandidates.length >= _fillerCandidateCeiling) {
                 break;
               }
             }
@@ -3483,9 +3485,9 @@ class RowDataSource {
     Map<String, dynamic> candidate, {
     required List<String> genres,
     required List<String> tags,
-    required List<String> actorNames,
-    required List<String> directorNames,
-    required List<String> writerNames,
+    required Set<String> actorNames,
+    required Set<String> directorNames,
+    required Set<String> writerNames,
     required List<String> baseStudios,
     required int? baseYear,
     required double? baseRating,
@@ -3508,9 +3510,9 @@ class RowDataSource {
     Map<String, dynamic> candidate, {
     required List<String> genres,
     required List<String> tags,
-    required List<String> actorNames,
-    required List<String> directorNames,
-    required List<String> writerNames,
+    required Set<String> actorNames,
+    required Set<String> directorNames,
+    required Set<String> writerNames,
     required List<String> baseStudios,
     required int? baseYear,
     required double? baseRating,
@@ -3536,24 +3538,9 @@ class RowDataSource {
     final cActors = cPeople.where((p) => p['Type'] == 'Actor').map((p) => p['Name']?.toString()).whereType<String>().toSet();
     final cDirectors = cPeople.where((p) => p['Type'] == 'Director').map((p) => p['Name']?.toString()).whereType<String>().toSet();
     final cWriters = cPeople.where((p) => p['Type'] == 'Writer').map((p) => p['Name']?.toString()).whereType<String>().toSet();
-    for (final a in actorNames) {
-      if (cActors.contains(a)) {
-        score += _scoreDiminishing(cActors.intersection(actorNames.toSet()).length, 10.0, 6.0, 4.0);
-        break;
-      }
-    }
-    for (final d in directorNames) {
-      if (cDirectors.contains(d)) {
-        score += _scoreDiminishing(cDirectors.intersection(directorNames.toSet()).length, 15.0, 10.0, 5.0);
-        break;
-      }
-    }
-    for (final w in writerNames) {
-      if (cWriters.contains(w)) {
-        score += _scoreDiminishing(cWriters.intersection(writerNames.toSet()).length, 15.0, 10.0, 5.0);
-        break;
-      }
-    }
+    score += _scoreDiminishing(cActors.intersection(actorNames).length, 10.0, 6.0, 4.0);
+    score += _scoreDiminishing(cDirectors.intersection(directorNames).length, 15.0, 10.0, 5.0);
+    score += _scoreDiminishing(cWriters.intersection(writerNames).length, 15.0, 10.0, 5.0);
 
     final cStudios = (candidate['Studios'] as List?)?.map((e) => e is Map ? e['Name']?.toString() : e?.toString()).whereType<String>().toSet() ?? const <String>{};
     var studioMatches = 0;

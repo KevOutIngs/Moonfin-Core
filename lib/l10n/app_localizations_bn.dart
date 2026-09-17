@@ -10580,7 +10580,10 @@ class AppLocalizationsBn extends AppLocalizations {
   String get connection => 'সংযোগ';
 
   @override
-  String get audioTranscodeTarget => 'অডিও ট্রান্সকোড লক্ষ্য';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'পাসথ্রু';

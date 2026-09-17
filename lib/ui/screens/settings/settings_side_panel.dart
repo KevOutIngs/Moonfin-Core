@@ -46,6 +46,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../util/error_message.dart';
 import '../../../playback/audio_capability_profile.dart';
 import '../../../playback/audio_capability_probe.dart';
+import '../../../playback/device_profile_builder.dart';
 import '../../../playback/external_player_service.dart';
 import '../../../playback/letterbox_croppers.dart';
 import '../../../preference/preference_constants.dart';

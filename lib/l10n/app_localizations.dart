@@ -18700,11 +18700,17 @@ abstract class AppLocalizations {
   /// **'Connection'**
   String get connection;
 
-  /// No description provided for @audioTranscodeTarget.
+  /// No description provided for @locallyDecodedCodecs.
   ///
   /// In en, this message translates to:
-  /// **'Audio Transcode Target'**
-  String get audioTranscodeTarget;
+  /// **'Locally Decoded Codecs'**
+  String get locallyDecodedCodecs;
+
+  /// No description provided for @transcodeTargetCodecs.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcode Target Codecs'**
+  String get transcodeTargetCodecs;
 
   /// No description provided for @passthrough.
   ///

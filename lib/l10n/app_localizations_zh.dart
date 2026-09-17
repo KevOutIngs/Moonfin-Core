@@ -10186,7 +10186,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get connection => '连接';
 
   @override
-  String get audioTranscodeTarget => '音频转码目标';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => '直通';
@@ -20627,9 +20630,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get connection => '連線';
-
-  @override
-  String get audioTranscodeTarget => '音訊轉碼目標';
 
   @override
   String get passthrough => '直通';

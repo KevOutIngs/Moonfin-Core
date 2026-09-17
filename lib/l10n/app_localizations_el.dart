@@ -10753,7 +10753,10 @@ class AppLocalizationsEl extends AppLocalizations {
   String get connection => 'Σύνδεση';
 
   @override
-  String get audioTranscodeTarget => 'Στόχος διακωδικοποίησης ήχου';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Διέλευση';

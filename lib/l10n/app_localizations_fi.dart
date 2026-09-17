@@ -10640,7 +10640,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get connection => 'Yhteys';
 
   @override
-  String get audioTranscodeTarget => 'Audio Transcode kohde';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Läpivienti';

@@ -10313,7 +10313,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get connection => '接続';
 
   @override
-  String get audioTranscodeTarget => 'オーディオの変換先形式';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'パススルー';

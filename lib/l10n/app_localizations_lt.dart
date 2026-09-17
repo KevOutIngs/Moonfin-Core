@@ -10659,7 +10659,10 @@ class AppLocalizationsLt extends AppLocalizations {
   String get connection => 'Ryšys';
 
   @override
-  String get audioTranscodeTarget => 'Garso perkodavimo tikslas';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Praėjimas';

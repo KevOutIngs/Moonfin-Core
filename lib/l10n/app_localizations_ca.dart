@@ -10771,7 +10771,10 @@ class AppLocalizationsCa extends AppLocalizations {
   String get connection => 'Connexió';
 
   @override
-  String get audioTranscodeTarget => 'Destí de transcodificació d\'àudio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

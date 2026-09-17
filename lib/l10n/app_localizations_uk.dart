@@ -10680,7 +10680,10 @@ class AppLocalizationsUk extends AppLocalizations {
   String get connection => 'Підключення';
 
   @override
-  String get audioTranscodeTarget => 'Мета транскодування аудіо';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Прохідний';

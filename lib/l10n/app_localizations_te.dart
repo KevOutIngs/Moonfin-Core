@@ -10671,7 +10671,10 @@ class AppLocalizationsTe extends AppLocalizations {
   String get connection => 'కనెక్షన్';
 
   @override
-  String get audioTranscodeTarget => 'ఆడియో ట్రాన్స్‌కోడ్ లక్ష్యం';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'పాస్త్రూ';

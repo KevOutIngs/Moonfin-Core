@@ -10653,7 +10653,10 @@ class AppLocalizationsLv extends AppLocalizations {
   String get connection => 'Savienojums';
 
   @override
-  String get audioTranscodeTarget => 'Audio pārkodēšanas mērķis';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Caurlaide';

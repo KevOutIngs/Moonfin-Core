@@ -10660,7 +10660,10 @@ class AppLocalizationsSl extends AppLocalizations {
   String get connection => 'Povezava';
 
   @override
-  String get audioTranscodeTarget => 'Cilj prekodiranja zvoka';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

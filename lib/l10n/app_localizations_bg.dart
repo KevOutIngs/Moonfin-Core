@@ -10699,7 +10699,10 @@ class AppLocalizationsBg extends AppLocalizations {
   String get connection => 'Връзка';
 
   @override
-  String get audioTranscodeTarget => 'Цел за аудио транскодиране';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Преминаване';

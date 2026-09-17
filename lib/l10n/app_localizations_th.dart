@@ -10526,7 +10526,10 @@ class AppLocalizationsTh extends AppLocalizations {
   String get connection => 'การเชื่อมต่อ';
 
   @override
-  String get audioTranscodeTarget => 'เป้าหมายการแปลงเสียง';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'ทะลุผ่าน';

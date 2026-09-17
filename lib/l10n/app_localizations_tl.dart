@@ -10709,7 +10709,10 @@ class AppLocalizationsTl extends AppLocalizations {
   String get connection => 'Koneksyon';
 
   @override
-  String get audioTranscodeTarget => 'Audio Transcode Target';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

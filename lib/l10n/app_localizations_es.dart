@@ -10707,7 +10707,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get connection => 'Conexión';
 
   @override
-  String get audioTranscodeTarget => 'Destino de transcodificación de audio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Paso a través';
@@ -20055,9 +20058,6 @@ class AppLocalizationsEs419 extends AppLocalizationsEs {
   String get connection => 'Conexión';
 
   @override
-  String get audioTranscodeTarget => 'Destino de transcodificación de audio';
-
-  @override
   String get passthrough => 'Paso a través';
 
   @override
@@ -27835,9 +27835,6 @@ class AppLocalizationsEsAr extends AppLocalizationsEs {
   String get connection => 'Conexión';
 
   @override
-  String get audioTranscodeTarget => 'Destino de transcodificación de audio';
-
-  @override
   String get passthrough => 'Paso a través';
 
   @override
@@ -35613,9 +35610,6 @@ class AppLocalizationsEsDo extends AppLocalizationsEs {
 
   @override
   String get connection => 'Conexión';
-
-  @override
-  String get audioTranscodeTarget => 'Destino de transcodificación de audio';
 
   @override
   String get passthrough => 'Paso a través';
@@ -43446,9 +43440,6 @@ class AppLocalizationsEsMx extends AppLocalizationsEs {
 
   @override
   String get connection => 'Conexión';
-
-  @override
-  String get audioTranscodeTarget => 'Destino de transcodificación de audio';
 
   @override
   String get passthrough => 'Paso a través';

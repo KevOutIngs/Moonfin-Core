@@ -10241,7 +10241,10 @@ class AppLocalizationsYue extends AppLocalizations {
   String get connection => '連線';
 
   @override
-  String get audioTranscodeTarget => '音訊轉碼目標';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => '直通';
@@ -19013,9 +19016,6 @@ class AppLocalizationsYueCn extends AppLocalizationsYue {
   String get connection => 'Connection';
 
   @override
-  String get audioTranscodeTarget => 'Audio Transcode Target';
-
-  @override
   String get passthrough => 'Passthrough';
 
   @override
@@ -26459,9 +26459,6 @@ class AppLocalizationsYueHk extends AppLocalizationsYue {
 
   @override
   String get connection => 'Connection';
-
-  @override
-  String get audioTranscodeTarget => 'Audio Transcode Target';
 
   @override
   String get passthrough => 'Passthrough';

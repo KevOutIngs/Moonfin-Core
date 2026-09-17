@@ -10609,7 +10609,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get connection => 'Bağlantı';
 
   @override
-  String get audioTranscodeTarget => 'Ses Yeniden Kodlama Hedefi';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Doğrudan Geçiş (Passthrough)';

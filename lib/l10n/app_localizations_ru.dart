@@ -10679,7 +10679,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get connection => 'Подключение';
 
   @override
-  String get audioTranscodeTarget => 'Целевой формат транскодирования звука';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

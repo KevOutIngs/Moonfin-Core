@@ -10824,7 +10824,10 @@ class AppLocalizationsSr extends AppLocalizations {
   String get connection => 'Веза';
 
   @override
-  String get audioTranscodeTarget => 'Циљни формат транскодирања звука';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

@@ -10635,7 +10635,10 @@ class AppLocalizationsCs extends AppLocalizations {
   String get connection => 'Spojení';
 
   @override
-  String get audioTranscodeTarget => 'Cílový formát překódování zvuku';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Průchod';

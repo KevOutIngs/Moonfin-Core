@@ -10674,7 +10674,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get connection => 'Conexão';
 
   @override
-  String get audioTranscodeTarget => 'Alvo de transcodificação de áudio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passagem';
@@ -21593,9 +21596,6 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
   String get connection => 'Conexão';
 
   @override
-  String get audioTranscodeTarget => 'Destino da transcodificação de áudio';
-
-  @override
   String get passthrough => 'Passthrough';
 
   @override
@@ -31673,9 +31673,6 @@ class AppLocalizationsPtPt extends AppLocalizationsPt {
 
   @override
   String get connection => 'Ligação';
-
-  @override
-  String get audioTranscodeTarget => 'Alvo de transcodificação de áudio';
 
   @override
   String get passthrough => 'Passagem';

@@ -10579,7 +10579,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get connection => 'اتصال';
 
   @override
-  String get audioTranscodeTarget => 'هدف تحويل الصوت';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'العبور';

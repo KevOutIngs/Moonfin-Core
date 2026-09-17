@@ -10632,7 +10632,10 @@ class AppLocalizationsUg extends AppLocalizations {
   String get connection => 'ئۇلىنىش';
 
   @override
-  String get audioTranscodeTarget => 'ئاۋاز كود ئۆزگەرتىش نىشانى';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'بىۋاسىتە ئۆتكۈزۈش';

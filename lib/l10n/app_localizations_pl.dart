@@ -10915,7 +10915,10 @@ class AppLocalizationsPl extends AppLocalizations {
   String get connection => 'Połączenie';
 
   @override
-  String get audioTranscodeTarget => 'Docelowy format transkodowania audio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Przekazywanie dźwięku';

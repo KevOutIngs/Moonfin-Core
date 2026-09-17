@@ -10676,7 +10676,10 @@ class AppLocalizationsSw extends AppLocalizations {
   String get connection => 'Muunganisho';
 
   @override
-  String get audioTranscodeTarget => 'Lengo la Kubadilisha Msimbo wa Sauti';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

@@ -10601,7 +10601,10 @@ class AppLocalizationsAf extends AppLocalizations {
   String get connection => 'Verbinding';
 
   @override
-  String get audioTranscodeTarget => 'Oudio-transkodeerteiken';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Deurloop';

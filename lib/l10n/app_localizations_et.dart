@@ -10610,7 +10610,10 @@ class AppLocalizationsEt extends AppLocalizations {
   String get connection => 'Ühendus';
 
   @override
-  String get audioTranscodeTarget => 'Heli ümberkodeerimise sihtmärk';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Läbipääs';

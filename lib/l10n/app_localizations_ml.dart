@@ -10717,7 +10717,10 @@ class AppLocalizationsMl extends AppLocalizations {
   String get connection => 'കണക്ഷൻ';
 
   @override
-  String get audioTranscodeTarget => 'ഓഡിയോ ട്രാൻസ്‌കോഡ് ലക്ഷ്യം';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'പാസ്ത്രൂ';

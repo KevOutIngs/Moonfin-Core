@@ -10667,7 +10667,10 @@ class AppLocalizationsKn extends AppLocalizations {
   String get connection => 'ಸಂಪರ್ಕ';
 
   @override
-  String get audioTranscodeTarget => 'ಆಡಿಯೋ ಟ್ರಾನ್ಸ್‌ಕೋಡ್ ಗುರಿ';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'ಪಾಸ್‌ಥ್ರೂ';

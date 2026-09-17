@@ -10587,7 +10587,10 @@ class AppLocalizationsEo extends AppLocalizations {
   String get connection => 'Konekto';
 
   @override
-  String get audioTranscodeTarget => 'Aŭdio Transkoda Celo';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Trapaso';

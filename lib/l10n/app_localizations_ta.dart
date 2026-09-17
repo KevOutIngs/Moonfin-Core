@@ -10677,7 +10677,10 @@ class AppLocalizationsTa extends AppLocalizations {
   String get connection => 'இணைப்பு';
 
   @override
-  String get audioTranscodeTarget => 'ஆடியோ டிரான்ஸ்கோட் இலக்கு';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'பாஸ்த்ரூ';

@@ -10613,7 +10613,10 @@ class AppLocalizationsSv extends AppLocalizations {
   String get connection => 'Anslutning';
 
   @override
-  String get audioTranscodeTarget => 'Målformat för ljudomkodning';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

@@ -10658,7 +10658,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get connection => 'Verbinding';
 
   @override
-  String get audioTranscodeTarget => 'Doelformaat voor audiotranscodering';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

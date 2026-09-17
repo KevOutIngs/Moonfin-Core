@@ -10646,7 +10646,10 @@ class AppLocalizationsKk extends AppLocalizations {
   String get connection => 'Қосылым';
 
   @override
-  String get audioTranscodeTarget => 'Аудио транскодтау мақсаты';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Транзит';

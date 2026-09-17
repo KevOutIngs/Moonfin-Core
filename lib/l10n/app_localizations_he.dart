@@ -10467,7 +10467,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get connection => 'חיבור';
 
   @override
-  String get audioTranscodeTarget => 'יעד המרת קידוד שמע';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'העברה ישירה';

@@ -10591,7 +10591,10 @@ class AppLocalizationsSi extends AppLocalizations {
   String get connection => 'සම්බන්ධතාව';
 
   @override
-  String get audioTranscodeTarget => 'ශ්‍රව්‍ය ට්‍රාන්ස්කෝඩ් ඉලක්කය';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'පාස්ත්‍රූ';

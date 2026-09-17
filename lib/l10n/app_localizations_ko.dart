@@ -10288,7 +10288,10 @@ class AppLocalizationsKo extends AppLocalizations {
   String get connection => '연결';
 
   @override
-  String get audioTranscodeTarget => '오디오 트랜스코딩 대상';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => '패스스루';

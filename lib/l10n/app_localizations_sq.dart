@@ -10686,7 +10686,10 @@ class AppLocalizationsSq extends AppLocalizations {
   String get connection => 'Lidhja';
 
   @override
-  String get audioTranscodeTarget => 'Formati i synuar i transkodimit audio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Kalim i drejtpërdrejtë';

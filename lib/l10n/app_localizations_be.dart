@@ -10661,7 +10661,10 @@ class AppLocalizationsBe extends AppLocalizations {
   String get connection => 'Злучэнне';
 
   @override
-  String get audioTranscodeTarget => 'Мэта перакадавання аўдыя';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Прахадны';

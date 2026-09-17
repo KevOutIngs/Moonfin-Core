@@ -10734,7 +10734,10 @@ class AppLocalizationsGl extends AppLocalizations {
   String get connection => 'Conexión';
 
   @override
-  String get audioTranscodeTarget => 'Destino da transcodificación de audio';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';

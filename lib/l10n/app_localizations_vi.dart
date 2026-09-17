@@ -10597,7 +10597,10 @@ class AppLocalizationsVi extends AppLocalizations {
   String get connection => 'Sự liên quan';
 
   @override
-  String get audioTranscodeTarget => 'Mục tiêu chuyển mã âm thanh';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Truyền qua';

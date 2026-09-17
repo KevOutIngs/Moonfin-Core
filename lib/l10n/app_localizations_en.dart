@@ -10520,7 +10520,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connection => 'Connection';
 
   @override
-  String get audioTranscodeTarget => 'Audio Transcode Target';
+  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+
+  @override
+  String get transcodeTargetCodecs => 'Transcode Target Codecs';
 
   @override
   String get passthrough => 'Passthrough';
@@ -22110,9 +22113,6 @@ class AppLocalizationsEnGb extends AppLocalizationsEn {
 
   @override
   String get connection => 'Connection';
-
-  @override
-  String get audioTranscodeTarget => 'Audio Transcode Target';
 
   @override
   String get passthrough => 'Passthrough';

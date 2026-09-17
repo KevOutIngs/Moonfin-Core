@@ -91,6 +91,7 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
       _screensaverController = GetIt.instance<ScreensaverController>();
     } catch (_) {}
     _screensaverController?.setPlaybackActive(true);
+    _screensaverController?.setNativePlayerPresented(true);
     _exitSub = _backend?.userExitStream.listen((_) => _handleExit());
     _actionSub = _backend?.uiActionStream.listen(_handleUiAction);
     final manager = _manager;
@@ -1558,6 +1559,7 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
     _positionSub?.cancel();
     _prompts?.dispose();
     _screensaverController?.setPlaybackActive(false);
+    _screensaverController?.setNativePlayerPresented(false);
     _syncPlay?.removeListener(_onSyncPlayChanged);
     _themeController?.removeListener(_onThemeChanged);
     _prefsListened?.removeListener(_onPrefsChanged);

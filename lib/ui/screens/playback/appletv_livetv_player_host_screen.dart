@@ -17,6 +17,7 @@ import '../../../preference/user_preferences.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../util/play_method_label.dart';
 import '../livetv/live_tv_guide_screen.dart';
+import '../../screensaver/screensaver_controller.dart';
 import '../../theme/app_theme_controller.dart';
 import 'osd_buttons.dart';
 
@@ -66,6 +67,7 @@ class _AppleTvLiveTvPlayerHostScreenState
   List<Map<String, dynamic>>? _channelListCache;
   bool _sweepInFlight = false;
   AppThemeController? _themeController;
+  ScreensaverController? _screensaverController;
 
   AppleTvBackend? get _backend {
     try {
@@ -80,6 +82,10 @@ class _AppleTvLiveTvPlayerHostScreenState
   @override
   void initState() {
     super.initState();
+    try {
+      _screensaverController = GetIt.instance<ScreensaverController>();
+    } catch (_) {}
+    _screensaverController?.setNativePlayerPresented(true);
     _currentIndex = widget.startIndex;
     _exitSub = _backend?.userExitStream.listen((_) => _handleExit());
     _actionSub = _backend?.uiActionStream.listen(_handleUiAction);
@@ -136,6 +142,7 @@ class _AppleTvLiveTvPlayerHostScreenState
     _bringupSub?.cancel();
     _tracksChangedSub?.cancel();
     _programRefreshTimer?.cancel();
+    _screensaverController?.setNativePlayerPresented(false);
     _themeController?.removeListener(_onThemeChanged);
     unawaited(_pipPlayer?.dispose());
     unawaited(_backend?.dismissPlayer() ?? Future<void>.value());

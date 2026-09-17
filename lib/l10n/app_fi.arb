@@ -309,7 +309,7 @@
     "@collectionPlaceholder": {
         "description": "Placeholder text for empty collection screen"
     },
-    "browseByLetter": "Selaa kirjeen mukaan",
+    "browseByLetter": "Selaa Aakkosjärjestyksessä",
     "@browseByLetter": {
         "description": "Title for alphabetical browse screen"
     },
@@ -317,7 +317,7 @@
     "@alphabeticalBrowsePlaceholder": {
         "description": "Placeholder text for alphabetical browse screen"
     },
-    "suggestions": "ehdotuksia",
+    "suggestions": "Ehdotuksia",
     "@suggestions": {
         "description": "Title for suggestions screen"
     },
@@ -325,7 +325,7 @@
     "@suggestionsPlaceholder": {
         "description": "Placeholder text for suggestions screen"
     },
-    "failedToLoadLibraries": "Kirjastojen lataaminen epäonnistui",
+    "failedToLoadLibraries": "Kirjastoja ei voitu ladata",
     "@failedToLoadLibraries": {
         "description": "Error when library list cannot be loaded"
     },
@@ -345,7 +345,7 @@
     "@allGenres": {
         "description": "Title for the all genres screen"
     },
-    "noGenresFound": "Genrejä ei löytynyt",
+    "noGenresFound": "Mitään genrejä ei löytynyt",
     "@noGenresFound": {
         "description": "Empty state when no genres are available"
     },
@@ -6397,7 +6397,7 @@
     "shuffleLibrary": "Kirjasto",
     "shuffleGenre": "Genre",
     "shuffleNoLibraries": "Yhteensopivia kirjastoja ei ole saatavilla.",
-    "shuffleNoGenres": "Tälle sekoitustilalle ei löytynyt genrejä.",
+    "shuffleNoGenres": "Tälle shuffle-tilalle ei löytynyt yhtään tyylilajia.",
     "posterDisplayTitle": "Näyttö",
     "posterImageType": "Kuvatyyppi",
     "imageTypePoster": "Juliste",
@@ -11612,7 +11612,7 @@
     "@animeMarkerFiller": {
         "description": "Badge on an anime episode that is filler, meaning it is not adapted from the source manga"
     },
-    "animeMarkerMixed": "MIxed",
+    "animeMarkerMixed": "Mixed",
     "@animeMarkerMixed": {
         "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
     },
@@ -11696,5 +11696,33 @@
     "siriRemoteSwipeSensitivityDescription": "Kuinka paljon tarkennus siirtyy jokaisen Siri Remote -kaukosäätimen kosketuslevyllä tehdyn pyyhkäisyn yhteydessä",
     "@siriRemoteSwipeSensitivityDescription": {
         "description": "Apple TV settings subtitle for the Siri Remote touchpad swipe sensitivity option"
+    },
+    "contextMenuRemoveFromCollection": "Poista Kokoelmasta",
+    "@contextMenuRemoveFromCollection": {
+        "description": "Context menu action to remove an item from the collection whose page it is shown on"
+    },
+    "removeFromCollectionConfirm": "Poistatko {item} kohteen {collection} kokoelmasta? Kohde säilyy kirjastossasi.",
+    "@removeFromCollectionConfirm": {
+        "description": "Confirmation shown before removing an item from a collection",
+        "placeholders": {
+            "item": {
+                "type": "String"
+            },
+            "collection": {
+                "type": "String"
+            }
+        }
+    },
+    "removeFromCollectionFailed": "Poistaminen kokoelmasta epäonnistui",
+    "@removeFromCollectionFailed": {
+        "description": "Error shown when removing an item from a collection fails"
+    },
+    "showBookDiscoverTab": "Näytä Kirjasto Kirjastohakutoiminto",
+    "@showBookDiscoverTab": {
+        "description": "Setting that shows or hides the discovery tab in book and audiobook libraries"
+    },
+    "showBookDiscoverTabDescription": "Selaa Open Libraryn ja LibriVoxin teoksia kirja- ja äänikirjastoissasi",
+    "@showBookDiscoverTabDescription": {
+        "description": "Explains the setting that shows or hides the discovery tab in book libraries"
     }
 }

@@ -11259,7 +11259,7 @@
     "@serverMessagesShowButton": {
         "description": "Setting that shows or hides the messages button in the menu"
     },
-    "serverMessagesShowButtonSubtitle": "Ajoute au menu un bouton pour les messages envoyés par l'administration du serveur",
+    "serverMessagesShowButtonSubtitle": "Ajoute au menu un bouton pour les messages envoyés par l'admin du serveur",
     "@serverMessagesShowButtonSubtitle": {
         "description": "Explains the setting that shows or hides the messages button"
     },

@@ -51,6 +51,7 @@ class AchievementsService extends ChangeNotifier {
   bool _leaderboardEnabled = true;
   bool _questsEnabled = true;
   bool _activityEnabled = true;
+  bool _privacyMode = false;
 
   String _base(MediaServerClient client) =>
       client.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -74,6 +75,7 @@ class AchievementsService extends ChangeNotifier {
     _leaderboardEnabled = true;
     _questsEnabled = true;
     _activityEnabled = true;
+    _privacyMode = false;
     if (!_available) return;
     debugPrint('[AchievementsService] cleared, the entry is hidden again');
     _available = false;
@@ -115,6 +117,7 @@ class AchievementsService extends ChangeNotifier {
     _leaderboardEnabled = config['LeaderboardEnabled'] != false;
     _questsEnabled = config['QuestsEnabled'] != false;
     _activityEnabled = config['ActivityFeedEnabled'] != false;
+    _privacyMode = config['ForcePrivacyMode'] == true;
     return true;
   }
 
@@ -345,6 +348,32 @@ class AchievementsService extends ChangeNotifier {
       PowerUpUseOutcome.used,
       message: body['Message'] as String?,
       slots: PowerUpState.parseSlots(body['Inventory']),
+    );
+  }
+
+  /// The counters behind the stats screen, read in one pass.
+  ///
+  /// Privacy mode hides the server wide figures from everyone, so those are
+  /// left unasked rather than fetched and dropped.
+  Future<AchievementStats> fetchStats(MediaServerClient client) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) {
+      return const AchievementStats(records: {}, watchClock: {}, server: null);
+    }
+
+    final results = await Future.wait<Map<String, dynamic>?>([
+      _getMap(client, 'users/$userId/records'),
+      _getMap(client, 'users/$userId/watch-clock'),
+      _privacyMode
+          ? Future<Map<String, dynamic>?>.value(null)
+          : _getMap(client, 'server/stats'),
+    ]);
+
+    final server = results[2];
+    return AchievementStats(
+      records: AchievementStats.parseCounters(results[0]),
+      watchClock: AchievementStats.parseWatchClock(results[1]),
+      server: server == null ? null : ServerStats.fromJson(server),
     );
   }
 

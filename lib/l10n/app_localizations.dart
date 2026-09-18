@@ -19540,6 +19540,204 @@ abstract class AppLocalizations {
   /// **'Power-ups'**
   String get achievementsPowerUps;
 
+  /// Screen of watch counters and server figures
+  ///
+  /// In en, this message translates to:
+  /// **'Stats'**
+  String get achievementsStats;
+
+  /// Subtitle on the row that opens stats
+  ///
+  /// In en, this message translates to:
+  /// **'Your records and how the server is doing'**
+  String get achievementsStatsSubtitle;
+
+  /// Section of counters for what a user has watched
+  ///
+  /// In en, this message translates to:
+  /// **'Watched'**
+  String get achievementsStatsWatched;
+
+  /// Section of a user's highest counters
+  ///
+  /// In en, this message translates to:
+  /// **'Bests'**
+  String get achievementsStatsBests;
+
+  /// Section of counters for when a user watches
+  ///
+  /// In en, this message translates to:
+  /// **'Habits'**
+  String get achievementsStatsHabits;
+
+  /// Section of counters for how widely a user watches
+  ///
+  /// In en, this message translates to:
+  /// **'Variety'**
+  String get achievementsStatsVariety;
+
+  /// Section of figures covering every user
+  ///
+  /// In en, this message translates to:
+  /// **'This server'**
+  String get achievementsStatsServer;
+
+  /// Header above the hour of day chart
+  ///
+  /// In en, this message translates to:
+  /// **'When you watch'**
+  String get achievementsStatsClock;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Items watched'**
+  String get achievementsStatItems;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Films watched'**
+  String get achievementsStatMovies;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Series finished'**
+  String get achievementsStatSeries;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Hours watched'**
+  String get achievementsStatHours;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Days watched'**
+  String get achievementsStatDays;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Rewatches'**
+  String get achievementsStatRewatches;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Best watch streak'**
+  String get achievementsStatBestWatchStreak;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Best login streak'**
+  String get achievementsStatBestLoginStreak;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Most episodes in a day'**
+  String get achievementsStatMostEpisodes;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Most films in a day'**
+  String get achievementsStatMostMovies;
+
+  /// Counter label, a run time in minutes
+  ///
+  /// In en, this message translates to:
+  /// **'Longest single item'**
+  String get achievementsStatLongestItem;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Best combo'**
+  String get achievementsStatBestCombo;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Late night sessions'**
+  String get achievementsStatLateNight;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Early morning sessions'**
+  String get achievementsStatEarlyMorning;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Weekend sessions'**
+  String get achievementsStatWeekend;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Days signed in'**
+  String get achievementsStatDaysSignedIn;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Libraries visited'**
+  String get achievementsStatLibraries;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Genres watched'**
+  String get achievementsStatGenres;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Decades watched'**
+  String get achievementsStatDecades;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Countries watched'**
+  String get achievementsStatCountries;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Languages watched'**
+  String get achievementsStatLanguages;
+
+  /// Counter label for how many people use the server
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get achievementsStatUsers;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Badges unlocked'**
+  String get achievementsStatBadgesUnlocked;
+
+  /// Counter label
+  ///
+  /// In en, this message translates to:
+  /// **'Score earned'**
+  String get achievementsStatScoreEarned;
+
+  /// Label for the badge the most users hold
+  ///
+  /// In en, this message translates to:
+  /// **'Most common badge'**
+  String get achievementsStatCommonBadge;
+
   /// Screen listing badges unlocked across the server
   ///
   /// In en, this message translates to:

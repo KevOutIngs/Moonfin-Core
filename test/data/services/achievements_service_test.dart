@@ -21,6 +21,32 @@ void main() {
     client = buildAchievementClient();
   });
 
+  group('stats', () {
+    test('records, the clock and the server come back together', () async {
+      await service.refreshAvailability(client);
+
+      final stats = await service.fetchStats(client);
+      expect(stats.records['BestWatchStreak'], 21);
+      expect(stats.records['LongestItemMinutes'], 201);
+      expect(stats.watchClock[21], 40);
+      expect(stats.server?.users, 6);
+      expect(stats.server?.mostCommonBadge, 'First Contact');
+    });
+
+    test('privacy mode leaves the server figures unasked', () async {
+      adapter.forcePrivacyMode = true;
+      await service.refreshAvailability(client);
+
+      final stats = await service.fetchStats(client);
+      expect(stats.server, isNull);
+      expect(stats.records, isNotEmpty);
+      expect(
+        adapter.requests.any((r) => r.contains('server/stats')),
+        isFalse,
+      );
+    });
+  });
+
   group('activity', () {
     test('the feed comes back newest first', () async {
       await service.refreshAvailability(client);

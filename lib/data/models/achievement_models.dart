@@ -446,6 +446,82 @@ class PowerUpUse {
   final List<PowerUpSlot> slots;
 }
 
+/// Everything the stats screen shows.
+class AchievementStats {
+  const AchievementStats({
+    required this.records,
+    required this.watchClock,
+    required this.server,
+  });
+
+  /// Counters keyed the way the plugin names them, such as `BestWatchStreak`.
+  /// Keeping the map rather than naming all twenty-seven means a counter the
+  /// plugin adds later needs a label here and nothing else.
+  final Map<String, int> records;
+
+  /// Hour of the day, 0 to 23, against how much was watched in it.
+  final Map<int, int> watchClock;
+
+  /// Null when an admin has the server figures switched off.
+  final ServerStats? server;
+
+  bool get isEmpty => records.isEmpty && watchClock.isEmpty && server == null;
+
+  /// Reads a flat object of counters, dropping anything that isn't a number.
+  static Map<String, int> parseCounters(Map<String, dynamic>? json) {
+    if (json == null) return const <String, int>{};
+    final out = <String, int>{};
+    json.forEach((key, value) {
+      if (value is num) out[key] = value.round();
+    });
+    return out;
+  }
+
+  /// Reads the clock, whose keys arrive as strings even though they are hours.
+  static Map<int, int> parseWatchClock(Map<String, dynamic>? json) {
+    if (json == null) return const <int, int>{};
+    final out = <int, int>{};
+    json.forEach((key, value) {
+      final hour = int.tryParse(key);
+      if (hour != null && value is num) out[hour] = value.round();
+    });
+    return out;
+  }
+}
+
+/// How the whole server is doing, which an admin can hide.
+class ServerStats {
+  const ServerStats({
+    required this.users,
+    required this.badgesUnlocked,
+    required this.itemsWatched,
+    required this.moviesWatched,
+    required this.seriesCompleted,
+    required this.score,
+    required this.mostCommonBadge,
+  });
+
+  final int users;
+  final int badgesUnlocked;
+  final int itemsWatched;
+  final int moviesWatched;
+  final int seriesCompleted;
+  final int score;
+  final String mostCommonBadge;
+
+  factory ServerStats.fromJson(Map<String, dynamic> json) {
+    return ServerStats(
+      users: _asInt(json['TotalUsers']),
+      badgesUnlocked: _asInt(json['TotalBadgesUnlocked']),
+      itemsWatched: _asInt(json['TotalItemsWatched']),
+      moviesWatched: _asInt(json['TotalMoviesWatched']),
+      seriesCompleted: _asInt(json['TotalSeriesCompleted']),
+      score: _asInt(json['TotalAchievementScore']),
+      mostCommonBadge: _asString(json['MostCommonBadge']),
+    );
+  }
+}
+
 /// One badge someone on this server unlocked.
 class ActivityEntry {
   const ActivityEntry({

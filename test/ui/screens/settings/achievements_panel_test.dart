@@ -18,9 +18,13 @@ void main() {
 
   /// Belongs in setUp rather than a test body. A widget test body runs against
   /// fake time, where the request timers these calls arm never fire.
-  Future<void> arrange({bool leaderboardEnabled = true}) async {
+  Future<void> arrange({
+    bool leaderboardEnabled = true,
+    bool forcePrivacyMode = false,
+  }) async {
     adapter = AchievementPluginAdapter()
-      ..leaderboardEnabled = leaderboardEnabled;
+      ..leaderboardEnabled = leaderboardEnabled
+      ..forcePrivacyMode = forcePrivacyMode;
     final dio = Dio()..httpClientAdapter = adapter;
     final service = AchievementsService(dio: dio);
     final client = buildAchievementClient();
@@ -233,6 +237,29 @@ void main() {
       expect(find.text('None held'), findsOneWidget);
     });
 
+    testWidgets('stats group the counters and show the server', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Stats'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stats'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Best watch streak'), findsOneWidget);
+      expect(find.text('21'), findsOneWidget);
+      expect(find.text('201 min'), findsOneWidget);
+
+      // The server figures sit at the foot of a long list.
+      await tester.dragUntilVisible(
+        find.text('This server'),
+        find.byType(ListView).last,
+        const Offset(0, -240),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('First Contact'), findsOneWidget);
+    });
+
     testWidgets('the activity feed says who unlocked what and when', (
       tester,
     ) async {
@@ -369,6 +396,27 @@ void main() {
       }
       fail("no badge row ever took focus, so a remote can't reach the list");
     });
+  });
+
+  group('with privacy mode on', () {
+    setUp(() => arrange(forcePrivacyMode: true));
+
+    testWidgets('privacy mode drops the server figures', (tester) async {
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Stats'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stats'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Best watch streak'), findsOneWidget);
+
+      // Scrolled to the end, so an absent heading means it was never built.
+      await tester.drag(find.byType(ListView).last, const Offset(0, -2000));
+      await tester.pumpAndSettle();
+      expect(find.text('This server'), findsNothing);
+      expect(find.text('Languages watched'), findsOneWidget);
+    });
+
   });
 
   group('with the leaderboard switched off', () {

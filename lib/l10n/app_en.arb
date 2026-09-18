@@ -10273,6 +10273,138 @@
   "@achievementsPowerUps": {
     "description": "Section header above the consumable boosts a user holds"
   },
+  "achievementsStats": "Stats",
+  "@achievementsStats": {
+    "description": "Screen of watch counters and server figures"
+  },
+  "achievementsStatsSubtitle": "Your records and how the server is doing",
+  "@achievementsStatsSubtitle": {
+    "description": "Subtitle on the row that opens stats"
+  },
+  "achievementsStatsWatched": "Watched",
+  "@achievementsStatsWatched": {
+    "description": "Section of counters for what a user has watched"
+  },
+  "achievementsStatsBests": "Bests",
+  "@achievementsStatsBests": {
+    "description": "Section of a user's highest counters"
+  },
+  "achievementsStatsHabits": "Habits",
+  "@achievementsStatsHabits": {
+    "description": "Section of counters for when a user watches"
+  },
+  "achievementsStatsVariety": "Variety",
+  "@achievementsStatsVariety": {
+    "description": "Section of counters for how widely a user watches"
+  },
+  "achievementsStatsServer": "This server",
+  "@achievementsStatsServer": {
+    "description": "Section of figures covering every user"
+  },
+  "achievementsStatsClock": "When you watch",
+  "@achievementsStatsClock": {
+    "description": "Header above the hour of day chart"
+  },
+  "achievementsStatItems": "Items watched",
+  "@achievementsStatItems": {
+    "description": "Counter label"
+  },
+  "achievementsStatMovies": "Films watched",
+  "@achievementsStatMovies": {
+    "description": "Counter label"
+  },
+  "achievementsStatSeries": "Series finished",
+  "@achievementsStatSeries": {
+    "description": "Counter label"
+  },
+  "achievementsStatHours": "Hours watched",
+  "@achievementsStatHours": {
+    "description": "Counter label"
+  },
+  "achievementsStatDays": "Days watched",
+  "@achievementsStatDays": {
+    "description": "Counter label"
+  },
+  "achievementsStatRewatches": "Rewatches",
+  "@achievementsStatRewatches": {
+    "description": "Counter label"
+  },
+  "achievementsStatBestWatchStreak": "Best watch streak",
+  "@achievementsStatBestWatchStreak": {
+    "description": "Counter label"
+  },
+  "achievementsStatBestLoginStreak": "Best login streak",
+  "@achievementsStatBestLoginStreak": {
+    "description": "Counter label"
+  },
+  "achievementsStatMostEpisodes": "Most episodes in a day",
+  "@achievementsStatMostEpisodes": {
+    "description": "Counter label"
+  },
+  "achievementsStatMostMovies": "Most films in a day",
+  "@achievementsStatMostMovies": {
+    "description": "Counter label"
+  },
+  "achievementsStatLongestItem": "Longest single item",
+  "@achievementsStatLongestItem": {
+    "description": "Counter label, a run time in minutes"
+  },
+  "achievementsStatBestCombo": "Best combo",
+  "@achievementsStatBestCombo": {
+    "description": "Counter label"
+  },
+  "achievementsStatLateNight": "Late night sessions",
+  "@achievementsStatLateNight": {
+    "description": "Counter label"
+  },
+  "achievementsStatEarlyMorning": "Early morning sessions",
+  "@achievementsStatEarlyMorning": {
+    "description": "Counter label"
+  },
+  "achievementsStatWeekend": "Weekend sessions",
+  "@achievementsStatWeekend": {
+    "description": "Counter label"
+  },
+  "achievementsStatDaysSignedIn": "Days signed in",
+  "@achievementsStatDaysSignedIn": {
+    "description": "Counter label"
+  },
+  "achievementsStatLibraries": "Libraries visited",
+  "@achievementsStatLibraries": {
+    "description": "Counter label"
+  },
+  "achievementsStatGenres": "Genres watched",
+  "@achievementsStatGenres": {
+    "description": "Counter label"
+  },
+  "achievementsStatDecades": "Decades watched",
+  "@achievementsStatDecades": {
+    "description": "Counter label"
+  },
+  "achievementsStatCountries": "Countries watched",
+  "@achievementsStatCountries": {
+    "description": "Counter label"
+  },
+  "achievementsStatLanguages": "Languages watched",
+  "@achievementsStatLanguages": {
+    "description": "Counter label"
+  },
+  "achievementsStatUsers": "Users",
+  "@achievementsStatUsers": {
+    "description": "Counter label for how many people use the server"
+  },
+  "achievementsStatBadgesUnlocked": "Badges unlocked",
+  "@achievementsStatBadgesUnlocked": {
+    "description": "Counter label"
+  },
+  "achievementsStatScoreEarned": "Score earned",
+  "@achievementsStatScoreEarned": {
+    "description": "Counter label"
+  },
+  "achievementsStatCommonBadge": "Most common badge",
+  "@achievementsStatCommonBadge": {
+    "description": "Label for the badge the most users hold"
+  },
   "achievementsActivity": "Activity",
   "@achievementsActivity": {
     "description": "Screen listing badges unlocked across the server"

@@ -27,6 +27,9 @@ class AchievementPluginAdapter implements HttpClientAdapter {
   bool questsEnabled = true;
   bool activityFeedEnabled = true;
 
+  /// Hides the server wide figures from everyone when an admin sets it.
+  bool forcePrivacyMode = false;
+
   /// One reroll a day and one a week, the same budget the plugin grants.
   int dailyRerollsLeft = 1;
   int weeklyRerollsLeft = 1;
@@ -105,7 +108,45 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         'LeaderboardEnabled': leaderboardEnabled,
         'QuestsEnabled': questsEnabled,
         'ActivityFeedEnabled': activityFeedEnabled,
-        'ForcePrivacyMode': false,
+        'ForcePrivacyMode': forcePrivacyMode,
+      };
+    } else if (path.endsWith('/records')) {
+      body = {
+        'TotalItemsWatched': 412,
+        'MoviesWatched': 88,
+        'SeriesCompleted': 9,
+        'TotalMinutesWatched': 25980,
+        'TotalHoursWatched': 433,
+        'DaysWatched': 120,
+        'RewatchCount': 14,
+        'BestWatchStreak': 21,
+        'BestLoginStreak': 30,
+        'MaxEpisodesInSingleDay': 12,
+        'MaxMoviesInSingleDay': 4,
+        'LongestItemMinutes': 201,
+        'BestComboCount': 7,
+        'LateNightSessions': 33,
+        'EarlyMorningSessions': 8,
+        'WeekendSessions': 96,
+        'DaysLoggedIn': 140,
+        'UniqueLibrariesVisited': 4,
+        'UniqueGenresWatched': 19,
+        'UniqueDecadesWatched': 6,
+        'UniqueCountriesWatched': 11,
+        'UniqueLanguagesWatched': 5,
+      };
+    } else if (path.endsWith('/watch-clock')) {
+      // Keys arrive as strings even though they are hours.
+      body = {for (var h = 0; h < 24; h++) '$h': h == 21 ? 40 : h};
+    } else if (path.endsWith('/server/stats')) {
+      body = {
+        'TotalUsers': 6,
+        'TotalBadgesUnlocked': 143,
+        'TotalItemsWatched': 2100,
+        'TotalMoviesWatched': 300,
+        'TotalSeriesCompleted': 41,
+        'MostCommonBadge': 'First Contact',
+        'TotalAchievementScore': 5400,
       };
     } else if (path.endsWith('/activity-feed')) {
       // Timed off now so the relative labels the panel draws stay predictable.

@@ -138,6 +138,15 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 ),
               DpadListTile(
                 useSettingsIconShell: true,
+                leading: const Icon(Icons.bar_chart),
+                trailing: const Icon(Icons.chevron_right),
+                title: Text(l10n.achievementsStats),
+                subtitle: Text(l10n.achievementsStatsSubtitle),
+                onTap: () =>
+                    context.pushSettingsScreen(const _StatsScreen()),
+              ),
+              DpadListTile(
+                useSettingsIconShell: true,
                 leading: const Icon(Icons.insights),
                 trailing: const Icon(Icons.chevron_right),
                 title: Text(l10n.achievementsRecap),
@@ -1169,6 +1178,256 @@ class _LoadoutScreenState extends State<_LoadoutScreen>
           ],
         ),
       ],
+    );
+  }
+}
+
+/// A run of counters under one heading.
+class _StatGroup {
+  const _StatGroup(this.header, this.rows);
+
+  final String header;
+
+  /// The plugin's own key against the label to show it under.
+  final List<(String, String)> rows;
+}
+
+/// The counters worth showing, in the order they read best.
+///
+/// The plugin sends more than this. What is left out is either a duplicate of
+/// something here, like minutes beside hours, or plumbing a badge counts on
+/// that means nothing on its own.
+List<_StatGroup> _statGroups(AppLocalizations l10n) => [
+  _StatGroup(l10n.achievementsStatsWatched, [
+    ('TotalItemsWatched', l10n.achievementsStatItems),
+    ('MoviesWatched', l10n.achievementsStatMovies),
+    ('SeriesCompleted', l10n.achievementsStatSeries),
+    ('TotalHoursWatched', l10n.achievementsStatHours),
+    ('DaysWatched', l10n.achievementsStatDays),
+    ('RewatchCount', l10n.achievementsStatRewatches),
+  ]),
+  _StatGroup(l10n.achievementsStatsBests, [
+    ('BestWatchStreak', l10n.achievementsStatBestWatchStreak),
+    ('BestLoginStreak', l10n.achievementsStatBestLoginStreak),
+    ('MaxEpisodesInSingleDay', l10n.achievementsStatMostEpisodes),
+    ('MaxMoviesInSingleDay', l10n.achievementsStatMostMovies),
+    ('LongestItemMinutes', l10n.achievementsStatLongestItem),
+    ('BestComboCount', l10n.achievementsStatBestCombo),
+  ]),
+  _StatGroup(l10n.achievementsStatsHabits, [
+    ('LateNightSessions', l10n.achievementsStatLateNight),
+    ('EarlyMorningSessions', l10n.achievementsStatEarlyMorning),
+    ('WeekendSessions', l10n.achievementsStatWeekend),
+    ('DaysLoggedIn', l10n.achievementsStatDaysSignedIn),
+  ]),
+  _StatGroup(l10n.achievementsStatsVariety, [
+    ('UniqueLibrariesVisited', l10n.achievementsStatLibraries),
+    ('UniqueGenresWatched', l10n.achievementsStatGenres),
+    ('UniqueDecadesWatched', l10n.achievementsStatDecades),
+    ('UniqueCountriesWatched', l10n.achievementsStatCountries),
+    ('UniqueLanguagesWatched', l10n.achievementsStatLanguages),
+  ]),
+];
+
+class _StatsScreen extends StatefulWidget {
+  const _StatsScreen();
+
+  @override
+  State<_StatsScreen> createState() => _StatsScreenState();
+}
+
+class _StatsScreenState extends State<_StatsScreen>
+    with _LoadsOnOpen<_StatsScreen> {
+  AchievementStats _stats = const AchievementStats(
+    records: {},
+    watchClock: {},
+    server: null,
+  );
+
+  @override
+  Future<void> fetch(MediaServerClient client) async {
+    _stats = await GetIt.instance<AchievementsService>().fetchStats(client);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _AchievementsScaffold(
+      title: l10n.achievementsStats,
+      builder: (context) {
+        if (loading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_stats.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l10n.achievementsNothingHere),
+          );
+        }
+        return _buildBody(context, l10n);
+      },
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    final server = _stats.server;
+    return ListView(
+      padding: _listPadding,
+      children: [
+        for (final group in _statGroups(l10n))
+          ..._section(group.header, [
+            for (final (key, label) in group.rows)
+              if (_stats.records.containsKey(key))
+                _StatRow(
+                  label: label,
+                  // The one counter that is a run time rather than a tally.
+                  value: key == 'LongestItemMinutes'
+                      ? l10n.minutesShort(_stats.records[key]!)
+                      : '${_stats.records[key]}',
+                ),
+          ]),
+        if (_stats.watchClock.isNotEmpty) ...[
+          SettingsSectionHeader(l10n.achievementsStatsClock),
+          _WatchClock(hours: _stats.watchClock),
+        ],
+        if (server != null)
+          ..._section(l10n.achievementsStatsServer, [
+            _StatRow(
+              label: l10n.achievementsStatUsers,
+              value: '${server.users}',
+            ),
+            _StatRow(
+              label: l10n.achievementsStatBadgesUnlocked,
+              value: '${server.badgesUnlocked}',
+            ),
+            _StatRow(
+              label: l10n.achievementsStatItems,
+              value: '${server.itemsWatched}',
+            ),
+            _StatRow(
+              label: l10n.achievementsStatMovies,
+              value: '${server.moviesWatched}',
+            ),
+            _StatRow(
+              label: l10n.achievementsStatSeries,
+              value: '${server.seriesCompleted}',
+            ),
+            _StatRow(
+              label: l10n.achievementsStatScoreEarned,
+              value: '${server.score}',
+            ),
+            if (server.mostCommonBadge.isNotEmpty)
+              _StatRow(
+                label: l10n.achievementsStatCommonBadge,
+                value: server.mostCommonBadge,
+              ),
+          ]),
+      ],
+    );
+  }
+
+  /// A heading and its rows, or nothing when the server sent none of them.
+  List<Widget> _section(String header, List<Widget> rows) => rows.isEmpty
+      ? const []
+      : [SettingsSectionHeader(header), adaptiveListSection(children: rows)];
+}
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => _AchievementRow(
+    builder: (context, highlighted) => ListTile(
+      dense: true,
+      title: Text(label),
+      trailing: Text(
+        value,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: _primaryText(highlighted),
+        ),
+      ),
+    ),
+  );
+}
+
+class _WatchClock extends StatelessWidget {
+  const _WatchClock({required this.hours});
+
+  final Map<int, int> hours;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final busiest = hours.values.fold(0, (a, b) => a > b ? a : b);
+    if (busiest == 0) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 56,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (var hour = 0; hour < 24; hour++)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 1),
+                      child: _ClockBar(
+                        // A share of the busiest hour, with a floor so an hour
+                        // with nothing in it still reads as a column.
+                        fraction: (hours[hour] ?? 0) / busiest,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final hour in const [0, 6, 12, 18, 23])
+                Text(
+                  '$hour',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: _secondaryText(false),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClockBar extends StatelessWidget {
+  const _ClockBar({required this.fraction});
+
+  final double fraction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: FractionallySizedBox(
+        heightFactor: (2 + 54 * fraction) / 56,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fraction == 0
+                ? _trackColor(false)
+                : AppColorScheme.accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ),
     );
   }
 }

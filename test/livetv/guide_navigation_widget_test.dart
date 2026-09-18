@@ -928,4 +928,58 @@ void main() {
       expect(_focusedLabel(), 'GuideChannel:2');
     },
   );
+
+  testWidgets(
+    'a back press re-homes to row 0 when no channel has ever been tuned',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LiveTvGuideScreen(),
+                ),
+              ),
+              child: const Text('open guide'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open guide'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+
+      // liveTvLastChannelId is empty (never tuned), so the guide entered on
+      // row 0 by falling back to it in _scheduleInitialChannelFocus. Move
+      // focus onto another channel and page the window off live.
+      _nodeLabelled(tester, 'GuideChannel:3').requestFocus();
+      await tester.pumpAndSettle();
+
+      final before = _windowRangeText(tester);
+      _nodeLabelled(tester, 'GuideWindowBar:0').requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final after = _windowRangeText(tester);
+      expect(after, isNot(before), reason: 'window did not page');
+
+      await tester.binding.handlePopRoute();
+      // The reset now schedules its own frames for both deferred
+      // postFrameCallbacks, so ordinary pumping settles it without waiting
+      // on the guide's periodic display-clock timer.
+      await tester.pumpAndSettle();
+
+      // Back re-homed to row 0, not exited the guide -- even though no
+      // channel has ever actually been tuned.
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+      expect(_focusedLabel(), 'GuideChannel:0');
+    },
+  );
 }

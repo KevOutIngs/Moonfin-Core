@@ -2115,26 +2115,40 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
 
   /// True once the user has paged the window off live or moved focus onto a
   /// channel other than [_homeChannelId] -- anywhere in the grid, channel
-  /// column included.
+  /// column included. When nothing has ever been tuned, row 0 stands in for
+  /// home, since that is where [_scheduleInitialChannelFocus] falls back to
+  /// on first use; checked by real focus on that row's node rather than
+  /// channel identity, since a genre filter can swap which channel sits at
+  /// row 0 without moving focus off a node that was already focused there.
   bool _isExploringAwayFromEntry() {
     final homeId = _homeChannelId;
-    if (homeId == null) return false;
-    return !_vm.atLivePosition || _focusedChannel.value?.id != homeId;
+    if (homeId != null) {
+      return !_vm.atLivePosition || _focusedChannel.value?.id != homeId;
+    }
+    if (_vm.filteredChannels.isEmpty) return false;
+    return !_vm.atLivePosition || !_channelFocusNodeFor(0).hasFocus;
   }
 
   /// Resets to [_homeChannelId], re-resolving it into
   /// [LiveTvGuideViewModel.filteredChannels] AFTER [_goToNow] reloads the
   /// lineup, since a genre filter can change which channels are present
   /// during that reload -- resolving before it would risk landing on
-  /// whatever channel now sits at a stale index.
+  /// whatever channel now sits at a stale index. With nothing ever tuned,
+  /// resets to row 0 instead, the same first-use fallback as
+  /// [_scheduleInitialChannelFocus].
   Future<void> _resetToEntryState() async {
     await _goToNow();
     if (!mounted) return;
     final homeId = _homeChannelId;
-    if (homeId == null) return;
     final channels = _vm.filteredChannels;
-    final index = channels.indexWhere((channel) => channel.id == homeId);
-    if (index < 0) return;
+    int index;
+    if (homeId != null) {
+      index = channels.indexWhere((channel) => channel.id == homeId);
+      if (index < 0) return;
+    } else {
+      if (channels.isEmpty) return;
+      index = 0;
+    }
     // Set the tracked focus target directly instead of waiting on the
     // channel row's own focus-change callback: the row can be scrolled many
     // screens away, so its FocusNode isn't attached until the list has
@@ -2170,15 +2184,20 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// of exiting. Returns true when it handled the press. Resolves the entry
   /// channel's index before committing to consume the press, so a genre
   /// filter that excludes the entry channel falls through to the normal
-  /// close/exit path instead of consuming back presses forever.
+  /// close/exit path instead of consuming back presses forever. With no
+  /// channel ever tuned, the target is row 0 as long as the lineup is
+  /// non-empty.
   bool _consumeBackIfExploring() {
     if (!_isExploringAwayFromEntry()) return false;
     final homeId = _homeChannelId;
-    if (homeId == null) return false;
-    final index = _vm.filteredChannels.indexWhere(
-      (channel) => channel.id == homeId,
-    );
-    if (index < 0) return false;
+    if (homeId != null) {
+      final index = _vm.filteredChannels.indexWhere(
+        (channel) => channel.id == homeId,
+      );
+      if (index < 0) return false;
+    } else if (_vm.filteredChannels.isEmpty) {
+      return false;
+    }
     unawaited(_resetToEntryState());
     return true;
   }

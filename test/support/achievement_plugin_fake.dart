@@ -25,6 +25,7 @@ class AchievementPluginAdapter implements HttpClientAdapter {
   /// The plugin's admin switches.
   bool leaderboardEnabled = true;
   bool questsEnabled = true;
+  bool activityFeedEnabled = true;
 
   /// One reroll a day and one a week, the same budget the plugin grants.
   int dailyRerollsLeft = 1;
@@ -103,7 +104,45 @@ class AchievementPluginAdapter implements HttpClientAdapter {
       body = {
         'LeaderboardEnabled': leaderboardEnabled,
         'QuestsEnabled': questsEnabled,
+        'ActivityFeedEnabled': activityFeedEnabled,
         'ForcePrivacyMode': false,
+      };
+    } else if (path.endsWith('/activity-feed')) {
+      // Timed off now so the relative labels the panel draws stay predictable.
+      final now = DateTime.now();
+      body = {
+        'Page': 1,
+        'PageSize': 30,
+        'TotalPages': 1,
+        'TotalEntries': 2,
+        'Entries': [
+          {
+            'At': now
+                .subtract(const Duration(hours: 2))
+                .toUtc()
+                .toIso8601String(),
+            'UserId': 'user1',
+            'UserName': 'Ada',
+            'BadgeId': 'first-contact',
+            'Title': 'First Contact',
+            'Rarity': 'Common',
+            'Icon': 'rocket_launch',
+            'Category': 'Getting Started',
+          },
+          {
+            'At': now
+                .subtract(const Duration(days: 3))
+                .toUtc()
+                .toIso8601String(),
+            'UserId': 'user2',
+            'UserName': 'Grace',
+            'BadgeId': 'binge-titan',
+            'Title': 'Binge Titan',
+            'Rarity': 'Epic',
+            'Icon': 'bolt',
+            'Category': 'Binge',
+          },
+        ],
       };
     } else if (path.endsWith('/shop/catalog')) {
       body = {'PowerUps': catalog, 'Cosmetics': const <dynamic>[]};

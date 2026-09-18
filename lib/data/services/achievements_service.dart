@@ -50,6 +50,7 @@ class AchievementsService extends ChangeNotifier {
 
   bool _leaderboardEnabled = true;
   bool _questsEnabled = true;
+  bool _activityEnabled = true;
 
   String _base(MediaServerClient client) =>
       client.baseUrl.replaceAll(RegExp(r'/+$'), '');
@@ -72,6 +73,7 @@ class AchievementsService extends ChangeNotifier {
   void reset() {
     _leaderboardEnabled = true;
     _questsEnabled = true;
+    _activityEnabled = true;
     if (!_available) return;
     debugPrint('[AchievementsService] cleared, the entry is hidden again');
     _available = false;
@@ -112,6 +114,7 @@ class AchievementsService extends ChangeNotifier {
 
     _leaderboardEnabled = config['LeaderboardEnabled'] != false;
     _questsEnabled = config['QuestsEnabled'] != false;
+    _activityEnabled = config['ActivityFeedEnabled'] != false;
     return true;
   }
 
@@ -271,6 +274,7 @@ class AchievementsService extends ChangeNotifier {
       libraryCompletion: _readCompletion(completion),
       leaderboardEnabled: _leaderboardEnabled,
       questsEnabled: _questsEnabled,
+      activityEnabled: _activityEnabled,
     );
   }
 
@@ -342,6 +346,27 @@ class AchievementsService extends ChangeNotifier {
       message: body['Message'] as String?,
       slots: PowerUpState.parseSlots(body['Inventory']),
     );
+  }
+
+  /// What the server has unlocked lately, newest first.
+  ///
+  /// An admin can switch the feed off, in which case this answers empty rather
+  /// than asking. It can also come back empty because everyone on the server
+  /// has opted out of appearing in it.
+  Future<List<ActivityEntry>> fetchActivity(
+    MediaServerClient client, {
+    int limit = 30,
+  }) async {
+    if (!_activityEnabled) return const <ActivityEntry>[];
+
+    final json = await _getMap(
+      client,
+      'activity-feed',
+      query: {'page': 1, 'pageSize': limit},
+    );
+    return json == null
+        ? const <ActivityEntry>[]
+        : ActivityEntry.parseFeed(json);
   }
 
   /// What the shop sells, narrowed to the power-ups.

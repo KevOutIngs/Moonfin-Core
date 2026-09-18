@@ -446,6 +446,36 @@ class PowerUpUse {
   final List<PowerUpSlot> slots;
 }
 
+/// One badge someone on this server unlocked.
+class ActivityEntry {
+  const ActivityEntry({
+    required this.at,
+    required this.userName,
+    required this.badgeTitle,
+    required this.rarity,
+    required this.icon,
+  });
+
+  final DateTime? at;
+  final String userName;
+  final String badgeTitle;
+  final String rarity;
+  final String icon;
+
+  factory ActivityEntry.fromJson(Map<String, dynamic> json) {
+    return ActivityEntry(
+      at: _asDate(json['At']),
+      userName: _asString(json['UserName']),
+      badgeTitle: _asString(json['Title']),
+      rarity: _asString(json['Rarity']),
+      icon: _asString(json['Icon']),
+    );
+  }
+
+  static List<ActivityEntry> parseFeed(Map<String, dynamic> json) =>
+      _mapList(json['Entries'], ActivityEntry.fromJson);
+}
+
 /// One thing the shop sells.
 ///
 /// The name and description the catalogue carries are English only, so only
@@ -613,6 +643,7 @@ class AchievementsOverview {
     required this.libraryCompletion,
     required this.leaderboardEnabled,
     required this.questsEnabled,
+    required this.activityEnabled,
   });
 
   final AchievementSummary? summary;
@@ -628,6 +659,7 @@ class AchievementsOverview {
 
   /// Admin switches from the plugin's config. The panel hides a section the
   /// server turned off rather than drawing an empty one.
+  final bool activityEnabled;
   final bool leaderboardEnabled;
   final bool questsEnabled;
 }

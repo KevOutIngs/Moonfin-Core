@@ -21,6 +21,29 @@ void main() {
     client = buildAchievementClient();
   });
 
+  group('activity', () {
+    test('the feed comes back newest first', () async {
+      await service.refreshAvailability(client);
+
+      final entries = await service.fetchActivity(client);
+      expect(entries, hasLength(2));
+      expect(entries.first.userName, 'Ada');
+      expect(entries.first.badgeTitle, 'First Contact');
+      expect(entries.first.rarity, 'Common');
+    });
+
+    test('an admin who turned the feed off is not asked for it', () async {
+      adapter.activityFeedEnabled = false;
+      await service.refreshAvailability(client);
+
+      expect(await service.fetchActivity(client), isEmpty);
+      expect(
+        adapter.requests.any((r) => r.contains('activity-feed')),
+        isFalse,
+      );
+    });
+  });
+
   group('shop', () {
     test('only the power-ups are read from the catalogue', () async {
       final items = await service.fetchShopPowerUps(client);

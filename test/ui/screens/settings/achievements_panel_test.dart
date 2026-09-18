@@ -233,6 +233,19 @@ void main() {
       expect(find.text('None held'), findsOneWidget);
     });
 
+    testWidgets('the activity feed says who unlocked what and when', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+      await tester.tap(find.text('Activity'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ada unlocked First Contact'), findsOneWidget);
+      expect(find.text('2h ago'), findsOneWidget);
+      expect(find.text('Grace unlocked Binge Titan'), findsOneWidget);
+      expect(find.text('3d ago'), findsOneWidget);
+    });
+
     testWidgets('the shop sells a pack and spends the bank', (tester) async {
       await pumpPanel(tester);
       await tester.ensureVisible(find.text('Loadout'));

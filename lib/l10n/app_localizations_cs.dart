@@ -11132,6 +11132,18 @@ class AppLocalizationsCs extends AppLocalizations {
   String get achievementsPowerUps => 'Power-ups';
 
   @override
+  String get achievementsActivity => 'Activity';
+
+  @override
+  String get achievementsActivitySubtitle =>
+      'What the server has unlocked lately';
+
+  @override
+  String achievementsActivityUnlocked(String user, String badge) {
+    return '$user unlocked $badge';
+  }
+
+  @override
   String get achievementsShop => 'Shop';
 
   @override

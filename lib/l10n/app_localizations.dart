@@ -19540,6 +19540,24 @@ abstract class AppLocalizations {
   /// **'Power-ups'**
   String get achievementsPowerUps;
 
+  /// Screen listing badges unlocked across the server
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get achievementsActivity;
+
+  /// Subtitle on the row that opens the activity feed
+  ///
+  /// In en, this message translates to:
+  /// **'What the server has unlocked lately'**
+  String get achievementsActivitySubtitle;
+
+  /// One line of the activity feed
+  ///
+  /// In en, this message translates to:
+  /// **'{user} unlocked {badge}'**
+  String achievementsActivityUnlocked(String user, String badge);
+
   /// Screen selling power-ups for score
   ///
   /// In en, this message translates to:

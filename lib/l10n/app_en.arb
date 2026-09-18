@@ -10273,6 +10273,26 @@
   "@achievementsPowerUps": {
     "description": "Section header above the consumable boosts a user holds"
   },
+  "achievementsActivity": "Activity",
+  "@achievementsActivity": {
+    "description": "Screen listing badges unlocked across the server"
+  },
+  "achievementsActivitySubtitle": "What the server has unlocked lately",
+  "@achievementsActivitySubtitle": {
+    "description": "Subtitle on the row that opens the activity feed"
+  },
+  "achievementsActivityUnlocked": "{user} unlocked {badge}",
+  "@achievementsActivityUnlocked": {
+    "description": "One line of the activity feed",
+    "placeholders": {
+      "user": {
+        "type": "String"
+      },
+      "badge": {
+        "type": "String"
+      }
+    }
+  },
   "achievementsShop": "Shop",
   "@achievementsShop": {
     "description": "Screen selling power-ups for score"

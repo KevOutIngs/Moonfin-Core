@@ -9,6 +9,7 @@ import '../../../data/services/achievements_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../util/achievement_icons.dart';
 import '../../../util/focus/dpad_keys.dart';
+import '../../../util/relative_time_label.dart';
 import '../../../util/platform_detection.dart';
 import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
@@ -34,31 +35,15 @@ class AchievementsScreen extends StatefulWidget {
   State<AchievementsScreen> createState() => _AchievementsScreenState();
 }
 
-class _AchievementsScreenState extends State<AchievementsScreen> {
+class _AchievementsScreenState extends State<AchievementsScreen>
+    with _LoadsOnOpen<AchievementsScreen> {
   AchievementsOverview? _overview;
-  bool _loading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final client = _client();
-    if (client == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-
-    final overview = await GetIt.instance<AchievementsService>().loadOverview(
+  Future<void> fetch(MediaServerClient client) async {
+    _overview = await GetIt.instance<AchievementsService>().loadOverview(
       client,
     );
-    if (!mounted) return;
-    setState(() {
-      _overview = overview;
-      _loading = false;
-    });
   }
 
   @override
@@ -71,7 +56,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   }
 
   Widget _buildBody(BuildContext context, AppLocalizations l10n) {
-    if (_loading) {
+    if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -80,8 +65,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       return _RetryPanel(
         message: l10n.achievementsLoadFailed,
         onRetry: () {
-          setState(() => _loading = true);
-          _load();
+          setState(() => loading = true);
+          reload();
         },
       );
     }
@@ -90,7 +75,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final completion = overview.libraryCompletion;
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: reload,
       child: ListView(
         padding: _listPadding,
         children: [
@@ -129,6 +114,16 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   ),
                   onTap: () =>
                       context.pushSettingsScreen(_QuestsScreen(quests: quests)),
+                ),
+              if (overview.activityEnabled)
+                DpadListTile(
+                  useSettingsIconShell: true,
+                  leading: const Icon(Icons.bolt),
+                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(l10n.achievementsActivity),
+                  subtitle: Text(l10n.achievementsActivitySubtitle),
+                  onTap: () =>
+                      context.pushSettingsScreen(const _ActivityScreen()),
                 ),
               if (overview.leaderboardEnabled)
                 DpadListTile(
@@ -295,6 +290,37 @@ class _AchievementRowState extends State<_AchievementRow> {
 /// twice. Off TV there is no row handler, so the tile carries the tap.
 VoidCallback? _tileTap(VoidCallback onTap) =>
     PlatformDetection.isTV ? null : onTap;
+
+/// Fetches once when a screen opens and holds the spinner until it lands.
+///
+/// Every screen here loads the same way, and the case worth stating once is a
+/// session that ended while the panel was open, which leaves no client to ask
+/// and has to drop the spinner rather than wait forever.
+mixin _LoadsOnOpen<T extends StatefulWidget> on State<T> {
+  bool loading = true;
+
+  /// Reads whatever the screen shows into its own fields. The reload around
+  /// this puts the result on screen, so nothing here needs setState.
+  Future<void> fetch(MediaServerClient client);
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  Future<void> reload() async {
+    final client = _client();
+    if (client == null) {
+      if (mounted) setState(() => loading = false);
+      return;
+    }
+
+    await fetch(client);
+    if (!mounted) return;
+    setState(() => loading = false);
+  }
+}
 
 /// The score a user still has to spend, above whatever it can be spent on.
 class _ScoreBank extends StatelessWidget {
@@ -945,32 +971,16 @@ class _BadgeChaseScreen extends StatefulWidget {
   State<_BadgeChaseScreen> createState() => _BadgeChaseScreenState();
 }
 
-class _BadgeChaseScreenState extends State<_BadgeChaseScreen> {
+class _BadgeChaseScreenState extends State<_BadgeChaseScreen>
+    with _LoadsOnOpen<_BadgeChaseScreen> {
   BadgeChase? _chase;
-  bool _loading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final client = _client();
-    if (client == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-
-    final chase = await GetIt.instance<AchievementsService>().fetchBadgeChase(
+  Future<void> fetch(MediaServerClient client) async {
+    _chase = await GetIt.instance<AchievementsService>().fetchBadgeChase(
       client,
       widget.badge.id,
     );
-    if (!mounted) return;
-    setState(() {
-      _chase = chase;
-      _loading = false;
-    });
   }
 
   String _itemSubtitle(AppLocalizations l10n, ChaseItem item) => [
@@ -986,7 +996,7 @@ class _BadgeChaseScreenState extends State<_BadgeChaseScreen> {
 
     return _AchievementsScaffold(
       title: badge.isSecret ? l10n.achievementsHiddenBadge : badge.title,
-      builder: (context) => _loading
+      builder: (context) => loading
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(context, l10n),
     );
@@ -1062,32 +1072,14 @@ class _LoadoutScreen extends StatefulWidget {
   State<_LoadoutScreen> createState() => _LoadoutScreenState();
 }
 
-class _LoadoutScreenState extends State<_LoadoutScreen> {
+class _LoadoutScreenState extends State<_LoadoutScreen>
+    with _LoadsOnOpen<_LoadoutScreen> {
   PowerUpState? _state;
-  bool _loading = true;
   bool _busy = false;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final client = _client();
-    if (client == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-
-    final state = await GetIt.instance<AchievementsService>().fetchPowerUps(
-      client,
-    );
-    if (!mounted) return;
-    setState(() {
-      _state = state;
-      _loading = false;
-    });
+  Future<void> fetch(MediaServerClient client) async {
+    _state = await GetIt.instance<AchievementsService>().fetchPowerUps(client);
   }
 
   Future<void> _use(AppLocalizations l10n, PowerUpSlot slot) async {
@@ -1127,7 +1119,7 @@ class _LoadoutScreenState extends State<_LoadoutScreen> {
     final l10n = AppLocalizations.of(context);
     return _AchievementsScaffold(
       title: l10n.achievementsLoadout,
-      builder: (context) => _loading
+      builder: (context) => loading
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(context, l10n),
     );
@@ -1139,8 +1131,8 @@ class _LoadoutScreenState extends State<_LoadoutScreen> {
       return _RetryPanel(
         message: l10n.achievementsLoadFailed,
         onRetry: () {
-          setState(() => _loading = true);
-          _load();
+          setState(() => loading = true);
+          reload();
         },
       );
     }
@@ -1171,12 +1163,97 @@ class _LoadoutScreenState extends State<_LoadoutScreen> {
               // bank and the stock this screen is showing.
               onTap: () async {
                 await context.pushSettingsScreen(const _ShopScreen());
-                if (mounted) _load();
+                if (mounted) reload();
               },
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ActivityScreen extends StatefulWidget {
+  const _ActivityScreen();
+
+  @override
+  State<_ActivityScreen> createState() => _ActivityScreenState();
+}
+
+class _ActivityScreenState extends State<_ActivityScreen>
+    with _LoadsOnOpen<_ActivityScreen> {
+  List<ActivityEntry> _entries = const [];
+
+  @override
+  Future<void> fetch(MediaServerClient client) async {
+    _entries = await GetIt.instance<AchievementsService>().fetchActivity(
+      client,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _AchievementsScaffold(
+      title: l10n.achievementsActivity,
+      builder: (context) {
+        if (loading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (_entries.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l10n.achievementsNothingHere),
+          );
+        }
+        return ListView(
+          padding: _listPadding,
+          children: [
+            adaptiveListSection(
+              children: [
+                for (final entry in _entries) _ActivityTile(entry: entry),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({required this.entry});
+
+  final ActivityEntry entry;
+
+  @override
+  Widget build(BuildContext context) => _AchievementRow(
+    builder: (context, highlighted) => _tile(context, highlighted),
+  );
+
+  Widget _tile(BuildContext context, bool highlighted) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final colour = _hueOn(_rarityColor(entry.rarity), highlighted);
+    final at = entry.at;
+
+    return ListTile(
+      leading: _TileIcon(
+        icon: achievementIcon(entry.icon),
+        colour: colour,
+        highlighted: highlighted,
+      ),
+      title: Text(
+        l10n.achievementsActivityUnlocked(entry.userName, entry.badgeTitle),
+      ),
+      subtitle: at == null
+          ? null
+          : Text(
+              relativeTimeLabel(l10n, at),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: _secondaryText(highlighted),
+              ),
+            ),
     );
   }
 }
@@ -1189,37 +1266,22 @@ class _ShopScreen extends StatefulWidget {
   State<_ShopScreen> createState() => _ShopScreenState();
 }
 
-class _ShopScreenState extends State<_ShopScreen> {
+class _ShopScreenState extends State<_ShopScreen>
+    with _LoadsOnOpen<_ShopScreen> {
   List<ShopPowerUp> _items = const [];
   int _bank = 0;
-  bool _loading = true;
   bool _busy = false;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final client = _client();
-    if (client == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-
+  Future<void> fetch(MediaServerClient client) async {
     final service = GetIt.instance<AchievementsService>();
     // The catalogue carries no bank, so the two are read together.
     final results = await Future.wait([
       service.fetchShopPowerUps(client),
       service.fetchPowerUps(client),
     ]);
-    if (!mounted) return;
-    setState(() {
-      _items = results[0] as List<ShopPowerUp>;
-      _bank = (results[1] as PowerUpState?)?.bank ?? 0;
-      _loading = false;
-    });
+    _items = results[0] as List<ShopPowerUp>;
+    _bank = (results[1] as PowerUpState?)?.bank ?? 0;
   }
 
   Future<void> _buy(AppLocalizations l10n, ShopPowerUp item) async {
@@ -1257,7 +1319,7 @@ class _ShopScreenState extends State<_ShopScreen> {
     final l10n = AppLocalizations.of(context);
     return _AchievementsScaffold(
       title: l10n.achievementsShop,
-      builder: (context) => _loading
+      builder: (context) => loading
           ? const Center(child: CircularProgressIndicator())
           : _buildBody(context, l10n),
     );

@@ -11,6 +11,7 @@ import 'package:server_core/server_core.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 import 'package:volume_controller/volume_controller.dart';
 
+import '../../../data/services/log_service.dart';
 import '../../../data/utils/video_range_label.dart';
 import '../../../playback/subtitle_style.dart';
 import '../../../data/models/aggregated_item.dart';
@@ -108,6 +109,9 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
   GuideProgram? _currentProgram;
   Timer? _programRefreshTimer;
   StreamSubscription<PlayerBackend>? _backendSub;
+
+  /// Guards the focus reclaim below against fighting another widget forever.
+  bool _reclaimingFocus = false;
   StreamSubscription<bool>? _screensaverPlayingSub;
 
   // Brightness and volume swipe gesture state (mobile/tablet). Left half of the
@@ -174,6 +178,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
       setState(() {});
     });
     _listenForPlayerTrackChanges();
+    FocusManager.instance.addListener(_onGlobalFocusChanged);
     _tvPlayPauseFocus.addListener(_onControlFocusChanged);
     _tvChannelsFocus.addListener(_onControlFocusChanged);
     _tvAudioFocus.addListener(_onControlFocusChanged);
@@ -208,6 +213,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     _hideTimer?.cancel();
     _programRefreshTimer?.cancel();
     _backendSub?.cancel();
+    FocusManager.instance.removeListener(_onGlobalFocusChanged);
     _tracksChangedSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _volumeOverlayTimer?.cancel();
@@ -675,6 +681,44 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     unawaited(_fetchCurrentProgram());
     _warmChannelCarousel();
     return true;
+  }
+
+  /// Takes focus back when something off-screen steals it.
+  ///
+  /// While this player is the route on top, every remote key belongs to it.
+  /// A screen underneath that defers a focus request to a post-frame callback
+  /// can land it after the player opened -- the route below is still mounted,
+  /// so its own `mounted` check passes -- and from then on the remote appears
+  /// dead: keys go to a widget nobody can see and the overlay never opens.
+  /// The screens that did this are fixed, but this is the cheap backstop that
+  /// makes the player robust against any other one, and the symptom is bad
+  /// enough to be worth belt and braces.
+  void _onGlobalFocusChanged() {
+    if (!mounted || _isStopping || _reclaimingFocus) return;
+    final route = ModalRoute.of(context);
+    // Not our turn: a dialog or another screen is legitimately on top.
+    if (route != null && !route.isCurrent) return;
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused == null) return;
+    // Anything inside this screen -- the overlay buttons, the channel
+    // carousel -- is ours and keeps what it took.
+    if (focused == _overlayFocus || _overlayFocus.descendants.contains(focused)) {
+      return;
+    }
+    _reclaimingFocus = true;
+    GetIt.instance<LogService>().playback(
+      'Live TV: focus left the player for ${focused.debugLabel ?? focused}, taking it back',
+      level: LogLevel.warning,
+    );
+    // After this frame: reclaiming mid-notification would re-enter the
+    // FocusManager while it is still dispatching this change.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reclaimingFocus = false;
+      if (!mounted || _isStopping) return;
+      final current = ModalRoute.of(context);
+      if (current != null && !current.isCurrent) return;
+      _overlayFocus.requestFocus();
+    });
   }
 
   Future<void> _switchChannel(int newIndex) async {

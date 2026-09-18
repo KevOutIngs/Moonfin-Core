@@ -619,19 +619,39 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     );
   }
 
+  /// Whether focus is this screen's to take right now.
+  ///
+  /// Several of these requests are deferred to a post-frame callback, and a
+  /// route pushed on top of the guide does NOT unmount it -- the guide stays
+  /// alive underneath. So `mounted` alone is not enough: a callback landing
+  /// after the viewer opened a channel would pull focus out of the player and
+  /// back onto a row nobody can see, leaving the remote apparently dead
+  /// because every key goes to the hidden screen. Measured on a Shield with
+  /// primaryFocus stranded on `GuideFilter:0` while the player was on top.
+  ///
+  /// A null route means the guide is embedded rather than pushed, and then
+  /// nothing is on top of it to protect.
+  bool get _mayTakeFocus {
+    if (!mounted) return false;
+    final route = ModalRoute.of(context);
+    return route == null || route.isCurrent;
+  }
+
   void _focusChannelRow(int index, {bool animate = true}) {
+    if (!_mayTakeFocus) return;
     _cancelPendingVerticalMove();
     _scrollToRow(index, animate: animate);
     _channelFocusNodeFor(index).requestFocus();
   }
 
   void _focusMiniPlayer() {
-    if (!widget.miniPlayerMode) return;
+    if (!widget.miniPlayerMode || !_mayTakeFocus) return;
     _cancelPendingVerticalMove();
     _miniPlayerFocusNode.requestFocus();
   }
 
   void _focusFilterRail() {
+    if (!_mayTakeFocus) return;
     _cancelPendingVerticalMove();
     _filterFocusNodeFor(0).requestFocus();
   }
@@ -639,6 +659,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// Moves within the controls row, refusing a move off either end.
   void _focusWindowBar(int index) {
     if (index < _kWindowBarPrevious || index > _kWindowBarLast) return;
+    if (!_mayTakeFocus) return;
     _cancelPendingVerticalMove();
     _lastWindowBarIndex = index;
     _windowBarFocusNodeFor(index).requestFocus();

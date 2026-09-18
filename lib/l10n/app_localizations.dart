@@ -523,7 +523,7 @@ abstract class AppLocalizations {
   /// Explanation under the detail screen style setting
   ///
   /// In en, this message translates to:
-  /// **'Classic is the original centered moonfin layout. Modern is a responsive cinematic layout. Spotlight is a hero-first layout with pop-up content cards. Nouveau is a full-screen layout with sections stacked down the page.'**
+  /// **'Classic is the original centered moonfin layout. Modern is a responsive cinematic layout. Spotlight is a hero-first layout with pop-up content cards. Nouveau is a full-screen layout with sections stacked down the page. Minimalist is artwork, one play button and the episodes.'**
   String get detailScreenStyleSubtitle;
 
   /// Detail screen style option: the classic centered layout
@@ -711,6 +711,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Nouveau'**
   String get detailScreenStyleNouveau;
+
+  /// Detail screen style option: artwork, one play button and the episodes, and the style Kids Mode always shows
+  ///
+  /// In en, this message translates to:
+  /// **'Minimalist'**
+  String get detailScreenStyleMinimalist;
 
   /// Label for the detail screen expanded tabs setting
   ///
@@ -22200,6 +22206,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Full-screen, with sections stacked instead of tabs.'**
   String get setupDetailNouveauHint;
+
+  /// Name of the stripped-back detail layout, offered in the setup wizard
+  ///
+  /// In en, this message translates to:
+  /// **'Minimalist'**
+  String get setupStyleMinimalist;
+
+  /// What the minimalist detail screen style gives you
+  ///
+  /// In en, this message translates to:
+  /// **'Artwork, one play button and the episodes.'**
+  String get setupDetailMinimalistHint;
 
   /// Label above the theme swatches on the final setup screen
   ///

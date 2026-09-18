@@ -391,6 +391,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => 'Onglets déployés';
 
   @override
@@ -12769,6 +12772,13 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'Plein écran, avec des sections empilées au lieu d\'onglets.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => 'Choisissez une apparence';

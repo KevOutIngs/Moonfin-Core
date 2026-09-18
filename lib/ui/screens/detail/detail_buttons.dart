@@ -62,7 +62,7 @@ enum DetailButton {
   /// Whether this device can put the button on screen at all. A button that
   /// never gets drawn here isn't worth offering a switch for.
   bool get isOffered {
-    if (_kidsModeHidden.contains(this) && _kidsModeOn) {
+    if (_kidsModeOn && !_kidsModeAllowed.contains(this)) {
       return false;
     }
     return switch (this) {
@@ -80,22 +80,22 @@ enum DetailButton {
     };
   }
 
-  /// Buttons Kids Mode takes away. A non-admin account never sees [admin]
-  /// anyway, so that one matters when the account handed over is a parent's
-  /// own. The Seerr and SyncPlay buttons open their own sheets rather than
-  /// navigating, which puts them out of reach of the router gate and leaves
-  /// this set as the only thing holding them back.
-  static const _kidsModeHidden = <DetailButton>{
-    DetailButton.admin,
-    DetailButton.download,
-    DetailButton.deleteFiles,
-    DetailButton.seerrRequest,
-    DetailButton.seerrRequest4k,
-    DetailButton.seerrWatchlist,
-    DetailButton.seerrReportIssue,
-    DetailButton.seerrManage,
-    DetailButton.watchWithGroup,
+  /// The only buttons Kids Mode offers, alongside Play.
+  ///
+  /// An allow list rather than a block list, so a button added later stays out
+  /// until someone decides a child should have it. Keeping the row short is
+  /// half the point: anything that doesn't fit folds into an overflow menu,
+  /// which hands back everything the mode meant to put away.
+  static const _kidsModeAllowed = <DetailButton>{
+    DetailButton.restart,
+    DetailButton.shuffle,
+    DetailButton.favorite,
   };
+
+  /// The order Kids Mode puts them in. The saved arrangement belongs to the
+  /// parent and is one of the things the mode sets aside, so the allow list's
+  /// own order is the order.
+  static List<DetailButton> get kidsModeOrder => _kidsModeAllowed.toList();
 
   /// Defensive like [_syncPlayAvailable], because [isOffered] is reached from
   /// widgets that can build before the preferences are registered. No

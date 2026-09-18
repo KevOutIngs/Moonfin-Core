@@ -460,6 +460,137 @@ void main() {
     });
   });
 
+
+  group('the details screen style', () {
+    Future<UserPreferences> withKidsMode(bool on) async {
+      final prefs = await _prefs();
+      await prefs.set(UserPreferences.kidsModeEnabled, on);
+      return prefs;
+    }
+
+    test('is Minimalist whatever style the user stored', () async {
+      for (final stored in DetailScreenStyle.values) {
+        final prefs = await withKidsMode(true);
+        await prefs.set(UserPreferences.detailScreenStyle, stored);
+        expect(
+          prefs.effectiveDetailScreenStyle,
+          DetailScreenStyle.minimalist,
+          reason: stored.name,
+        );
+      }
+    });
+
+    test('leaves the stored style alone', () async {
+      // The profile push reads the raw preference, so a forced value written
+      // into the store would follow the account to the parent's own devices.
+      final prefs = await withKidsMode(true);
+      await prefs.set(UserPreferences.detailScreenStyle, DetailScreenStyle.nouveau);
+
+      expect(
+        prefs.get(UserPreferences.detailScreenStyle),
+        DetailScreenStyle.nouveau,
+      );
+
+      await prefs.set(UserPreferences.kidsModeEnabled, false);
+      expect(prefs.effectiveDetailScreenStyle, DetailScreenStyle.nouveau);
+    });
+
+    test('every style is still reachable with the mode off', () async {
+      final prefs = await withKidsMode(false);
+      for (final style in DetailScreenStyle.values) {
+        await prefs.set(UserPreferences.detailScreenStyle, style);
+        expect(prefs.effectiveDetailScreenStyle, style, reason: style.name);
+      }
+    });
+
+    test('the toggles go to their minimal state', () async {
+      final prefs = await withKidsMode(true);
+      // Set each one to the opposite of what Kids Mode should report.
+      await prefs.set(UserPreferences.detailExpandedTabs, true);
+      await prefs.set(UserPreferences.detailShowTechnicalDetails, true);
+      await prefs.set(UserPreferences.detailTrailersExternal, true);
+      await prefs.set(UserPreferences.detailUseSeriesThumbnails, true);
+      await prefs.set(
+        UserPreferences.recommendationSystemSource,
+        RecommendationSystemSource.server,
+      );
+      await prefs.set(
+        UserPreferences.recommendationsApplyParentalRatingCap,
+        false,
+      );
+
+      expect(prefs.effectiveDetailExpandedTabs, isFalse, reason: 'expandedTabs');
+      expect(
+        prefs.effectiveDetailShowTechnicalDetails,
+        isFalse,
+        reason: 'technicalDetails',
+      );
+      expect(
+        prefs.effectiveDetailTrailersExternal,
+        isFalse,
+        reason: 'trailersExternal',
+      );
+      expect(
+        prefs.effectiveDetailUseSeriesThumbnails,
+        isFalse,
+        reason: 'seriesThumbnails',
+      );
+      expect(
+        prefs.effectiveRecommendationSystemSource,
+        RecommendationSystemSource.local,
+        reason: 'recommendationSource',
+      );
+      expect(
+        prefs.effectiveRecommendationsApplyParentalRatingCap,
+        isTrue,
+        reason: 'ratingCap',
+      );
+    });
+
+    test('hiding the description means forcing its flag on, not off', () async {
+      // The preference is named for hiding, so its off state shows the
+      // description. Minimal means true here, and this is the one that reads
+      // backwards to anyone skimming.
+      final prefs = await withKidsMode(true);
+      await prefs.set(UserPreferences.hideDetailsMediaDescription, false);
+
+      expect(prefs.get(UserPreferences.hideDetailsMediaDescription), isFalse);
+      expect(prefs.effectiveHideDetailsMediaDescription, isTrue);
+    });
+
+    test('the toggles come back when the mode goes off', () async {
+      final prefs = await _prefs();
+      await prefs.set(UserPreferences.detailScreenStyle, DetailScreenStyle.classic);
+      await prefs.set(UserPreferences.detailExpandedTabs, true);
+      await prefs.set(UserPreferences.detailShowTechnicalDetails, true);
+      await prefs.set(UserPreferences.detailTrailersExternal, true);
+      await prefs.set(UserPreferences.hideDetailsMediaDescription, false);
+      await prefs.set(UserPreferences.detailUseSeriesThumbnails, true);
+
+      await prefs.set(UserPreferences.kidsModeEnabled, true);
+      await prefs.set(UserPreferences.kidsModeEnabled, false);
+
+      expect(prefs.effectiveDetailScreenStyle, DetailScreenStyle.classic);
+      expect(prefs.effectiveDetailExpandedTabs, isTrue);
+      expect(prefs.effectiveDetailShowTechnicalDetails, isTrue);
+      expect(prefs.effectiveDetailTrailersExternal, isTrue);
+      expect(prefs.effectiveHideDetailsMediaDescription, isFalse);
+      expect(prefs.effectiveDetailUseSeriesThumbnails, isTrue);
+    });
+
+    test('the style still syncs as the user picked it', () async {
+      // syncedFields encodes through the raw getter, so Kids Mode must not be
+      // able to reach the outgoing profile.
+      final prefs = await withKidsMode(true);
+      await prefs.set(UserPreferences.detailScreenStyle, DetailScreenStyle.spotlight);
+
+      final field = syncedFields.firstWhere(
+        (f) => f.pref == UserPreferences.detailScreenStyle,
+      );
+      expect(prefs.get(field.pref), DetailScreenStyle.spotlight);
+    });
+  });
+
   group('the details screen buttons', () {
     /// [DetailButton.isOffered] reads the preferences straight out of GetIt,
     /// so Kids Mode only exists for it once they are registered there.
@@ -472,23 +603,31 @@ void main() {
 
     tearDown(() => GetIt.instance.reset());
 
-    test('Kids Mode takes away everything it hides elsewhere', () async {
+    test('Kids Mode offers only the few a child needs', () async {
       await withKidsMode(on: true);
 
-      // Seerr and SyncPlay are gone from every nav surface in Kids Mode, and
-      // these buttons open their own sheets, so the router gate never sees
-      // them.
       for (final button in const [
-        DetailButton.admin,
-        DetailButton.download,
-        DetailButton.deleteFiles,
-        DetailButton.seerrRequest,
-        DetailButton.seerrRequest4k,
-        DetailButton.seerrWatchlist,
-        DetailButton.seerrReportIssue,
-        DetailButton.seerrManage,
-        DetailButton.watchWithGroup,
+        DetailButton.restart,
+        DetailButton.shuffle,
+        DetailButton.favorite,
       ]) {
+        expect(button.isOffered, isTrue, reason: button.id);
+      }
+    });
+
+    test('every other button is gone, not just the risky ones', () async {
+      // A block list kept the dangerous buttons out but never kept the row
+      // short, and the leftovers piled into an overflow menu that handed the
+      // whole set back.
+      await withKidsMode(on: true);
+
+      const allowed = {
+        DetailButton.restart,
+        DetailButton.shuffle,
+        DetailButton.favorite,
+      };
+      for (final button in DetailButton.values) {
+        if (allowed.contains(button)) continue;
         expect(button.isOffered, isFalse, reason: button.id);
       }
     });
@@ -498,11 +637,23 @@ void main() {
       expect(DetailButton.admin.isOffered, isTrue);
     });
 
-    test('leaves the buttons a child still needs alone', () async {
+    test('the row is Restart, Shuffle, Favourite, in that order', () async {
+      // The saved arrangement belongs to the parent, so the mode lays its own
+      // row out rather than reading theirs.
+      expect(DetailButton.kidsModeOrder, const [
+        DetailButton.restart,
+        DetailButton.shuffle,
+        DetailButton.favorite,
+      ]);
+    });
+
+    test('a button nobody thought about stays out', () async {
+      // The point of the allow list: whatever gets added to the enum next is
+      // out of Kids Mode until someone decides a child should have it.
       await withKidsMode(on: true);
-      expect(DetailButton.watched.isOffered, isTrue);
-      expect(DetailButton.favorite.isOffered, isTrue);
-      expect(DetailButton.shuffle.isOffered, isTrue);
+      expect(DetailButton.watched.isOffered, isFalse);
+      expect(DetailButton.audio.isOffered, isFalse);
+      expect(DetailButton.version.isOffered, isFalse);
     });
 
     test('shrugs off preferences it cannot reach rather than hiding everything',

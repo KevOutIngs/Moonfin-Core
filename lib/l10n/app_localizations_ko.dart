@@ -388,6 +388,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => '탭 자동 펼치기';
 
   @override
@@ -12264,6 +12267,13 @@ class AppLocalizationsKo extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'Full-screen, with sections stacked instead of tabs.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => '스타일 선택';

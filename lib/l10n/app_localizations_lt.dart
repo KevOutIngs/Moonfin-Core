@@ -389,6 +389,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => 'Išskleisti skirtukai';
 
   @override
@@ -12680,6 +12683,13 @@ class AppLocalizationsLt extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'Full-screen, with sections stacked instead of tabs.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => 'Pick a look';

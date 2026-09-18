@@ -228,7 +228,7 @@
   "@detailScreenStyle": {
     "description": "Label for the media detail screen layout style setting"
   },
-  "detailScreenStyleSubtitle": "Classic is the original centered moonfin layout. Modern is a responsive cinematic layout. Spotlight is a hero-first layout with pop-up content cards. Nouveau is a full-screen layout with sections stacked down the page.",
+  "detailScreenStyleSubtitle": "Classic is the original centered moonfin layout. Modern is a responsive cinematic layout. Spotlight is a hero-first layout with pop-up content cards. Nouveau is a full-screen layout with sections stacked down the page. Minimalist is artwork, one play button and the episodes.",
   "@detailScreenStyleSubtitle": {
     "description": "Explanation under the detail screen style setting"
   },
@@ -430,6 +430,10 @@
   "detailScreenStyleNouveau": "Nouveau",
   "@detailScreenStyleNouveau": {
     "description": "Detail screen style option: nouveau full-screen layout with integrated sections"
+  },
+  "detailScreenStyleMinimalist": "Minimalist",
+  "@detailScreenStyleMinimalist": {
+    "description": "Detail screen style option: artwork, one play button and the episodes, and the style Kids Mode always shows"
   },
   "expandedTabs": "Expanded Tabs",
   "@expandedTabs": {
@@ -11593,6 +11597,14 @@
   "setupDetailNouveauHint": "Full-screen, with sections stacked instead of tabs.",
   "@setupDetailNouveauHint": {
     "description": "What the nouveau detail screen style gives you"
+  },
+  "setupStyleMinimalist": "Minimalist",
+  "@setupStyleMinimalist": {
+    "description": "Name of the stripped-back detail layout, offered in the setup wizard"
+  },
+  "setupDetailMinimalistHint": "Artwork, one play button and the episodes.",
+  "@setupDetailMinimalistHint": {
+    "description": "What the minimalist detail screen style gives you"
   },
   "setupPickALook": "Pick a look",
   "@setupPickALook": {

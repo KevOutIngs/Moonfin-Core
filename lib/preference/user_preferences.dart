@@ -1486,6 +1486,49 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: true,
   );
 
+  /// The style to build, once Kids Mode has had its say. Read this and the
+  /// other effective getters rather than the preferences above anywhere the
+  /// details screen is being put together.
+  ///
+  /// Applied on read rather than by rewriting the saved values, so turning
+  /// Kids Mode off gives the user their own screen back untouched. That also
+  /// keeps the mode out of the sync payload, since the profile push reads the
+  /// raw preference and would otherwise carry a forced value to the parent's
+  /// other devices.
+  DetailScreenStyle get effectiveDetailScreenStyle => get(kidsModeEnabled)
+      ? DetailScreenStyle.minimalist
+      : get(detailScreenStyle);
+
+  bool get effectiveDetailExpandedTabs =>
+      get(kidsModeEnabled) ? false : get(detailExpandedTabs);
+
+  bool get effectiveDetailShowTechnicalDetails =>
+      get(kidsModeEnabled) ? false : get(detailShowTechnicalDetails);
+
+  /// Handing a trailer to the browser or the YouTube app is a way out of the
+  /// app, which is the one thing Kids Mode exists to close.
+  bool get effectiveDetailTrailersExternal =>
+      get(kidsModeEnabled) ? false : get(detailTrailersExternal);
+
+  /// True means hidden. The preference is named for hiding, so Kids Mode
+  /// forces it on rather than off to leave the description out.
+  bool get effectiveHideDetailsMediaDescription =>
+      get(kidsModeEnabled) ? true : get(hideDetailsMediaDescription);
+
+  bool get effectiveDetailUseSeriesThumbnails =>
+      get(kidsModeEnabled) ? false : get(detailUseSeriesThumbnails);
+
+  /// The online source is an outside catalog no parental rating reaches, so
+  /// Kids Mode keeps recommendations inside the server's own library.
+  RecommendationSystemSource get effectiveRecommendationSystemSource =>
+      get(kidsModeEnabled)
+      ? RecommendationSystemSource.local
+      : get(recommendationSystemSource);
+
+  bool get effectiveRecommendationsApplyParentalRatingCap => get(kidsModeEnabled)
+      ? true
+      : get(recommendationsApplyParentalRatingCap);
+
   /// Default mobile view for the Live TV guide (Now/Next list vs compact grid).
   static final epgMobileView = EnumPreference(
     key: 'pref_epg_mobile_view',

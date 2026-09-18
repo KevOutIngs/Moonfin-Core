@@ -392,6 +392,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => 'Laajennetut Välilehdet';
 
   @override
@@ -12662,6 +12665,13 @@ class AppLocalizationsFi extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'Koko näytön tila, jossa osiot on järjestetty päällekkäin välilehtien sijaan.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => 'Valitse tyyli';

@@ -389,6 +389,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => 'విస్తరించిన ట్యాబ్‌లు';
 
   @override
@@ -12688,6 +12691,13 @@ class AppLocalizationsTe extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'Full-screen, with sections stacked instead of tabs.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => 'Pick a look';

@@ -2519,9 +2519,7 @@ class RowDataSource {
     final includeWatched = prefs.get(
       UserPreferences.sinceYouWatchedIncludeWatched,
     );
-    final applyRatingCap = prefs.get(
-      UserPreferences.recommendationsApplyParentalRatingCap,
-    );
+    final applyRatingCap = prefs.effectiveRecommendationsApplyParentalRatingCap;
     final sourceRatingLevel = _getRatingLevel(baseItem.officialRating);
 
     return candidates.where((item) {
@@ -2935,7 +2933,7 @@ class RowDataSource {
       await Future.wait(futures);
 
       final bool effectiveIncludeWatched = includeWatched ?? prefs.get(UserPreferences.sinceYouWatchedIncludeWatched);
-      final bool applyRatingCap = prefs.get(UserPreferences.recommendationsApplyParentalRatingCap);
+      final bool applyRatingCap = prefs.effectiveRecommendationsApplyParentalRatingCap;
       final sourceRating = baseItem.officialRating;
       final sourceRatingLevel = _getRatingLevel(sourceRating);
 

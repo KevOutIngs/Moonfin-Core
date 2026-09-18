@@ -44,6 +44,8 @@ import 'detail_buttons.dart';
 import '../../../data/models/upcoming_episode_info.dart';
 import '../../../preference/detail_metadata_layout.dart';
 import 'upcoming_episode_badge.dart';
+import 'detail_episode_images.dart';
+import 'minimalist/minimalist_detail_content.dart';
 import 'nouveau/nouveau_detail_content.dart';
 import 'nouveau/hero/nouveau_action_buttons.dart';
 import 'modern/modern_detail_content.dart';
@@ -660,7 +662,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
   Widget _buildBody(BuildContext context) {
     return switch (_viewModel.state) {
       ItemDetailState.loading => DetailScreenSkeleton(
-        style: _prefs.get(UserPreferences.detailScreenStyle),
+        style: _prefs.effectiveDetailScreenStyle,
         prefs: _prefs,
       ),
       ItemDetailState.error => Center(
@@ -685,9 +687,7 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
           ],
         ),
       ),
-      ItemDetailState.ready => switch (
-      _prefs.get(UserPreferences.detailScreenStyle)
-      ) {
+      ItemDetailState.ready => switch (_prefs.effectiveDetailScreenStyle) {
         DetailScreenStyle.classic => _DetailContent(
           viewModel: _viewModel,
           prefs: _prefs,
@@ -777,6 +777,22 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
               _selectedMediaSourceId,
             ),
           ),
+          actionsExpanded: _actionsExpanded,
+          onActionsExpandedChanged: (val) =>
+              setState(() => _actionsExpanded = val),
+        ),
+
+        DetailScreenStyle.minimalist => MinimalistDetailContent(
+          viewModel: _viewModel,
+          prefs: _prefs,
+          backdropUrl: _backdropUrl,
+          selectedMediaSourceId: _selectedMediaSourceId,
+          initialFocusNode: _ensureInitialFocusNode(),
+          onSelectedMediaSourceChanged: (id) {
+            setState(() => _selectedMediaSourceId = id);
+            _viewModel.load(mediaSourceId: id);
+          },
+          autoPlay: widget.autoPlay,
           actionsExpanded: _actionsExpanded,
           onActionsExpandedChanged: (val) =>
               setState(() => _actionsExpanded = val),
@@ -4486,48 +4502,6 @@ class DetailPosterImage extends StatelessWidget {
   }
 }
 
-/// The thumb endpoint only takes a width, so a card that reserves its space by
-/// height asks for the 16:9 width that fills it.
-int _landscapeWidthFor(int height) => (height * 16 / 9).round();
-
-/// The parent series artwork, for standing in where an episode still or a
-/// chapter frame would give something away. Null when the series offers nothing
-/// to show, which leaves the caller on the picture it would have used.
-String? _resolveSeriesLandscapeThumbnailUrl(
-  AggregatedItem item,
-  ImageApi imageApi, {
-  required int maxWidth,
-}) {
-  final thumbId = item.parentThumbItemId ?? item.seriesId;
-  final thumbTag = item.parentThumbImageTag ?? item.seriesThumbImageTag;
-  if (thumbId != null &&
-      thumbId.isNotEmpty &&
-      thumbTag != null &&
-      thumbTag.isNotEmpty) {
-    return imageApi.getThumbImageUrl(
-      thumbId,
-      maxWidth: maxWidth,
-      tag: thumbTag,
-    );
-  }
-
-  final seriesId = item.seriesId ?? item.parentPrimaryImageItemId;
-  final seriesPrimaryTag =
-      item.seriesPrimaryImageTag ?? item.parentPrimaryImageTag;
-  if (seriesId != null &&
-      seriesId.isNotEmpty &&
-      seriesPrimaryTag != null &&
-      seriesPrimaryTag.isNotEmpty) {
-    return imageApi.getPrimaryImageUrl(
-      seriesId,
-      maxWidth: maxWidth,
-      tag: seriesPrimaryTag,
-    );
-  }
-
-  return null;
-}
-
 class _EpisodeThumbnail extends StatelessWidget {
   final AggregatedItem item;
   final ImageApi imageApi;
@@ -4547,7 +4521,7 @@ class _EpisodeThumbnail extends StatelessWidget {
         GetIt.instance<UserPreferences>().get(
           UserPreferences.detailUseSeriesThumbnails,
         )
-        ? _resolveSeriesLandscapeThumbnailUrl(item, imageApi, maxWidth: maxW)
+        ? resolveSeriesLandscapeThumbnailUrl(item, imageApi, maxWidth: maxW)
         : null;
 
     final imageUrl =
@@ -6902,6 +6876,19 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
         button.icon == Icons.movie_outlined;
   }
 
+  /// The buttons in the order they should be laid out.
+  ///
+  /// Kids Mode uses its own order rather than the saved arrangement, which
+  /// belongs to the parent.
+  List<DetailButton> _orderedButtons(UserPreferences prefs) =>
+      prefs.get(UserPreferences.kidsModeEnabled)
+      ? DetailButton.kidsModeOrder
+      : detailButtonLayout.ordered(
+          DetailButton.values,
+          (button) => button.id,
+          prefs,
+        );
+
   @override
   Widget build(BuildContext context) {
     final item = viewModel.item!;
@@ -6976,9 +6963,13 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     }
 
     final prefs = GetIt.instance<UserPreferences>();
-    final hidden = detailButtonLayout.hidden(prefs);
-    // The hidden set is the user's own arrangement, so it can't speak for
-    // what this device and Kids Mode allow. isOffered does.
+    // The arrangement is the user's own, and it can't speak for what this
+    // device allows, which is what isOffered is for. Kids Mode hands the
+    // screen to someone else entirely, so it offers its own fixed set rather
+    // than whatever the parent switched off for themselves.
+    final hidden = prefs.get(UserPreferences.kidsModeEnabled)
+        ? const <String>{}
+        : detailButtonLayout.hidden(prefs);
     bool shows(DetailButton button) =>
         button.isOffered && (!button.canHide || !hidden.contains(button.id));
 
@@ -7432,11 +7423,10 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
     var allButtons = <Widget>[
       ?primaryAction,
-      for (final button in detailButtonLayout.ordered(
-        DetailButton.values,
-        (button) => button.id,
-        prefs,
-      )) ...[?byButton[button], ?cancelByButton[button]],
+      for (final button in _orderedButtons(prefs)) ...[
+        ?byButton[button],
+        ?cancelByButton[button],
+      ],
     ];
 
     if (isNeon) {
@@ -7473,11 +7463,7 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
     if (widget.nouveauStyle) {
       final orderedSecondaryButtons = <_DetailActionButton>[
-        for (final detailButton in detailButtonLayout.ordered(
-          DetailButton.values,
-          (button) => button.id,
-          prefs,
-        )) ...[
+        for (final detailButton in _orderedButtons(prefs)) ...[
           if (byButton[detailButton] case final btn?)
             ?_actionForOverflow(context, btn),
           if (cancelByButton[detailButton] case final btn?)
@@ -13286,7 +13272,7 @@ class DetailChaptersRow extends StatelessWidget {
         GetIt.instance<UserPreferences>().get(
           UserPreferences.detailUseSeriesThumbnails,
         )
-        ? _resolveSeriesLandscapeThumbnailUrl(
+        ? resolveSeriesLandscapeThumbnailUrl(
             item,
             imageApi,
             maxWidth: chapterImageWidth,
@@ -14534,10 +14520,10 @@ class _EpisodeListCardState extends State<_EpisodeListCard>
     final focusColor = Color(prefs.get(UserPreferences.focusColor).colorValue);
     final maxH = widget.isMobile ? 250 : (250 * desktopScale).round();
     final seriesThumbUrl = prefs.get(UserPreferences.detailUseSeriesThumbnails)
-        ? _resolveSeriesLandscapeThumbnailUrl(
+        ? resolveSeriesLandscapeThumbnailUrl(
             ep,
             widget.imageApi,
-            maxWidth: _landscapeWidthFor(maxH),
+            maxWidth: landscapeWidthFor(maxH),
           )
         : null;
 
@@ -14773,10 +14759,10 @@ class DetailNextUpCardState extends State<DetailNextUpCard>
     final cardExpansion = prefs.get(UserPreferences.cardFocusExpansion);
     final maxH = isMobile ? 240 : (240 * desktopScale).round();
     final seriesThumbUrl = prefs.get(UserPreferences.detailUseSeriesThumbnails)
-        ? _resolveSeriesLandscapeThumbnailUrl(
+        ? resolveSeriesLandscapeThumbnailUrl(
             episode,
             widget.imageApi,
-            maxWidth: _landscapeWidthFor(maxH),
+            maxWidth: landscapeWidthFor(maxH),
           )
         : null;
 
@@ -15016,10 +15002,10 @@ class DetailEpisodeCardState extends State<DetailEpisodeCard>
     final isMobile = _isCompact(context);
     final maxH = isMobile ? 220 : (220 * desktopScale).round();
     final seriesThumbUrl = prefs.get(UserPreferences.detailUseSeriesThumbnails)
-        ? _resolveSeriesLandscapeThumbnailUrl(
+        ? resolveSeriesLandscapeThumbnailUrl(
             episode,
             widget.imageApi,
-            maxWidth: _landscapeWidthFor(maxH),
+            maxWidth: landscapeWidthFor(maxH),
           )
         : null;
 

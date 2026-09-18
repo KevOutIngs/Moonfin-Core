@@ -389,6 +389,9 @@ class AppLocalizationsCa extends AppLocalizations {
   String get detailScreenStyleNouveau => 'Nouveau';
 
   @override
+  String get detailScreenStyleMinimalist => 'Minimalist';
+
+  @override
   String get expandedTabs => 'Pestanyes desplegades';
 
   @override
@@ -12805,6 +12808,13 @@ class AppLocalizationsCa extends AppLocalizations {
   @override
   String get setupDetailNouveauHint =>
       'A pantalla completa, amb les seccions apilades en lloc de pestanyes.';
+
+  @override
+  String get setupStyleMinimalist => 'Minimalist';
+
+  @override
+  String get setupDetailMinimalistHint =>
+      'Artwork, one play button and the episodes.';
 
   @override
   String get setupPickALook => 'Tria un aspecte';

@@ -44,6 +44,7 @@ class DetailScreenSkeleton extends StatelessWidget {
         DetailScreenStyle.modern => _buildModern(context),
         DetailScreenStyle.spotlight => _buildSpotlight(context),
         DetailScreenStyle.nouveau => _buildNouveau(context),
+        DetailScreenStyle.minimalist => _buildMinimalist(context),
       },
     );
   }
@@ -396,6 +397,74 @@ class DetailScreenSkeleton extends StatelessWidget {
                 height: 14 * scale,
                 borderRadius: BorderRadius.circular(4),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _clippedRow({required List<Widget> children}) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    physics: const NeverScrollableScrollPhysics(),
+    child: Row(children: children),
+  );
+
+  /// Minimalist is anchored to the bottom, so its skeleton is too. Landing on
+  /// a top-aligned placeholder and then snapping down reads as a glitch.
+  Widget _buildMinimalist(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = size.width >= size.height;
+    final cardWidth = isLandscape ? 266.0 : 150.0;
+    final inset = isLandscape ? 56.0 : 20.0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(inset, 40, inset, isLandscape ? 44 : 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Spacer(),
+          SkeletonBox(
+            width: isLandscape ? 300 : 210,
+            height: isLandscape ? 96 : 68,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          const SizedBox(height: 26),
+          // Both rows run off the side of a narrow screen, the same way the
+          // real ones do. A scroll view clips them instead of overflowing.
+          _clippedRow(
+            children: [
+              SkeletonBox(
+                width: isLandscape ? 210 : size.width - inset * 2,
+                height: isLandscape ? 92 : 76,
+                borderRadius: BorderRadius.circular(46),
+              ),
+              if (isLandscape) ...[
+                const SizedBox(width: 22),
+                for (var i = 0; i < 3; i++) ...[
+                  const SkeletonBox(
+                    width: 92,
+                    height: 92,
+                    borderRadius: BorderRadius.all(Radius.circular(46)),
+                  ),
+                  const SizedBox(width: 22),
+                ],
+              ],
+            ],
+          ),
+          const SizedBox(height: 34),
+          _clippedRow(
+            children: [
+              for (var i = 0; i < 4; i++) ...[
+                SkeletonBox(
+                  width: cardWidth,
+                  height: cardWidth * 9 / 16,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                const SizedBox(width: 20),
+              ],
             ],
           ),
         ],

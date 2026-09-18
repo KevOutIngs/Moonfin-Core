@@ -19456,6 +19456,54 @@ abstract class AppLocalizations {
   /// **'+{points}'**
   String achievementsQuestReward(int points);
 
+  /// Action that swaps the daily quest set for a new one
+  ///
+  /// In en, this message translates to:
+  /// **'Reroll daily quests'**
+  String get achievementsRerollDaily;
+
+  /// Action that swaps the weekly quest set for a new one
+  ///
+  /// In en, this message translates to:
+  /// **'Reroll weekly quests'**
+  String get achievementsRerollWeekly;
+
+  /// Subtitle on the reroll row while a reroll is still available
+  ///
+  /// In en, this message translates to:
+  /// **'Swap this set for a different one'**
+  String get achievementsRerollOffer;
+
+  /// Subtitle on the reroll row once the daily reroll is spent
+  ///
+  /// In en, this message translates to:
+  /// **'Used today, comes back at midnight UTC'**
+  String get achievementsRerollSpentDaily;
+
+  /// Subtitle on the reroll row once the weekly reroll is spent
+  ///
+  /// In en, this message translates to:
+  /// **'Used this week, comes back Monday UTC'**
+  String get achievementsRerollSpentWeekly;
+
+  /// Title of the dialog confirming a quest reroll
+  ///
+  /// In en, this message translates to:
+  /// **'Reroll these quests?'**
+  String get achievementsRerollConfirm;
+
+  /// Body of the dialog confirming a quest reroll
+  ///
+  /// In en, this message translates to:
+  /// **'You get one daily and one weekly reroll, and this spends it.'**
+  String get achievementsRerollConfirmBody;
+
+  /// Message shown when a quest reroll did not go through
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reroll those quests.'**
+  String get achievementsRerollFailed;
+
   /// Leaderboard category: hours watched
   ///
   /// In en, this message translates to:

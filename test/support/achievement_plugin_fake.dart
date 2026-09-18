@@ -23,6 +23,10 @@ class AchievementPluginAdapter implements HttpClientAdapter {
   bool leaderboardEnabled = true;
   bool questsEnabled = true;
 
+  /// One reroll a day and one a week, the same budget the plugin grants.
+  int dailyRerollsLeft = 1;
+  int weeklyRerollsLeft = 1;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -45,6 +49,42 @@ class AchievementPluginAdapter implements HttpClientAdapter {
       };
     } else if (path.endsWith('/login-ping')) {
       body = {'Success': true};
+    } else if (path.endsWith('/quests/daily/reroll') ||
+        path.endsWith('/quests/weekly/reroll')) {
+      final weekly = path.endsWith('/quests/weekly/reroll');
+      final left = weekly ? weeklyRerollsLeft : dailyRerollsLeft;
+      if (left <= 0) {
+        return ResponseBody.fromString(
+          jsonEncode({'Message': 'Already used.'}),
+          429,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+      if (weekly) {
+        weeklyRerollsLeft = 0;
+      } else {
+        dailyRerollsLeft = 0;
+      }
+      body = {
+        'Message': 'Rerolled.',
+        'RerollsUsed': 1,
+        'RerollsRemaining': 0,
+        'Quests': [
+          {
+            'Kind': weekly ? 'weekly' : 'daily',
+            'Id': weekly ? 'weekly-fresh' : 'daily-fresh',
+            'Title': weekly ? 'A fresh week' : 'A fresh day',
+            'Description': 'Rerolled quest.',
+            'Icon': 'refresh',
+            'Reward': 30,
+            'Target': 2,
+            'Current': 0,
+            'Completed': false,
+          },
+        ],
+      };
     } else if (path.endsWith('/summary')) {
       body = {
         'Unlocked': 12,
@@ -104,6 +144,8 @@ class AchievementPluginAdapter implements HttpClientAdapter {
           },
         ],
         'Weekly': const <dynamic>[],
+        'DailyRerollsRemaining': dailyRerollsLeft,
+        'WeeklyRerollsRemaining': weeklyRerollsLeft,
       };
     } else if (path.endsWith('/leaderboard')) {
       body = [

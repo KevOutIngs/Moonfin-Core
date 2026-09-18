@@ -21,6 +21,10 @@ BaseOptions achievementRequestOptions() => BaseOptions(
 /// because its own UI only reaches people by injecting scripts into
 /// jellyfin-web. Everything it knows is on a plain HTTP API, which is what this
 /// reads so the panel can be drawn natively on every platform.
+///
+/// Almost all of it is reading. The login ping and the quest reroll are the
+/// only things written, because they are the only parts the plugin expects a
+/// client to drive.
 class AchievementsService extends ChangeNotifier {
   static const String _root = 'Plugins/AchievementBadges';
 
@@ -244,6 +248,44 @@ class AchievementsService extends ChangeNotifier {
       }
     });
     return result;
+  }
+
+  /// Swaps one quest set for a fresh one.
+  ///
+  /// The plugin grants a single daily and a single weekly reroll and answers
+  /// 429 once one is spent, which is a refusal to report rather than a fault.
+  Future<QuestReroll> rerollQuests(
+    MediaServerClient client, {
+    required bool weekly,
+  }) async {
+    final userId = client.userId;
+    final headers = _authHeaders(client);
+    if (userId == null || userId.isEmpty || headers == null) {
+      return const QuestReroll(QuestRerollOutcome.failed);
+    }
+
+    final questSet = weekly ? 'weekly' : 'daily';
+    try {
+      final response = await _dio.post<dynamic>(
+        '${_base(client)}/$_root/users/$userId/quests/$questSet/reroll',
+        options: Options(headers: headers),
+      );
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        return const QuestReroll(QuestRerollOutcome.failed);
+      }
+      return QuestReroll(
+        QuestRerollOutcome.rerolled,
+        quests: AchievementQuests.parseList(data['Quests']),
+        rerollsLeft: (data['RerollsRemaining'] as num?)?.toInt() ?? 0,
+      );
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 429) {
+        return const QuestReroll(QuestRerollOutcome.alreadyUsed);
+      }
+      debugPrint('[AchievementsService] $questSet reroll failed: $e');
+      return const QuestReroll(QuestRerollOutcome.failed);
+    }
   }
 
   /// Reloads the recap alone, for the period picker.

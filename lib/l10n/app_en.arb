@@ -10217,6 +10217,38 @@
       }
     }
   },
+  "achievementsRerollDaily": "Reroll daily quests",
+  "@achievementsRerollDaily": {
+    "description": "Action that swaps the daily quest set for a new one"
+  },
+  "achievementsRerollWeekly": "Reroll weekly quests",
+  "@achievementsRerollWeekly": {
+    "description": "Action that swaps the weekly quest set for a new one"
+  },
+  "achievementsRerollOffer": "Swap this set for a different one",
+  "@achievementsRerollOffer": {
+    "description": "Subtitle on the reroll row while a reroll is still available"
+  },
+  "achievementsRerollSpentDaily": "Used today, comes back at midnight UTC",
+  "@achievementsRerollSpentDaily": {
+    "description": "Subtitle on the reroll row once the daily reroll is spent"
+  },
+  "achievementsRerollSpentWeekly": "Used this week, comes back Monday UTC",
+  "@achievementsRerollSpentWeekly": {
+    "description": "Subtitle on the reroll row once the weekly reroll is spent"
+  },
+  "achievementsRerollConfirm": "Reroll these quests?",
+  "@achievementsRerollConfirm": {
+    "description": "Title of the dialog confirming a quest reroll"
+  },
+  "achievementsRerollConfirmBody": "You get one daily and one weekly reroll, and this spends it.",
+  "@achievementsRerollConfirmBody": {
+    "description": "Body of the dialog confirming a quest reroll"
+  },
+  "achievementsRerollFailed": "Could not reroll those quests.",
+  "@achievementsRerollFailed": {
+    "description": "Message shown when a quest reroll did not go through"
+  },
   "achievementsHours": "Hours",
   "@achievementsHours": {
     "description": "Leaderboard category: hours watched"

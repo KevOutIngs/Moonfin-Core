@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:moonfin/data/models/achievement_models.dart';
 import 'package:moonfin/data/services/achievements_service.dart';
 import 'package:server_core/server_core.dart';
 
@@ -18,6 +19,46 @@ void main() {
     dio.httpClientAdapter = adapter;
     service = AchievementsService(dio: dio);
     client = buildAchievementClient();
+  });
+
+  group('quest reroll', () {
+    test('a reroll swaps the set and spends the allowance', () async {
+      final result = await service.rerollQuests(client, weekly: false);
+
+      expect(result.outcome, QuestRerollOutcome.rerolled);
+      expect(result.quests.single.title, 'A fresh day');
+      expect(result.rerollsLeft, 0);
+      expect(
+        adapter.requests,
+        contains(
+          'POST /Plugins/AchievementBadges/users/user1/quests/daily/reroll',
+        ),
+      );
+    });
+
+    test('daily and weekly spend separately', () async {
+      await service.rerollQuests(client, weekly: false);
+
+      final weekly = await service.rerollQuests(client, weekly: true);
+      expect(weekly.outcome, QuestRerollOutcome.rerolled);
+      expect(weekly.quests.single.title, 'A fresh week');
+    });
+
+    test('a spent reroll reads as refused rather than broken', () async {
+      await service.rerollQuests(client, weekly: false);
+
+      final again = await service.rerollQuests(client, weekly: false);
+      expect(again.outcome, QuestRerollOutcome.alreadyUsed);
+      expect(again.quests, isEmpty);
+    });
+
+    test('the overview carries what is left to spend', () async {
+      adapter.weeklyRerollsLeft = 0;
+
+      final overview = await service.loadOverview(client);
+      expect(overview?.quests?.dailyRerollsLeft, 1);
+      expect(overview?.quests?.weeklyRerollsLeft, 0);
+    });
   });
 
   group('availability', () {

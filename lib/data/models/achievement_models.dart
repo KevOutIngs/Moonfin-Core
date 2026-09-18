@@ -238,14 +238,38 @@ class AchievementQuest {
 }
 
 class AchievementQuests {
-  const AchievementQuests({required this.daily, required this.weekly});
+  const AchievementQuests({
+    required this.daily,
+    required this.weekly,
+    this.dailyRerollsLeft = 0,
+    this.weeklyRerollsLeft = 0,
+  });
 
   final List<AchievementQuest> daily;
   final List<AchievementQuest> weekly;
 
+  /// The plugin grants one reroll per UTC day and one per ISO week, so these
+  /// are only ever 1 or 0.
+  final int dailyRerollsLeft;
+  final int weeklyRerollsLeft;
+
   bool get isEmpty => daily.isEmpty && weekly.isEmpty;
 
-  static List<AchievementQuest> _list(dynamic value) {
+  AchievementQuests copyWith({
+    List<AchievementQuest>? daily,
+    List<AchievementQuest>? weekly,
+    int? dailyRerollsLeft,
+    int? weeklyRerollsLeft,
+  }) => AchievementQuests(
+    daily: daily ?? this.daily,
+    weekly: weekly ?? this.weekly,
+    dailyRerollsLeft: dailyRerollsLeft ?? this.dailyRerollsLeft,
+    weeklyRerollsLeft: weeklyRerollsLeft ?? this.weeklyRerollsLeft,
+  );
+
+  /// Reads either the quest arrays on the overview or the replacement list a
+  /// reroll answers with, which carry the same shape.
+  static List<AchievementQuest> parseList(dynamic value) {
     if (value is! List) return const <AchievementQuest>[];
     return value
         .whereType<Map<String, dynamic>>()
@@ -255,10 +279,31 @@ class AchievementQuests {
 
   factory AchievementQuests.fromJson(Map<String, dynamic> json) {
     return AchievementQuests(
-      daily: _list(json['Daily']),
-      weekly: _list(json['Weekly']),
+      daily: parseList(json['Daily']),
+      weekly: parseList(json['Weekly']),
+      dailyRerollsLeft: (json['DailyRerollsRemaining'] as num?)?.toInt() ?? 0,
+      weeklyRerollsLeft: (json['WeeklyRerollsRemaining'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// How a reroll attempt ended.
+///
+/// A spent reroll is a refusal the panel reports plainly, not a fault.
+enum QuestRerollOutcome { rerolled, alreadyUsed, failed }
+
+class QuestReroll {
+  const QuestReroll(
+    this.outcome, {
+    this.quests = const <AchievementQuest>[],
+    this.rerollsLeft = 0,
+  });
+
+  final QuestRerollOutcome outcome;
+
+  /// The replacement set, so a reroll needs no second fetch.
+  final List<AchievementQuest> quests;
+  final int rerollsLeft;
 }
 
 /// One row of either leaderboard.

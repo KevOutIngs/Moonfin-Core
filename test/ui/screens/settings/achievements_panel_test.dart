@@ -98,6 +98,61 @@ void main() {
       expect(find.text('Hidden'), findsOneWidget);
     });
 
+    testWidgets('rerolling swaps the daily set once confirmed', (tester) async {
+      await pumpPanel(tester);
+      await tester.tap(find.text('Quests'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Watch something'), findsOneWidget);
+
+      await tester.tap(find.text('Reroll daily quests'));
+      await tester.pumpAndSettle();
+
+      // A reroll is spent for the day, so it asks first.
+      expect(find.text('Reroll these quests?'), findsOneWidget);
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A fresh day'), findsOneWidget);
+      expect(find.text('Watch something'), findsNothing);
+      expect(
+        find.text('Used today, comes back at midnight UTC'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('backing out of the confirm leaves the set alone', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+      await tester.tap(find.text('Quests'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Reroll daily quests'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Watch something'), findsOneWidget);
+      expect(find.text('Swap this set for a different one'), findsOneWidget);
+    });
+
+    testWidgets('a reroll the server already spent reads as used', (
+      tester,
+    ) async {
+      adapter.dailyRerollsLeft = 0;
+
+      await pumpPanel(tester);
+      await tester.tap(find.text('Quests'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Used today, comes back at midnight UTC'),
+        findsOneWidget,
+      );
+      expect(find.text('Swap this set for a different one'), findsNothing);
+    });
+
     testWidgets('a plugin that stops answering offers a retry', (tester) async {
       adapter.pluginMissing = true;
 

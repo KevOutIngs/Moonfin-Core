@@ -8,8 +8,10 @@ import '../../../data/services/achievements_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../util/achievement_icons.dart';
 import '../../../util/platform_detection.dart';
+import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/adaptive/adaptive_list_section.dart';
 import '../../widgets/focus/dpad_list_tile.dart';
+import '../../widgets/overlay_sheet.dart';
 import '../../widgets/settings/clean_settings_typography.dart';
 import '../../widgets/settings/preference_tiles.dart';
 import '../../widgets/settings/settings_panel.dart';
@@ -795,10 +797,101 @@ class _BadgeTile extends StatelessWidget {
   }
 }
 
-class _QuestsScreen extends StatelessWidget {
+class _QuestsScreen extends StatefulWidget {
   const _QuestsScreen({required this.quests});
 
   final AchievementQuests quests;
+
+  @override
+  State<_QuestsScreen> createState() => _QuestsScreenState();
+}
+
+class _QuestsScreenState extends State<_QuestsScreen> {
+  late AchievementQuests _quests = widget.quests;
+  bool _rerolling = false;
+
+  Future<bool> _confirm(AppLocalizations l10n) async {
+    final answer = await showFocusRestoringDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog.adaptive(
+        title: Text(l10n.achievementsRerollConfirm),
+        content: Text(l10n.achievementsRerollConfirmBody),
+        actions: [
+          adaptiveDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          adaptiveDialogAction(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.confirm),
+          ),
+        ],
+      ),
+    );
+    return answer == true;
+  }
+
+  Future<void> _reroll(AppLocalizations l10n, {required bool weekly}) async {
+    final client = _client();
+    if (client == null || _rerolling) return;
+    if (!await _confirm(l10n)) return;
+    if (!mounted) return;
+
+    setState(() => _rerolling = true);
+    final result = await GetIt.instance<AchievementsService>().rerollQuests(
+      client,
+      weekly: weekly,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _rerolling = false;
+      switch (result.outcome) {
+        case QuestRerollOutcome.rerolled:
+          _quests = weekly
+              ? _quests.copyWith(
+                  weekly: result.quests,
+                  weeklyRerollsLeft: result.rerollsLeft,
+                )
+              : _quests.copyWith(
+                  daily: result.quests,
+                  dailyRerollsLeft: result.rerollsLeft,
+                );
+        case QuestRerollOutcome.alreadyUsed:
+          // The server is the authority on this, so take its word and let the
+          // row settle into its spent state.
+          _quests = weekly
+              ? _quests.copyWith(weeklyRerollsLeft: 0)
+              : _quests.copyWith(dailyRerollsLeft: 0);
+        case QuestRerollOutcome.failed:
+          break;
+      }
+    });
+
+    if (result.outcome == QuestRerollOutcome.failed) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.achievementsRerollFailed)));
+    }
+  }
+
+  Widget _rerollRow(AppLocalizations l10n, {required bool weekly}) {
+    final left = weekly ? _quests.weeklyRerollsLeft : _quests.dailyRerollsLeft;
+    final spent = weekly
+        ? l10n.achievementsRerollSpentWeekly
+        : l10n.achievementsRerollSpentDaily;
+
+    return DpadListTile(
+      useSettingsIconShell: true,
+      enabled: left > 0 && !_rerolling,
+      leading: const Icon(Icons.casino),
+      title: Text(
+        weekly ? l10n.achievementsRerollWeekly : l10n.achievementsRerollDaily,
+      ),
+      subtitle: Text(left > 0 ? l10n.achievementsRerollOffer : spent),
+      onTap: () => _reroll(l10n, weekly: weekly),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -809,19 +902,21 @@ class _QuestsScreen extends StatelessWidget {
       builder: (context) => ListView(
         padding: _listPadding,
         children: [
-          if (quests.daily.isNotEmpty) ...[
+          if (_quests.daily.isNotEmpty) ...[
             SettingsSectionHeader(l10n.achievementsDailyQuests),
             adaptiveListSection(
               children: [
-                for (final quest in quests.daily) _QuestTile(quest: quest),
+                for (final quest in _quests.daily) _QuestTile(quest: quest),
+                _rerollRow(l10n, weekly: false),
               ],
             ),
           ],
-          if (quests.weekly.isNotEmpty) ...[
+          if (_quests.weekly.isNotEmpty) ...[
             SettingsSectionHeader(l10n.achievementsWeeklyQuests),
             adaptiveListSection(
               children: [
-                for (final quest in quests.weekly) _QuestTile(quest: quest),
+                for (final quest in _quests.weekly) _QuestTile(quest: quest),
+                _rerollRow(l10n, weekly: true),
               ],
             ),
           ],

@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:go_router/go_router.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:playback_core/playback_core.dart';
 import 'package:moonfin/data/viewmodels/live_tv_guide_view_model.dart';
 import 'package:moonfin/l10n/app_localizations.dart';
 import 'package:moonfin/preference/user_preferences.dart';
+import 'package:moonfin/ui/navigation/destinations.dart';
 import 'package:moonfin/ui/screens/livetv/epg/widgets/epg_filter_rail.dart';
 import 'package:moonfin/ui/screens/livetv/guide/guide_window.dart';
 import 'package:moonfin/ui/screens/livetv/live_tv_guide_screen.dart';
@@ -819,6 +821,114 @@ void main() {
             'the covered guide stole focus after a lineup change instead '
             'of leaving it with the route on top',
       );
+    },
+  );
+
+  testWidgets(
+    'returning from the player focuses the preference channel, not the '
+    'one launched',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final router = GoRouter(
+        routes: [
+          GoRoute(path: '/', builder: (_, _) => const LiveTvGuideScreen()),
+          GoRoute(
+            path: Destinations.liveTvPlayer,
+            builder: (_, _) => const Scaffold(body: SizedBox.shrink()),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          routerConfig: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Launch ch0 from the guide.
+      _nodeLabelled(tester, 'GuideChannel:0').requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      // The player route is up. Simulate it having switched to ch3 while the
+      // guide waited underneath, exactly as the carousel does.
+      await GetIt.instance<UserPreferences>().set(
+        UserPreferences.liveTvLastChannelId,
+        'ch3',
+      );
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(_focusedLabel(), 'GuideChannel:3');
+    },
+  );
+
+  testWidgets(
+    'a back press re-homes to the channel the user has since tuned, not '
+    'the one playing when the guide opened',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LiveTvGuideScreen(),
+                ),
+              ),
+              child: const Text('open guide'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open guide'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+
+      // Simulate the player having tuned ch2 while the guide sat underneath;
+      // the guide itself never touches the preference here.
+      await GetIt.instance<UserPreferences>().set(
+        UserPreferences.liveTvLastChannelId,
+        'ch2',
+      );
+
+      // Page the window off live so back has somewhere to reset from.
+      final before = _windowRangeText(tester);
+      _nodeLabelled(tester, 'GuideWindowBar:0').requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final after = _windowRangeText(tester);
+      expect(after, isNot(before), reason: 'window did not page');
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      // The guide's periodic display-clock timer (15s) is the next thing
+      // that schedules a frame; ride it to let the reset's second deferred
+      // postFrameCallback run, exactly as it would once anything else in
+      // the running app requested a frame.
+      await tester.pump(const Duration(seconds: 15));
+      await tester.pumpAndSettle();
+
+      // Back re-homed to the last-tuned channel (ch2), not the channel
+      // playing when the guide opened (ch0) -- and did not exit the guide.
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+      expect(_focusedLabel(), 'GuideChannel:2');
     },
   );
 }

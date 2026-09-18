@@ -202,10 +202,6 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   bool _didInitializeMiniPlayerMode = false;
   bool _didRestoreInitialChannelFocus = false;
 
-  /// The channel focused when the guide first settled (last-tuned channel on
-  /// the standalone route, the actively-playing channel in mini-player mode).
-  /// Back resets here rather than exiting once the user has moved away from it.
-  String? _entryChannelId;
   late EpgMobileView _mobileView;
   GuideLayoutProfile _layoutProfile = GuideLayoutProfile.fromAvailableArea(
     availableWidth: 960,
@@ -535,7 +531,6 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
 
     _didInitializeMiniPlayerMode = true;
     final channel = channels[initialIndex];
-    _entryChannelId = channel.id;
     _focusedChannel.value = channel;
     _focusedProgram.value = _currentProgramForChannel(channel.id);
 
@@ -559,7 +554,6 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     );
     final index = preferredIndex >= 0 ? preferredIndex : 0;
     _didRestoreInitialChannelFocus = true;
-    _entryChannelId = _vm.filteredChannels[index].id;
 
     // RequestInitialFocus also schedules a post-frame focus. Defer one extra
     // frame so the restored row wins that initial traversal race.
@@ -2111,13 +2105,21 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     _anchorToWindowStart();
   }
 
+  /// The channel the guide considers "home": the last one the user actually
+  /// tuned, read live off the always-current preference rather than a copy
+  /// cached at some earlier point.
+  String? get _homeChannelId {
+    final id = _prefs.get(UserPreferences.liveTvLastChannelId).trim();
+    return id.isEmpty ? null : id;
+  }
+
   /// True once the user has paged the window off live or moved focus onto a
-  /// channel other than [_entryChannelId] -- anywhere in the grid, channel
+  /// channel other than [_homeChannelId] -- anywhere in the grid, channel
   /// column included.
   bool _isExploringAwayFromEntry() {
-    final entryId = _entryChannelId;
-    if (entryId == null) return false;
-    return !_vm.atLivePosition || _focusedChannel.value?.id != entryId;
+    final homeId = _homeChannelId;
+    if (homeId == null) return false;
+    return !_vm.atLivePosition || _focusedChannel.value?.id != homeId;
   }
 
   /// Resets to the entry channel at the already-resolved [index] into
@@ -2158,10 +2160,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// close/exit path instead of consuming back presses forever.
   bool _consumeBackIfExploring() {
     if (!_isExploringAwayFromEntry()) return false;
-    final entryId = _entryChannelId;
-    if (entryId == null) return false;
+    final homeId = _homeChannelId;
+    if (homeId == null) return false;
     final index = _vm.filteredChannels.indexWhere(
-      (channel) => channel.id == entryId,
+      (channel) => channel.id == homeId,
     );
     if (index < 0) return false;
     unawaited(_resetToEntryState(index));
@@ -2316,9 +2318,18 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     );
     if (!mounted) return;
     _vm.scheduleBoundaryRefresh();
-    final restoredIndex = _vm.filteredChannels.indexWhere(
-      (channel) => channel.id == channelId,
+    // The player may have switched channels (carousel) while it was up, so
+    // the preference it kept current names the channel to restore focus to,
+    // not the one this call originally launched.
+    final restoredChannels = _vm.filteredChannels;
+    var restoredIndex = restoredChannels.indexWhere(
+      (channel) => channel.id == _homeChannelId,
     );
+    if (restoredIndex < 0) {
+      restoredIndex = restoredChannels.indexWhere(
+        (channel) => channel.id == channelId,
+      );
+    }
     if (restoredIndex >= 0) _focusChannelRow(restoredIndex);
   }
 

@@ -19540,6 +19540,48 @@ abstract class AppLocalizations {
   /// **'Power-ups'**
   String get achievementsPowerUps;
 
+  /// Screen selling power-ups for score
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get achievementsShop;
+
+  /// Subtitle on the row that opens the shop
+  ///
+  /// In en, this message translates to:
+  /// **'Spend score on more boosts'**
+  String get achievementsShopSubtitle;
+
+  /// A shop item that grants more than one of a power-up
+  ///
+  /// In en, this message translates to:
+  /// **'{name} ×{count}'**
+  String achievementsShopPack(String name, int count);
+
+  /// Shown when the shop catalogue came back with nothing
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing for sale right now.'**
+  String get achievementsShopEmpty;
+
+  /// Title of the dialog confirming a purchase
+  ///
+  /// In en, this message translates to:
+  /// **'Buy this?'**
+  String get achievementsBuyConfirm;
+
+  /// Body of the dialog confirming a purchase
+  ///
+  /// In en, this message translates to:
+  /// **'It comes straight out of your score bank.'**
+  String get achievementsBuyConfirmBody;
+
+  /// Message shown when a purchase did not go through
+  ///
+  /// In en, this message translates to:
+  /// **'Could not buy that.'**
+  String get achievementsBuyFailed;
+
   /// Label for the score a user still has to spend
   ///
   /// In en, this message translates to:

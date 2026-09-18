@@ -10273,6 +10273,42 @@
   "@achievementsPowerUps": {
     "description": "Section header above the consumable boosts a user holds"
   },
+  "achievementsShop": "Shop",
+  "@achievementsShop": {
+    "description": "Screen selling power-ups for score"
+  },
+  "achievementsShopSubtitle": "Spend score on more boosts",
+  "@achievementsShopSubtitle": {
+    "description": "Subtitle on the row that opens the shop"
+  },
+  "achievementsShopPack": "{name} \u00d7{count}",
+  "@achievementsShopPack": {
+    "description": "A shop item that grants more than one of a power-up",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsShopEmpty": "Nothing for sale right now.",
+  "@achievementsShopEmpty": {
+    "description": "Shown when the shop catalogue came back with nothing"
+  },
+  "achievementsBuyConfirm": "Buy this?",
+  "@achievementsBuyConfirm": {
+    "description": "Title of the dialog confirming a purchase"
+  },
+  "achievementsBuyConfirmBody": "It comes straight out of your score bank.",
+  "@achievementsBuyConfirmBody": {
+    "description": "Body of the dialog confirming a purchase"
+  },
+  "achievementsBuyFailed": "Could not buy that.",
+  "@achievementsBuyFailed": {
+    "description": "Message shown when a purchase did not go through"
+  },
   "achievementsScoreBank": "Score bank",
   "@achievementsScoreBank": {
     "description": "Label for the score a user still has to spend"

@@ -446,6 +446,57 @@ class PowerUpUse {
   final List<PowerUpSlot> slots;
 }
 
+/// One thing the shop sells.
+///
+/// The name and description the catalogue carries are English only, so only
+/// the type, the pack size and the price are read.
+class ShopPowerUp {
+  const ShopPowerUp({
+    required this.id,
+    required this.type,
+    required this.bundleSize,
+    required this.priceScore,
+  });
+
+  final String id;
+
+  /// Matches [PowerUpSlot.type], which is how a row finds its own wording.
+  final String type;
+
+  /// More than one on the discounted packs.
+  final int bundleSize;
+  final int priceScore;
+
+  factory ShopPowerUp.fromJson(Map<String, dynamic> json) {
+    return ShopPowerUp(
+      id: _asString(json['Id']),
+      type: _asString(json['Type']),
+      bundleSize: _asInt(json['BundleSize']),
+      priceScore: _asInt(json['PriceScore']),
+    );
+  }
+
+  /// The catalogue also carries cosmetics, which this panel has no way to
+  /// draw, so only the power-ups are read.
+  static List<ShopPowerUp> parseCatalog(Map<String, dynamic> json) =>
+      _mapList(json['PowerUps'], ShopPowerUp.fromJson);
+}
+
+/// How a purchase ended.
+enum PurchaseOutcome { bought, refused, failed }
+
+class Purchase {
+  const Purchase(this.outcome, {this.message, this.bankAfter});
+
+  final PurchaseOutcome outcome;
+
+  /// The plugin's own wording for a refusal.
+  final String? message;
+
+  /// What the bank holds now, so nothing has to be fetched again.
+  final int? bankAfter;
+}
+
 /// One row of either leaderboard.
 ///
 /// The overall board carries score and completion. A category board carries a

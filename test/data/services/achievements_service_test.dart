@@ -21,6 +21,40 @@ void main() {
     client = buildAchievementClient();
   });
 
+  group('shop', () {
+    test('only the power-ups are read from the catalogue', () async {
+      final items = await service.fetchShopPowerUps(client);
+
+      expect(items, hasLength(3));
+      expect(items.first.id, 'pu-xp-boost-1');
+      expect(items.first.priceScore, 50);
+      expect(items[1].bundleSize, 3);
+    });
+
+    test('buying deducts from the bank and names the item', () async {
+      final result = await service.buy(client, 'pu-xp-boost-3');
+
+      expect(result.outcome, PurchaseOutcome.bought);
+      expect(result.bankAfter, 1240 - 130);
+      expect(adapter.lastBody, contains('pu-xp-boost-3'));
+    });
+
+    test('a bank too short is refused, not broken', () async {
+      adapter.scoreBank = 10;
+
+      final result = await service.buy(client, 'pu-streak-freeze-1');
+      expect(result.outcome, PurchaseOutcome.refused);
+      expect(result.message, 'Not enough score.');
+    });
+
+    test('what was bought lands in the inventory', () async {
+      await service.buy(client, 'pu-xp-boost-3');
+
+      final state = await service.fetchPowerUps(client);
+      expect(state?.slots.firstWhere((s) => s.type == 'XpBoost').count, 5);
+    });
+  });
+
   group('loadout', () {
     test('the bank and the inventory come back together', () async {
       final state = await service.fetchPowerUps(client);

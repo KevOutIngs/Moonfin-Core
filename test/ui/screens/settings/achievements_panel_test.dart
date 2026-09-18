@@ -233,6 +233,52 @@ void main() {
       expect(find.text('None held'), findsOneWidget);
     });
 
+    testWidgets('the shop sells a pack and spends the bank', (tester) async {
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Loadout'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Shop'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Shop'));
+      await tester.pumpAndSettle();
+
+      // A pack says how many it grants, a single just names the boost.
+      expect(find.text('XP Boost \u00d73'), findsOneWidget);
+      expect(find.text('130 points'), findsOneWidget);
+      expect(find.text('1240 points'), findsOneWidget);
+
+      await tester.tap(find.text('XP Boost \u00d73'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1110 points'), findsOneWidget);
+    });
+
+    testWidgets('an item the bank cannot cover is not sold', (tester) async {
+      adapter.scoreBank = 10;
+
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Shop'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Shop'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('XP Boost \u00d73'));
+      await tester.pumpAndSettle();
+
+      // Nothing was asked, so nothing was spent.
+      expect(find.text('Buy this?'), findsNothing);
+      expect(find.text('10 points'), findsOneWidget);
+    });
+
     testWidgets('a plugin that stops answering offers a retry', (tester) async {
       adapter.pluginMissing = true;
 

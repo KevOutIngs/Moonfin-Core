@@ -296,6 +296,68 @@ class _AchievementRowState extends State<_AchievementRow> {
 VoidCallback? _tileTap(VoidCallback onTap) =>
     PlatformDetection.isTV ? null : onTap;
 
+/// The score a user still has to spend, above whatever it can be spent on.
+class _ScoreBank extends StatelessWidget {
+  const _ScoreBank(this.bank);
+
+  final int bank;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SettingsSectionHeader(l10n.achievementsScoreBank),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            l10n.achievementsScore(bank),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The round tinted icon every tile in this panel leads with.
+class _TileIcon extends StatelessWidget {
+  const _TileIcon({
+    required this.icon,
+    required this.colour,
+    required this.highlighted,
+  });
+
+  final IconData icon;
+  final Color colour;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+    backgroundColor: _tintedSurface(colour, highlighted),
+    child: Icon(icon, color: colour),
+  );
+}
+
+/// The plugin sends English names for its three power-ups, so the panel words
+/// them itself and falls back to the raw type if a fourth ever turns up.
+String _powerUpName(AppLocalizations l10n, String type) => switch (type) {
+  'XpBoost' => l10n.achievementsBoost,
+  'DoubleCredit' => l10n.achievementsDoubleCredit,
+  'StreakFreeze' => l10n.achievementsStreakFreeze,
+  _ => type,
+};
+
+String _powerUpBody(AppLocalizations l10n, String type) => switch (type) {
+  'XpBoost' => l10n.achievementsBoostBody,
+  'DoubleCredit' => l10n.achievementsDoubleCreditBody,
+  'StreakFreeze' => l10n.achievementsStreakFreezeBody,
+  _ => '',
+};
+
 /// Asks before spending something the user only gets so many of.
 Future<bool> _confirmSpend(
   BuildContext context, {
@@ -835,9 +897,10 @@ class _BadgeTile extends StatelessWidget {
     return ListTile(
       leading: Opacity(
         opacity: badge.unlocked ? 1 : 0.4,
-        child: CircleAvatar(
-          backgroundColor: _tintedSurface(color, highlighted),
-          child: Icon(achievementIcon(badge.icon), color: color),
+        child: _TileIcon(
+          icon: achievementIcon(badge.icon),
+          colour: color,
+          highlighted: highlighted,
         ),
       ),
       title: Text(
@@ -1027,20 +1090,6 @@ class _LoadoutScreenState extends State<_LoadoutScreen> {
     });
   }
 
-  String _name(AppLocalizations l10n, String type) => switch (type) {
-    'XpBoost' => l10n.achievementsBoost,
-    'DoubleCredit' => l10n.achievementsDoubleCredit,
-    'StreakFreeze' => l10n.achievementsStreakFreeze,
-    _ => type,
-  };
-
-  String _body(AppLocalizations l10n, String type) => switch (type) {
-    'XpBoost' => l10n.achievementsBoostBody,
-    'DoubleCredit' => l10n.achievementsDoubleCreditBody,
-    'StreakFreeze' => l10n.achievementsStreakFreezeBody,
-    _ => '',
-  };
-
   Future<void> _use(AppLocalizations l10n, PowerUpSlot slot) async {
     final client = _client();
     if (client == null || _busy) return;
@@ -1099,31 +1148,190 @@ class _LoadoutScreenState extends State<_LoadoutScreen> {
     return ListView(
       padding: _listPadding,
       children: [
-        SettingsSectionHeader(l10n.achievementsScoreBank),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Text(
-            l10n.achievementsScore(state.bank),
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ),
+        _ScoreBank(state.bank),
         SettingsSectionHeader(l10n.achievementsPowerUps),
         adaptiveListSection(
           children: [
             for (final slot in state.slots)
               _PowerUpTile(
-                name: _name(l10n, slot.type),
-                body: _body(l10n, slot.type),
+                name: _powerUpName(l10n, slot.type),
+                body: _powerUpBody(l10n, slot.type),
                 slot: slot,
                 onUse: slot.count > 0 && !_busy
                     ? () => _use(l10n, slot)
                     : null,
               ),
+            DpadListTile(
+              useSettingsIconShell: true,
+              leading: const Icon(Icons.storefront),
+              trailing: const Icon(Icons.chevron_right),
+              title: Text(l10n.achievementsShop),
+              subtitle: Text(l10n.achievementsShopSubtitle),
+              // Reloading on the way back, since a purchase changes both the
+              // bank and the stock this screen is showing.
+              onTap: () async {
+                await context.pushSettingsScreen(const _ShopScreen());
+                if (mounted) _load();
+              },
+            ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// What score can be spent on.
+class _ShopScreen extends StatefulWidget {
+  const _ShopScreen();
+
+  @override
+  State<_ShopScreen> createState() => _ShopScreenState();
+}
+
+class _ShopScreenState extends State<_ShopScreen> {
+  List<ShopPowerUp> _items = const [];
+  int _bank = 0;
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final client = _client();
+    if (client == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final service = GetIt.instance<AchievementsService>();
+    // The catalogue carries no bank, so the two are read together.
+    final results = await Future.wait([
+      service.fetchShopPowerUps(client),
+      service.fetchPowerUps(client),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _items = results[0] as List<ShopPowerUp>;
+      _bank = (results[1] as PowerUpState?)?.bank ?? 0;
+      _loading = false;
+    });
+  }
+
+  Future<void> _buy(AppLocalizations l10n, ShopPowerUp item) async {
+    final client = _client();
+    if (client == null || _busy) return;
+
+    final go = await _confirmSpend(
+      context,
+      title: l10n.achievementsBuyConfirm,
+      body: l10n.achievementsBuyConfirmBody,
+    );
+    if (!go || !mounted) return;
+
+    setState(() => _busy = true);
+    final result = await GetIt.instance<AchievementsService>().buy(
+      client,
+      item.id,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _busy = false;
+      if (result.outcome == PurchaseOutcome.bought) {
+        _bank = result.bankAfter ?? _bank;
+      }
+    });
+
+    if (result.outcome == PurchaseOutcome.bought) return;
+    final text = result.message ?? l10n.achievementsBuyFailed;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _AchievementsScaffold(
+      title: l10n.achievementsShop,
+      builder: (context) => _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(context, l10n),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    return ListView(
+      padding: _listPadding,
+      children: [
+        _ScoreBank(_bank),
+        if (_items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l10n.achievementsShopEmpty),
+          )
+        else
+          adaptiveListSection(
+            children: [
+              for (final item in _items)
+                _ShopTile(
+                  item: item,
+                  affordable: item.priceScore <= _bank && !_busy,
+                  onBuy: () => _buy(l10n, item),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+class _ShopTile extends StatelessWidget {
+  const _ShopTile({
+    required this.item,
+    required this.affordable,
+    required this.onBuy,
+  });
+
+  final ShopPowerUp item;
+  final bool affordable;
+  final VoidCallback onBuy;
+
+  @override
+  Widget build(BuildContext context) => _AchievementRow(
+    onTap: affordable ? onBuy : null,
+    builder: (context, highlighted) => _tile(context, highlighted),
+  );
+
+  Widget _tile(BuildContext context, bool highlighted) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final accent = _hueOn(AppColorScheme.accent, highlighted);
+    final name = _powerUpName(l10n, item.type);
+
+    return ListTile(
+      leading: _TileIcon(
+        icon: Icons.storefront,
+        colour: accent,
+        highlighted: highlighted,
+      ),
+      title: Text(
+        item.bundleSize > 1
+            ? l10n.achievementsShopPack(name, item.bundleSize)
+            : name,
+      ),
+      subtitle: Text(_powerUpBody(l10n, item.type)),
+      trailing: Text(
+        l10n.achievementsScore(item.priceScore),
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: affordable ? accent : _secondaryText(highlighted),
+        ),
+      ),
+      isThreeLine: true,
+      onTap: affordable ? _tileTap(onBuy) : null,
     );
   }
 }
@@ -1157,9 +1365,10 @@ class _PowerUpTile extends StatelessWidget {
     // read on a remote, and a disabled tile greys its title past legibility
     // once the highlight inverts. Having none is said in the subtitle instead.
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: _tintedSurface(accent, highlighted),
-        child: Icon(achievementIcon(slot.icon), color: accent),
+      leading: _TileIcon(
+        icon: achievementIcon(slot.icon),
+        colour: accent,
+        highlighted: highlighted,
       ),
       title: Text(name),
       subtitle: Column(
@@ -1316,12 +1525,10 @@ class _QuestTile extends StatelessWidget {
     final color = _hueOn(AppColorScheme.accent, highlighted);
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: _tintedSurface(color, highlighted),
-        child: Icon(
-          quest.completed ? Icons.check : achievementIcon(quest.icon),
-          color: color,
-        ),
+      leading: _TileIcon(
+        icon: quest.completed ? Icons.check : achievementIcon(quest.icon),
+        colour: color,
+        highlighted: highlighted,
       ),
       title: Text(quest.title),
       subtitle: Column(

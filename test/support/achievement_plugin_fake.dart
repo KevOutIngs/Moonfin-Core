@@ -19,6 +19,9 @@ class AchievementPluginAdapter implements HttpClientAdapter {
   /// Set when no plugin is installed, which answers 404 for every route.
   bool pluginMissing = false;
 
+  /// The body of the last write, for asserting what was bought.
+  String? lastBody;
+
   /// The plugin's admin switches.
   bool leaderboardEnabled = true;
   bool questsEnabled = true;
@@ -36,6 +39,29 @@ class AchievementPluginAdapter implements HttpClientAdapter {
     'StreakFreeze': 1,
   };
   final Set<String> activePowerUps = {};
+
+  /// A single and a discounted pack, so the pack wording has something to
+  /// render, plus one item of another type.
+  final List<Map<String, dynamic>> catalog = [
+    {
+      'Id': 'pu-xp-boost-1',
+      'Type': 'XpBoost',
+      'BundleSize': 1,
+      'PriceScore': 50,
+    },
+    {
+      'Id': 'pu-xp-boost-3',
+      'Type': 'XpBoost',
+      'BundleSize': 3,
+      'PriceScore': 130,
+    },
+    {
+      'Id': 'pu-streak-freeze-1',
+      'Type': 'StreakFreeze',
+      'BundleSize': 1,
+      'PriceScore': 100,
+    },
+  ];
 
   List<Map<String, dynamic>> get _inventory => [
     for (final entry in powerUps.entries)
@@ -59,6 +85,15 @@ class AchievementPluginAdapter implements HttpClientAdapter {
     final path = options.uri.path;
     requests.add('${options.method} $path');
 
+    // The purchase route is the only one that sends a body, and which item it
+    // names is worth asserting on.
+    if (requestStream != null) {
+      final chunks = await requestStream.toList();
+      if (chunks.isNotEmpty) {
+        lastBody = utf8.decode(chunks.expand((c) => c).toList());
+      }
+    }
+
     if (pluginMissing) {
       return ResponseBody.fromString('', 404);
     }
@@ -69,6 +104,33 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         'LeaderboardEnabled': leaderboardEnabled,
         'QuestsEnabled': questsEnabled,
         'ForcePrivacyMode': false,
+      };
+    } else if (path.endsWith('/shop/catalog')) {
+      body = {'PowerUps': catalog, 'Cosmetics': const <dynamic>[]};
+    } else if (path.endsWith('/shop/purchase')) {
+      final itemId = (jsonDecode(lastBody ?? '{}') as Map)['ItemId'];
+      final item = catalog.firstWhere(
+        (i) => i['Id'] == itemId,
+        orElse: () => <String, dynamic>{},
+      );
+      final price = (item['PriceScore'] as int?) ?? 0;
+      if (item.isEmpty || price > scoreBank) {
+        return ResponseBody.fromString(
+          jsonEncode({'Message': 'Not enough score.'}),
+          400,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+      scoreBank -= price;
+      final type = item['Type'] as String;
+      powerUps[type] = (powerUps[type] ?? 0) + (item['BundleSize'] as int);
+      body = {
+        'Success': true,
+        'Message': 'Bought.',
+        'ScoreBalanceAfter': scoreBank,
+        'PowerUpInventoryAfter': powerUps[type],
       };
     } else if (path.contains('/powerups/use/')) {
       final type = path.split('/').last;

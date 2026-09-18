@@ -22,9 +22,9 @@ BaseOptions achievementRequestOptions() => BaseOptions(
 /// jellyfin-web. Everything it knows is on a plain HTTP API, which is what this
 /// reads so the panel can be drawn natively on every platform.
 ///
-/// Almost all of it is reading. The login ping, the quest reroll and spending a
-/// power-up are the only things written, because they are the only parts the
-/// plugin expects a client to drive.
+/// Almost all of it is reading. The login ping, the quest reroll, spending a
+/// power-up and buying one are the only things written, because they are the
+/// only parts the plugin expects a client to drive.
 class AchievementsService extends ChangeNotifier {
   static const String _root = 'Plugins/AchievementBadges';
 
@@ -167,6 +167,7 @@ class AchievementsService extends ChangeNotifier {
     MediaServerClient client,
     String path, {
     required int refusedWith,
+    Map<String, dynamic>? body,
   }) async {
     final headers = _authHeaders(client);
     if (headers == null) return const _Written();
@@ -174,6 +175,7 @@ class AchievementsService extends ChangeNotifier {
     try {
       final response = await _dio.post<dynamic>(
         '${_base(client)}/$_root/$path',
+        data: body,
         options: Options(headers: headers),
       );
       final data = response.data;
@@ -339,6 +341,45 @@ class AchievementsService extends ChangeNotifier {
       PowerUpUseOutcome.used,
       message: body['Message'] as String?,
       slots: PowerUpState.parseSlots(body['Inventory']),
+    );
+  }
+
+  /// What the shop sells, narrowed to the power-ups.
+  ///
+  /// The catalogue is the same for everyone, so this route carries no user.
+  Future<List<ShopPowerUp>> fetchShopPowerUps(MediaServerClient client) async {
+    final json = await _getMap(client, 'shop/catalog');
+    return json == null
+        ? const <ShopPowerUp>[]
+        : ShopPowerUp.parseCatalog(json);
+  }
+
+  /// Buys one thing from the shop.
+  ///
+  /// The plugin refuses with 400 when the bank is short or the slot is already
+  /// full, and its wording says which.
+  Future<Purchase> buy(MediaServerClient client, String itemId) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) {
+      return const Purchase(PurchaseOutcome.failed);
+    }
+
+    final written = await _post(
+      client,
+      'users/$userId/shop/purchase',
+      refusedWith: 400,
+      body: {'ItemId': itemId},
+    );
+    if (written.refused) {
+      return Purchase(PurchaseOutcome.refused, message: written.message);
+    }
+
+    final data = written.body;
+    if (data == null) return const Purchase(PurchaseOutcome.failed);
+    return Purchase(
+      PurchaseOutcome.bought,
+      message: data['Message'] as String?,
+      bankAfter: (data['ScoreBalanceAfter'] as num?)?.toInt(),
     );
   }
 

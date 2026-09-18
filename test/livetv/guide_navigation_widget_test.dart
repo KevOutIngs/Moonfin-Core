@@ -725,4 +725,100 @@ void main() {
       expect(find.byType(LiveTvGuideScreen), findsNothing);
     },
   );
+
+  testWidgets(
+    'a lineup change while covered by another route does not steal focus',
+    (tester) async {
+      // ch5 is the only favorite, so switching to the favorites filter later
+      // drops every other channel (including the one holding the current
+      // selection) from filteredChannels.
+      final favoriteChannel = _channelRaw(5)
+        ..['UserData'] = <String, dynamic>{'IsFavorite': true};
+      when(
+        () => liveTvApi.getChannels(
+          startIndex: any(named: 'startIndex'),
+          limit: any(named: 'limit'),
+          sortBy: any(named: 'sortBy'),
+          sortOrder: any(named: 'sortOrder'),
+          fields: any(named: 'fields'),
+          enableTotalRecordCount: any(named: 'enableTotalRecordCount'),
+          userId: any(named: 'userId'),
+        ),
+      ).thenAnswer(
+        (_) async => <String, dynamic>{
+          'Items': [
+            for (var i = 0; i < channelCount; i++)
+              if (i == 5) favoriteChannel else _channelRaw(i),
+          ],
+        },
+      );
+
+      tester.view.physicalSize = const Size(900, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LiveTvGuideScreen(),
+                ),
+              ),
+              child: const Text('open guide'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open guide'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LiveTvGuideScreen), findsOneWidget);
+
+      // Establish a selection in the grid before the guide is covered.
+      await establishAnchor(tester);
+
+      // A fully opaque covering route wraps the guide in an Offstage, which
+      // finders skip by default, so grab the filter callback while the guide
+      // is still on top.
+      final onSelectFavorites = tester
+          .widget<EpgFilterRail>(find.byType(EpgFilterRail))
+          .onSelect;
+
+      // Simulate tuning a channel: push a route on top of the guide (the
+      // guide stays mounted underneath, exactly like the player) and move
+      // focus into it, as the real player does on entry.
+      final playerFocusNode = FocusNode(debugLabel: 'FakePlayer');
+      addTearDown(playerFocusNode.dispose);
+      final guideContext = tester.element(find.byType(LiveTvGuideScreen));
+      Navigator.of(guideContext).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Focus(
+            focusNode: playerFocusNode,
+            autofocus: true,
+            child: const SizedBox(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_focusedLabel(), 'FakePlayer');
+
+      // Switch to the favorites filter, which changes filteredChannels while
+      // the guide is covered by the pushed route.
+      onSelectFavorites(GuideFilter.values.indexOf(GuideFilter.favorites));
+      await tester.pumpAndSettle();
+
+      // Focus must still belong to the pushed route, not to a guide cell it
+      // cannot see.
+      expect(
+        _focusedLabel(),
+        'FakePlayer',
+        reason:
+            'the covered guide stole focus after a lineup change instead '
+            'of leaving it with the route on top',
+      );
+    },
+  );
 }

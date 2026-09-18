@@ -256,7 +256,11 @@ class _SearchScreenState extends State<SearchScreen> with GridFocusNodeMixin {
 
   // Seerr and Games are leading special tabs (when they have results), then the
   // All tab, then the group tabs.
-  bool get _hasSeerr => _vm.seerrResults.isNotEmpty;
+  // Gated here rather than at the render, because _leadingTabCount and every
+  // tab index predicate are derived from this.
+  bool get _hasSeerr =>
+      _vm.seerrResults.isNotEmpty &&
+      !GetIt.instance<UserPreferences>().get(UserPreferences.kidsModeEnabled);
   bool get _hasGames => _vm.gameResults.isNotEmpty;
 
   int get _tabCount {

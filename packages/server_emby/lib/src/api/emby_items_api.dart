@@ -780,7 +780,9 @@ class EmbyItemsApi implements ItemsApi {
       '/Genres',
       queryParameters: {
         'ParentId': ?parentId,
-        'UserId': ?userId,
+        // Defaulted rather than left to callers. Without a user the server
+        // answers across every library, including ones this account can't see.
+        'UserId': userId ?? _getUserId(),
         'SortBy': ?sortBy,
         'SortOrder': ?sortOrder,
         'StartIndex': ?startIndex,

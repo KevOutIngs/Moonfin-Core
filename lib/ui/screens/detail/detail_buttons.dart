@@ -61,19 +61,55 @@ enum DetailButton {
 
   /// Whether this device can put the button on screen at all. A button that
   /// never gets drawn here isn't worth offering a switch for.
-  bool get isOffered => switch (this) {
-    DetailButton.cast => !PlatformDetection.isTV,
-    DetailButton.download ||
-    DetailButton.deleteFiles => PlatformDetection.supportsOfflineDownloads,
-    DetailButton.seerrRequest ||
-    DetailButton.seerrRequest4k ||
-    DetailButton.seerrWatchlist ||
-    DetailButton.seerrReportIssue ||
-    DetailButton.seerrManage =>
-      GetIt.instance<PluginSyncService>().seerrAvailable,
-    DetailButton.watchWithGroup => _syncPlayAvailable,
-    _ => true,
+  bool get isOffered {
+    if (_kidsModeHidden.contains(this) && _kidsModeOn) {
+      return false;
+    }
+    return switch (this) {
+      DetailButton.cast => !PlatformDetection.isTV,
+      DetailButton.download ||
+      DetailButton.deleteFiles => PlatformDetection.supportsOfflineDownloads,
+      DetailButton.seerrRequest ||
+      DetailButton.seerrRequest4k ||
+      DetailButton.seerrWatchlist ||
+      DetailButton.seerrReportIssue ||
+      DetailButton.seerrManage =>
+        GetIt.instance<PluginSyncService>().seerrAvailable,
+      DetailButton.watchWithGroup => _syncPlayAvailable,
+      _ => true,
+    };
+  }
+
+  /// Buttons Kids Mode takes away. A non-admin account never sees [admin]
+  /// anyway, so that one matters when the account handed over is a parent's
+  /// own. The Seerr and SyncPlay buttons open their own sheets rather than
+  /// navigating, which puts them out of reach of the router gate and leaves
+  /// this set as the only thing holding them back.
+  static const _kidsModeHidden = <DetailButton>{
+    DetailButton.admin,
+    DetailButton.download,
+    DetailButton.deleteFiles,
+    DetailButton.seerrRequest,
+    DetailButton.seerrRequest4k,
+    DetailButton.seerrWatchlist,
+    DetailButton.seerrReportIssue,
+    DetailButton.seerrManage,
+    DetailButton.watchWithGroup,
   };
+
+  /// Defensive like [_syncPlayAvailable], because [isOffered] is reached from
+  /// widgets that can build before the preferences are registered. No
+  /// preferences means no Kids Mode to be in.
+  static bool get _kidsModeOn {
+    try {
+      if (!GetIt.instance.isRegistered<UserPreferences>()) return false;
+      return GetIt.instance<UserPreferences>().get(
+        UserPreferences.kidsModeEnabled,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
 
   static bool get _syncPlayAvailable {
     try {

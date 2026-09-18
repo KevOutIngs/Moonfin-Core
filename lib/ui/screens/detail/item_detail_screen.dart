@@ -6977,8 +6977,10 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
 
     final prefs = GetIt.instance<UserPreferences>();
     final hidden = detailButtonLayout.hidden(prefs);
+    // The hidden set is the user's own arrangement, so it can't speak for
+    // what this device and Kids Mode allow. isOffered does.
     bool shows(DetailButton button) =>
-        !button.canHide || !hidden.contains(button.id);
+        button.isOffered && (!button.canHide || !hidden.contains(button.id));
 
     final isNeon = ThemeRegistry.active.id == ThemeRegistry.neonPulseId;
     final isPhoto = item.type == 'Photo';
@@ -8507,6 +8509,13 @@ class DetailActionButtonsState extends State<DetailActionButtons> {
     AggregatedItem item, {
     bool forceStartOver = false,
   }) async {
+    // Transcode overrides and the external player handoff shouldn't be a
+    // long press away in Kids Mode. Gated here to cover every entry point.
+    if (GetIt.instance<UserPreferences>().get(
+      UserPreferences.kidsModeEnabled,
+    )) {
+      return;
+    }
     final l10n = AppLocalizations.of(context);
     final resume =
         !forceStartOver && (item.playbackPosition?.inMilliseconds ?? 0) > 0;

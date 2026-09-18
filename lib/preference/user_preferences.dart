@@ -487,6 +487,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_custom_theme_id',
     'pref_glass_quality',
     'pref_oled_mode',
+    'pref_kids_mode',
     'pref_navbar_position',
     'focus_color',
     'pref_watched_indicator_behavior',
@@ -1374,6 +1375,14 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_oled_mode',
     defaultValue: OledMode.off,
     values: OledMode.values,
+  );
+
+  /// Strips the app back to what a child needs and locks the way out behind a
+  /// PIN. Scoped but deliberately not synced, so a parent handing over the TV
+  /// doesn't put their phone in Kids Mode too.
+  static final kidsModeEnabled = Preference(
+    key: 'pref_kids_mode',
+    defaultValue: false,
   );
 
   /// Settled quality of the adaptive glass renderer from the last session.
@@ -2689,23 +2698,69 @@ class UserPreferences extends ChangeNotifier {
   Future<void> setHomeSectionsConfig(List<HomeSectionConfig> configs) =>
       set(homeSectionsJson, HomeSectionConfig.toJsonString(configs));
 
-  List<HomeSectionType> get activeHomeSections {
-    final enabled = homeSectionsConfig.where((c) => c.enabled).toList()
-      ..sort((a, b) => a.order.compareTo(b.order));
-    return enabled
-        .where((c) => c.isBuiltin && c.type != HomeSectionType.none)
-        .map((c) => c.type)
-        .toList();
-  }
+  List<HomeSectionType> get activeHomeSections => activeHomeSectionConfigs
+      .where((c) => c.isBuiltin && c.type != HomeSectionType.none)
+      .map((c) => c.type)
+      .toList();
 
   /// Ordered list of all enabled section configs (builtin + plugin dynamic).
   /// Built-in `none` entries are filtered out.
   List<HomeSectionConfig> get activeHomeSectionConfigs {
     final enabled = homeSectionsConfig.where((c) => c.enabled).toList()
       ..sort((a, b) => a.order.compareTo(b.order));
-    return enabled
-        .where((c) => c.isPluginDynamic || c.type != HomeSectionType.none)
+    return _forKidsMode(
+      enabled
+          .where((c) => c.isPluginDynamic || c.type != HomeSectionType.none)
+          .toList(),
+    );
+  }
+
+  /// The only rows Kids Mode leaves standing: the way into the libraries, and
+  /// what arrived in them lately.
+  ///
+  /// An allow list rather than a block list, so a row added later stays hidden
+  /// until someone decides a child should see it. Everything else pulls from
+  /// somewhere this mode can't vouch for, whether that's a request queue, an
+  /// outside catalog no parental rating reaches, or the watch history of
+  /// whoever used the account last.
+  static const _kidsModeAllowedSections = <HomeSectionType>{
+    HomeSectionType.libraryTilesSmall,
+    HomeSectionType.libraryButtons,
+    HomeSectionType.latestMedia,
+  };
+
+  /// Applied on read rather than by rewriting the saved config, so turning
+  /// Kids Mode off gives the user their own layout back untouched.
+  List<HomeSectionConfig> _forKidsMode(List<HomeSectionConfig> configs) {
+    if (!get(kidsModeEnabled)) return configs;
+
+    // Plugin rows go too. A plugin renders whatever it was handed, which is
+    // not something this mode is in any position to vouch for.
+    final kept = configs
+        .where(
+          (c) =>
+              !c.isPluginDynamic && _kidsModeAllowedSections.contains(c.type),
+        )
         .toList();
+
+    // Kids Mode drops the libraries entry from the navbar, so My Media has to
+    // be on the home screen or there's no way into a library at all.
+    final hasLibraries = kept.any(
+      (c) =>
+          c.type == HomeSectionType.libraryTilesSmall ||
+          c.type == HomeSectionType.libraryButtons,
+    );
+    if (!hasLibraries) {
+      kept.insert(
+        0,
+        const HomeSectionConfig(
+          type: HomeSectionType.libraryTilesSmall,
+          enabled: true,
+          order: -1,
+        ),
+      );
+    }
+    return kept;
   }
 
   static final themeMusicEnabled = Preference(
@@ -2883,13 +2938,6 @@ class UserPreferences extends ChangeNotifier {
     key: 'pref_always_authenticate',
     defaultValue: false,
   );
-  static final userPinHash = Preference(key: 'user_pin_hash', defaultValue: '');
-
-  static final userPinEnabled = Preference(
-    key: 'user_pin_enabled',
-    defaultValue: false,
-  );
-
   static final liveTvChannelSortBy = EnumPreference(
     key: 'live_tv_channel_sort_by',
     defaultValue: ChannelSortBy.number,

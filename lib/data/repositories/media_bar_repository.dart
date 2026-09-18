@@ -11,6 +11,7 @@ import 'package:server_core/server_core.dart';
 import '../../preference/user_preferences.dart';
 import '../models/media_bar_slide_item.dart';
 import '../models/media_bar_state.dart';
+import '../services/library_scope_service.dart';
 
 class MediaBarRepository {
   static const _precacheBackdropCount = 1;
@@ -107,8 +108,12 @@ class MediaBarRepository {
         allParentIds.addAll(validLibraryIds);
       }
     } catch (_) {
-      // Fallback: If UserViews lookup fails, trust user's selection directly
-      allParentIds.addAll(libraryIds);
+      // The views lookup failed, so fall back to what the user picked. Those
+      // saved ids can name a library access has since been revoked for, so
+      // drop what the policy no longer allows before trusting them.
+      allParentIds.addAll(
+        await GetIt.instance<LibraryScopeService>().retainPermitted(libraryIds),
+      );
       allParentIds.addAll(collectionIds);
     }
 

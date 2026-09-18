@@ -16462,11 +16462,41 @@ abstract class AppLocalizations {
   /// **'Enter your {length}-digit PIN'**
   String pinEnterYourNDigit(int length);
 
+  /// Label for the setting that strips the app back to what a child needs
+  ///
+  /// In en, this message translates to:
+  /// **'Kids Mode'**
+  String get kidsMode;
+
+  /// Explanation under the Kids Mode setting
+  ///
+  /// In en, this message translates to:
+  /// **'Simplify the app and lock the way out with a PIN'**
+  String get kidsModeSubtitle;
+
+  /// Settings entry that turns Kids Mode off, shown while Kids Mode is on
+  ///
+  /// In en, this message translates to:
+  /// **'Exit Kids Mode'**
+  String get kidsModeExit;
+
+  /// Explanation under the Exit Kids Mode entry
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN to restore the full app'**
+  String get kidsModeExitSubtitle;
+
   /// No description provided for @pinIncorrect.
   ///
   /// In en, this message translates to:
   /// **'Incorrect PIN'**
   String get pinIncorrect;
+
+  /// Shown when PIN entry is locked after repeated wrong guesses
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Try again in {wait}.'**
+  String pinTryAgainIn(String wait);
 
   /// No description provided for @pinMismatch.
   ///

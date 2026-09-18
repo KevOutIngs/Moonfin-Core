@@ -10,6 +10,7 @@ import '../../auth/repositories/user_repository.dart';
 import '../../data/models/aggregated_library.dart';
 import '../../data/repositories/multi_server_repository.dart';
 import '../../data/repositories/user_views_repository.dart';
+import '../../data/services/library_scope_service.dart';
 import '../../data/services/plugin_sync_service.dart';
 import '../../data/services/server_messages_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -146,16 +147,11 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
 
       unawaited(GetIt.instance<GameLibraryRegistry>().refresh());
 
-      List<AggregatedLibrary> filtered = libs;
-      if (useMultiServer) {
-        try {
-          final config = await _viewsRepo.getUserConfiguration();
-          final excluded = config.myMediaExcludes.toSet();
-          if (excluded.isNotEmpty) {
-            filtered = libs.where((lib) => !excluded.contains(lib.id)).toList();
-          }
-        } catch (_) {}
-      }
+      final filtered = useMultiServer
+          ? await GetIt.instance<LibraryScopeService>().withoutHiddenLibraries(
+              libs,
+            )
+          : libs;
 
       if (mounted && !_librariesEqual(_libraries, filtered)) {
         setState(() => _libraries = filtered);
@@ -171,12 +167,15 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
     return true;
   }
 
+  // Kids Mode sends /live-tv back to home, so the guide button would only be a
+  // dead end.
   bool get _showLiveTvButton =>
+      !_kidsMode &&
       _prefs.get(UserPreferences.showLiveTvButton) &&
       _libraries.any(isLiveTvLibrary);
 
   List<AggregatedLibrary> get _navLibraries =>
-      librariesForNav(_libraries, _showLiveTvButton);
+      librariesForNav(_libraries, _showLiveTvButton, hideLiveTv: _kidsMode);
 
   bool _isActive(String route) => widget.activeRoute == route;
 
@@ -282,7 +281,8 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
       );
     }
 
-    final showSyncPlay = _prefs.get(UserPreferences.syncPlayEnabled) &&
+    final showSyncPlay = !_kidsMode &&
+        _prefs.get(UserPreferences.syncPlayEnabled) &&
         _prefs.get(UserPreferences.showSyncPlayButton);
     if (showSyncPlay) {
       actions.add(
@@ -316,7 +316,9 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
     }
 
     final activeRoute = widget.activeRoute ?? '';
-    if (_prefs.get(UserPreferences.showLibrariesInToolbar) &&
+    // Kids Mode drops this entry, so the My Media home row takes its place.
+    if (!_kidsMode &&
+        _prefs.get(UserPreferences.showLibrariesInToolbar) &&
         _navLibraries.isNotEmpty) {
       actions.add(
         _BottomNavAction(
@@ -355,9 +357,12 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
     return actions;
   }
 
+  bool get _kidsMode => _prefs.get(UserPreferences.kidsModeEnabled);
+
   bool _seerrEnabled() {
     try {
-      return _prefs.get(UserPreferences.showSeerrButton) &&
+      return !_kidsMode &&
+          _prefs.get(UserPreferences.showSeerrButton) &&
           GetIt.instance<PluginSyncService>().seerrAvailable;
     } catch (_) {
       return false;

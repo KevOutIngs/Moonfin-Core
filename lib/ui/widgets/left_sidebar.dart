@@ -13,6 +13,7 @@ import '../../auth/repositories/user_repository.dart';
 import '../../data/models/aggregated_library.dart';
 import '../../data/repositories/multi_server_repository.dart';
 import '../../data/repositories/user_views_repository.dart';
+import '../../data/services/library_scope_service.dart';
 import '../../data/services/plugin_sync_service.dart';
 import '../../preference/preference_constants.dart';
 import '../../preference/seerr_preferences.dart';
@@ -307,16 +308,11 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
 
       unawaited(GetIt.instance<GameLibraryRegistry>().refresh());
 
-      List<AggregatedLibrary> filtered = libs;
-      if (useMultiServer) {
-        try {
-          final config = await _viewsRepo.getUserConfiguration();
-          final excluded = config.myMediaExcludes.toSet();
-          if (excluded.isNotEmpty) {
-            filtered = libs.where((lib) => !excluded.contains(lib.id)).toList();
-          }
-        } catch (_) {}
-      }
+      final filtered = useMultiServer
+          ? await GetIt.instance<LibraryScopeService>().withoutHiddenLibraries(
+              libs,
+            )
+          : libs;
 
       if (mounted && !_librariesEqual(_libraries, filtered)) {
         setState(() => _libraries = filtered);
@@ -332,12 +328,17 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     return true;
   }
 
+  // Kids Mode sends /live-tv back to home, so the guide button would only be a
+  // dead end.
   bool get _showLiveTvButton =>
+      !_kidsMode &&
       _prefs.get(UserPreferences.showLiveTvButton) &&
       _libraries.any(isLiveTvLibrary);
 
   List<AggregatedLibrary> get _navLibraries =>
-      librariesForNav(_libraries, _showLiveTvButton);
+      librariesForNav(_libraries, _showLiveTvButton, hideLiveTv: _kidsMode);
+
+  bool get _kidsMode => _prefs.get(UserPreferences.kidsModeEnabled);
 
   Color _overlayColor() {
     return OverlayColorPalette.resolveColor(
@@ -847,11 +848,16 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
     final showShuffle = _prefs.get(UserPreferences.showShuffleButton);
     final showGenres = _prefs.get(UserPreferences.showGenresButton);
     final showFavorites = _prefs.get(UserPreferences.showFavoritesButton);
+    // Checked alongside the show* preferences, never written into them, since
+    // those sync and would follow the account to the parent's other devices.
+    final kidsMode = _kidsMode;
     final showLiveTv = _showLiveTvButton;
     final navLibraries = _navLibraries;
-    final showLibraries = _prefs.get(UserPreferences.showLibrariesInToolbar);
+    final showLibraries =
+        !kidsMode && _prefs.get(UserPreferences.showLibrariesInToolbar);
     final showFolders = _prefs.get(UserPreferences.enableFolderView);
     final showSyncPlay =
+        !kidsMode &&
         _prefs.get(UserPreferences.syncPlayEnabled) &&
         _prefs.get(UserPreferences.showSyncPlayButton);
     final seerrPrefs = GetIt.instance<SeerrPreferences>();
@@ -1024,7 +1030,8 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                       );
                     },
                   ),
-                if (_prefs.get(UserPreferences.showSeerrButton) &&
+                if (!kidsMode &&
+                    _prefs.get(UserPreferences.showSeerrButton) &&
                     GetIt.instance<PluginSyncService>().seerrAvailable)
                   _SidebarItem(
                     key: const ValueKey('sidebar-seerr'),

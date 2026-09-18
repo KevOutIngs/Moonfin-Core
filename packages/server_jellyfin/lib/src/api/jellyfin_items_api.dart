@@ -361,8 +361,9 @@ class JellyfinItemsApi implements ItemsApi {
 
   @override
   Future<Map<String, dynamic>> getPlaylists() async {
+    final userId = _getUserId();
     final response = await _dio.get(
-      '/Items',
+      '/Users/$userId/Items',
       queryParameters: {
         'IncludeItemTypes': 'Playlist',
         'Recursive': true,
@@ -625,7 +626,9 @@ class JellyfinItemsApi implements ItemsApi {
       '/Genres',
       queryParameters: {
         'ParentId': ?parentId,
-        'UserId': ?userId,
+        // Defaulted rather than left to callers. Without a user the server
+        // answers across every library, including ones this account can't see.
+        'UserId': userId ?? _getUserId(),
         'SortBy': ?sortBy,
         'SortOrder': ?sortOrder,
         'StartIndex': ?startIndex,

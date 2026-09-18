@@ -148,6 +148,12 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     icon: Icons.pin,
     open: () => push(const PinCodeSettingsScreen()),
   );
+  final kidsMode = _SearchSection(
+    slug: 'kids-mode',
+    path: [l10n.settingsAccountSecurity, l10n.kidsMode],
+    icon: Icons.child_care,
+    open: () => push(const _AuthenticationCategoryScreen()),
+  );
   final parental = _SearchSection(
     slug: 'parental',
     path: [l10n.settingsAccountSecurity, l10n.settingsBlockedRatings],
@@ -535,6 +541,9 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
     ),
     pin.leaf('change', l10n.changePin, subtitle: l10n.setNewPinCode),
     pin.leaf('remove', l10n.removePin, subtitle: l10n.removePinProtection),
+    kidsMode.screen(
+      keywords: ['kids', 'child', 'children', 'simple', 'lock', 'pin'],
+    ),
     parental.screen(keywords: [
       'parental controls',
       'age',

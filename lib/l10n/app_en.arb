@@ -9188,7 +9188,33 @@
       "length": {"type": "int"}
     }
   },
+  "kidsMode": "Kids Mode",
+  "@kidsMode": {
+    "description": "Label for the setting that strips the app back to what a child needs"
+  },
+  "kidsModeSubtitle": "Simplify the app and lock the way out with a PIN",
+  "@kidsModeSubtitle": {
+    "description": "Explanation under the Kids Mode setting"
+  },
+  "kidsModeExit": "Exit Kids Mode",
+  "@kidsModeExit": {
+    "description": "Settings entry that turns Kids Mode off, shown while Kids Mode is on"
+  },
+  "kidsModeExitSubtitle": "Enter your PIN to restore the full app",
+  "@kidsModeExitSubtitle": {
+    "description": "Explanation under the Exit Kids Mode entry"
+  },
   "pinIncorrect": "Incorrect PIN",
+  "pinTryAgainIn": "Too many attempts. Try again in {wait}.",
+  "@pinTryAgainIn": {
+    "description": "Shown when PIN entry is locked after repeated wrong guesses",
+    "placeholders": {
+      "wait": {
+        "type": "String",
+        "example": "30s"
+      }
+    }
+  },
   "pinMismatch": "PINs do not match",
   "pinForgot": "Forgot PIN?",
   "pinClear": "Clear",

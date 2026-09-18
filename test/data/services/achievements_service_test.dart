@@ -21,6 +21,44 @@ void main() {
     client = buildAchievementClient();
   });
 
+  group('loadout', () {
+    test('the bank and the inventory come back together', () async {
+      final state = await service.fetchPowerUps(client);
+
+      expect(state?.bank, 1240);
+      expect(state?.slots, hasLength(3));
+      expect(
+        state?.slots.firstWhere((s) => s.type == 'XpBoost').count,
+        2,
+      );
+      expect(
+        state?.slots.firstWhere((s) => s.type == 'DoubleCredit').count,
+        0,
+      );
+    });
+
+    test('spending one hands back the inventory it left', () async {
+      final result = await service.usePowerUp(client, 'XpBoost');
+
+      expect(result.outcome, PowerUpUseOutcome.used);
+      expect(
+        result.slots.firstWhere((s) => s.type == 'XpBoost').count,
+        1,
+      );
+      expect(
+        result.slots.firstWhere((s) => s.type == 'XpBoost').active,
+        isTrue,
+      );
+    });
+
+    test("an empty slot is refused in the plugin's own words", () async {
+      final result = await service.usePowerUp(client, 'DoubleCredit');
+
+      expect(result.outcome, PowerUpUseOutcome.refused);
+      expect(result.message, 'None left.');
+    });
+  });
+
   group('badge suggestions', () {
     test('a badge carries its progress and what to watch', () async {
       final chase = await service.fetchBadgeChase(client, 'binge-titan');

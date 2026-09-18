@@ -27,6 +27,29 @@ class AchievementPluginAdapter implements HttpClientAdapter {
   int dailyRerollsLeft = 1;
   int weeklyRerollsLeft = 1;
 
+  /// Score left to spend, and one of each consumable except the empty slot
+  /// that proves the disabled state.
+  int scoreBank = 1240;
+  final Map<String, int> powerUps = {
+    'XpBoost': 2,
+    'DoubleCredit': 0,
+    'StreakFreeze': 1,
+  };
+  final Set<String> activePowerUps = {};
+
+  List<Map<String, dynamic>> get _inventory => [
+    for (final entry in powerUps.entries)
+      {
+        'Type': entry.key,
+        'DisplayName': entry.key,
+        'Description': 'Does a thing.',
+        'Icon': 'bolt',
+        'Count': entry.value,
+        'Active': activePowerUps.contains(entry.key),
+        'ActiveUntil': null,
+      },
+  ];
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -47,6 +70,23 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         'QuestsEnabled': questsEnabled,
         'ForcePrivacyMode': false,
       };
+    } else if (path.contains('/powerups/use/')) {
+      final type = path.split('/').last;
+      final held = powerUps[type] ?? 0;
+      if (held <= 0) {
+        return ResponseBody.fromString(
+          jsonEncode({'Message': 'None left.'}),
+          400,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+      powerUps[type] = held - 1;
+      activePowerUps.add(type);
+      body = {'Message': 'Used.', 'Inventory': _inventory};
+    } else if (path.endsWith('/powerups')) {
+      body = {'ScoreBank': scoreBank, 'Inventory': _inventory};
     } else if (path.contains('/chase/')) {
       body = {
         'BadgeId': path.split('/').last,

@@ -167,6 +167,70 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Swap this set for a different one'), findsNothing);
+
+      // A spent row still has to say when it comes back, so its title cannot
+      // be faded to the disabled alpha.
+      final title = DefaultTextStyle.of(
+        tester.element(find.text('Reroll daily quests')),
+      ).style.color;
+      expect(title?.a, 1.0);
+    });
+
+    testWidgets('the loadout spends a power-up once confirmed', (tester) async {
+      await pumpPanel(tester);
+      // The row sits below the fold at test window size.
+      await tester.ensureVisible(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Loadout'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1240 points'), findsOneWidget);
+      expect(find.text('2 held'), findsOneWidget);
+      // The empty slot proves the disabled state.
+      expect(find.text('None held'), findsOneWidget);
+
+      await tester.tap(find.text('XP Boost'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('1 held \u00b7 Running now'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a power-up you cannot use is still drawn readably', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Loadout'));
+      await tester.pumpAndSettle();
+
+      Color? titleColour(String name) => DefaultTextStyle.of(
+        tester.element(find.text(name)),
+      ).style.color;
+
+      // The row still takes focus, so a greyed title would be unreadable once
+      // the tile inverts onto its light ground.
+      expect(titleColour('Double Credit'), titleColour('XP Boost'));
+    });
+
+    testWidgets('an empty slot cannot be spent', (tester) async {
+      await pumpPanel(tester);
+      await tester.ensureVisible(find.text('Loadout'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Loadout'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Double Credit'));
+      await tester.pumpAndSettle();
+
+      // Disabled, so nothing was asked and nothing was spent.
+      expect(find.text('Use this power-up?'), findsNothing);
+      expect(find.text('None held'), findsOneWidget);
     });
 
     testWidgets('a plugin that stops answering offers a retry', (tester) async {

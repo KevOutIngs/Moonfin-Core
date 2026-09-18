@@ -151,6 +151,15 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   _RecapScreen(initial: overview.recap),
                 ),
               ),
+              DpadListTile(
+                useSettingsIconShell: true,
+                leading: const Icon(Icons.backpack),
+                trailing: const Icon(Icons.chevron_right),
+                title: Text(l10n.achievementsLoadout),
+                subtitle: Text(l10n.achievementsLoadoutSubtitle),
+                onTap: () =>
+                    context.pushSettingsScreen(const _LoadoutScreen()),
+              ),
               if (completion.isNotEmpty)
                 DpadListTile(
                   useSettingsIconShell: true,
@@ -286,6 +295,33 @@ class _AchievementRowState extends State<_AchievementRow> {
 /// twice. Off TV there is no row handler, so the tile carries the tap.
 VoidCallback? _tileTap(VoidCallback onTap) =>
     PlatformDetection.isTV ? null : onTap;
+
+/// Asks before spending something the user only gets so many of.
+Future<bool> _confirmSpend(
+  BuildContext context, {
+  required String title,
+  required String body,
+}) async {
+  final l10n = AppLocalizations.of(context);
+  final answer = await showFocusRestoringDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog.adaptive(
+      title: Text(title),
+      content: Text(body),
+      actions: [
+        adaptiveDialogAction(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(l10n.cancel),
+        ),
+        adaptiveDialogAction(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(l10n.confirm),
+        ),
+      ],
+    ),
+  );
+  return answer == true;
+}
 
 /// Leaves the settings panel behind and opens the item on the main navigator.
 void _openItem(BuildContext context, String itemId) {
@@ -955,6 +991,198 @@ class _BadgeChaseScreenState extends State<_BadgeChaseScreen> {
   }
 }
 
+/// The score bank and the consumables it has bought.
+class _LoadoutScreen extends StatefulWidget {
+  const _LoadoutScreen();
+
+  @override
+  State<_LoadoutScreen> createState() => _LoadoutScreenState();
+}
+
+class _LoadoutScreenState extends State<_LoadoutScreen> {
+  PowerUpState? _state;
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final client = _client();
+    if (client == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final state = await GetIt.instance<AchievementsService>().fetchPowerUps(
+      client,
+    );
+    if (!mounted) return;
+    setState(() {
+      _state = state;
+      _loading = false;
+    });
+  }
+
+  String _name(AppLocalizations l10n, String type) => switch (type) {
+    'XpBoost' => l10n.achievementsBoost,
+    'DoubleCredit' => l10n.achievementsDoubleCredit,
+    'StreakFreeze' => l10n.achievementsStreakFreeze,
+    _ => type,
+  };
+
+  String _body(AppLocalizations l10n, String type) => switch (type) {
+    'XpBoost' => l10n.achievementsBoostBody,
+    'DoubleCredit' => l10n.achievementsDoubleCreditBody,
+    'StreakFreeze' => l10n.achievementsStreakFreezeBody,
+    _ => '',
+  };
+
+  Future<void> _use(AppLocalizations l10n, PowerUpSlot slot) async {
+    final client = _client();
+    if (client == null || _busy) return;
+
+    final go = await _confirmSpend(
+      context,
+      title: l10n.achievementsUsePowerUp,
+      body: l10n.achievementsUsePowerUpBody,
+    );
+    if (!go || !mounted) return;
+
+    setState(() => _busy = true);
+    final result = await GetIt.instance<AchievementsService>().usePowerUp(
+      client,
+      slot.type,
+    );
+    if (!mounted) return;
+
+    final current = _state;
+    setState(() {
+      _busy = false;
+      if (result.outcome == PowerUpUseOutcome.used && current != null) {
+        // Spending one costs no score, so only the inventory moves.
+        _state = PowerUpState(bank: current.bank, slots: result.slots);
+      }
+    });
+
+    if (result.outcome == PowerUpUseOutcome.used) return;
+    final text = result.message ?? l10n.achievementsPowerUpFailed;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _AchievementsScaffold(
+      title: l10n.achievementsLoadout,
+      builder: (context) => _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(context, l10n),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    final state = _state;
+    if (state == null) {
+      return _RetryPanel(
+        message: l10n.achievementsLoadFailed,
+        onRetry: () {
+          setState(() => _loading = true);
+          _load();
+        },
+      );
+    }
+
+    return ListView(
+      padding: _listPadding,
+      children: [
+        SettingsSectionHeader(l10n.achievementsScoreBank),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            l10n.achievementsScore(state.bank),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        SettingsSectionHeader(l10n.achievementsPowerUps),
+        adaptiveListSection(
+          children: [
+            for (final slot in state.slots)
+              _PowerUpTile(
+                name: _name(l10n, slot.type),
+                body: _body(l10n, slot.type),
+                slot: slot,
+                onUse: slot.count > 0 && !_busy
+                    ? () => _use(l10n, slot)
+                    : null,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PowerUpTile extends StatelessWidget {
+  const _PowerUpTile({
+    required this.name,
+    required this.body,
+    required this.slot,
+    required this.onUse,
+  });
+
+  final String name;
+  final String body;
+  final PowerUpSlot slot;
+  final VoidCallback? onUse;
+
+  @override
+  Widget build(BuildContext context) => _AchievementRow(
+    onTap: onUse,
+    builder: (context, highlighted) => _tile(context, highlighted),
+  );
+
+  Widget _tile(BuildContext context, bool highlighted) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final accent = _hueOn(AppColorScheme.accent, highlighted);
+    final held = l10n.achievementsPowerUpHeld(slot.count);
+
+    // Deliberately not marked disabled. The row still takes focus so it can be
+    // read on a remote, and a disabled tile greys its title past legibility
+    // once the highlight inverts. Having none is said in the subtitle instead.
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: _tintedSurface(accent, highlighted),
+        child: Icon(achievementIcon(slot.icon), color: accent),
+      ),
+      title: Text(name),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (body.isNotEmpty) Text(body),
+          const SizedBox(height: 4),
+          Text(
+            slot.active
+                ? '$held \u00b7 ${l10n.achievementsPowerUpActive}'
+                : held,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: slot.active ? accent : _secondaryText(highlighted),
+            ),
+          ),
+        ],
+      ),
+      isThreeLine: true,
+      onTap: onUse == null ? null : _tileTap(onUse!),
+    );
+  }
+}
+
 class _QuestsScreen extends StatefulWidget {
   const _QuestsScreen({required this.quests});
 
@@ -968,31 +1196,15 @@ class _QuestsScreenState extends State<_QuestsScreen> {
   late AchievementQuests _quests = widget.quests;
   bool _rerolling = false;
 
-  Future<bool> _confirm(AppLocalizations l10n) async {
-    final answer = await showFocusRestoringDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog.adaptive(
-        title: Text(l10n.achievementsRerollConfirm),
-        content: Text(l10n.achievementsRerollConfirmBody),
-        actions: [
-          adaptiveDialogAction(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.cancel),
-          ),
-          adaptiveDialogAction(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.confirm),
-          ),
-        ],
-      ),
-    );
-    return answer == true;
-  }
-
   Future<void> _reroll(AppLocalizations l10n, {required bool weekly}) async {
     final client = _client();
     if (client == null || _rerolling) return;
-    if (!await _confirm(l10n)) return;
+    final go = await _confirmSpend(
+      context,
+      title: l10n.achievementsRerollConfirm,
+      body: l10n.achievementsRerollConfirmBody,
+    );
+    if (!go) return;
     if (!mounted) return;
 
     setState(() => _rerolling = true);
@@ -1039,15 +1251,18 @@ class _QuestsScreenState extends State<_QuestsScreen> {
         ? l10n.achievementsRerollSpentWeekly
         : l10n.achievementsRerollSpentDaily;
 
+    // Withholding the tap rather than marking the tile disabled, which would
+    // grey the wording about when the reroll comes back past reading.
     return DpadListTile(
       useSettingsIconShell: true,
-      enabled: left > 0 && !_rerolling,
       leading: const Icon(Icons.casino),
       title: Text(
         weekly ? l10n.achievementsRerollWeekly : l10n.achievementsRerollDaily,
       ),
       subtitle: Text(left > 0 ? l10n.achievementsRerollOffer : spent),
-      onTap: () => _reroll(l10n, weekly: weekly),
+      onTap: left > 0 && !_rerolling
+          ? () => _reroll(l10n, weekly: weekly)
+          : null,
     );
   }
 

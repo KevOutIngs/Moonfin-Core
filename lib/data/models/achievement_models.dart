@@ -367,6 +367,85 @@ class QuestReroll {
   final int rerollsLeft;
 }
 
+/// One consumable the user holds.
+///
+/// The server also sends a name and a description, both English only, so the
+/// panel names the three types itself and takes just the icon.
+class PowerUpSlot {
+  const PowerUpSlot({
+    required this.type,
+    required this.icon,
+    required this.count,
+    required this.active,
+    required this.activeUntil,
+  });
+
+  /// `XpBoost`, `DoubleCredit` or `StreakFreeze`, which is also what the use
+  /// route takes.
+  final String type;
+  final String icon;
+  final int count;
+
+  /// Running, pending or banked, depending on which consumable this is.
+  final bool active;
+
+  /// Set only on the boost, which is the only one that expires.
+  final DateTime? activeUntil;
+
+  factory PowerUpSlot.fromJson(Map<String, dynamic> json) {
+    return PowerUpSlot(
+      type: _asString(json['Type']),
+      icon: _asString(json['Icon']),
+      count: _asInt(json['Count']),
+      active: _asBool(json['Active']),
+      activeUntil: _asDate(json['ActiveUntil']),
+    );
+  }
+}
+
+/// The score bank and what it has already bought.
+class PowerUpState {
+  const PowerUpState({required this.bank, required this.slots});
+
+  /// Score left to spend, which isn't the same as the score a rank is
+  /// measured on.
+  final int bank;
+  final List<PowerUpSlot> slots;
+
+  /// The inventory array, which both the read and the spend answer with.
+  static List<PowerUpSlot> parseSlots(dynamic value) =>
+      _mapList(value, PowerUpSlot.fromJson);
+
+  factory PowerUpState.fromJson(Map<String, dynamic> json) {
+    return PowerUpState(
+      bank: _asInt(json['ScoreBank']),
+      slots: parseSlots(json['Inventory']),
+    );
+  }
+}
+
+/// How spending a power-up ended.
+///
+/// The plugin refuses with 400 when there is none left or the boost is already
+/// running, which is an answer rather than a fault.
+enum PowerUpUseOutcome { used, refused, failed }
+
+class PowerUpUse {
+  const PowerUpUse(
+    this.outcome, {
+    this.message,
+    this.slots = const <PowerUpSlot>[],
+  });
+
+  final PowerUpUseOutcome outcome;
+
+  /// The plugin's own wording for a refusal.
+  final String? message;
+
+  /// The inventory as it stands after the spend.
+  final List<PowerUpSlot> slots;
+}
+
 /// One row of either leaderboard.
 ///
 /// The overall board carries score and completion. A category board carries a

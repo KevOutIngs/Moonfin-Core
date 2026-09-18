@@ -19522,6 +19522,96 @@ abstract class AppLocalizations {
   /// **'Progress'**
   String get achievementsProgressLabel;
 
+  /// Screen holding the score bank and the power-ups a user owns
+  ///
+  /// In en, this message translates to:
+  /// **'Loadout'**
+  String get achievementsLoadout;
+
+  /// Subtitle on the row that opens the loadout
+  ///
+  /// In en, this message translates to:
+  /// **'Score to spend and the boosts you hold'**
+  String get achievementsLoadoutSubtitle;
+
+  /// Section header above the consumable boosts a user holds
+  ///
+  /// In en, this message translates to:
+  /// **'Power-ups'**
+  String get achievementsPowerUps;
+
+  /// Label for the score a user still has to spend
+  ///
+  /// In en, this message translates to:
+  /// **'Score bank'**
+  String get achievementsScoreBank;
+
+  /// Power-up that doubles score for an hour
+  ///
+  /// In en, this message translates to:
+  /// **'XP Boost'**
+  String get achievementsBoost;
+
+  /// What the XP Boost power-up does
+  ///
+  /// In en, this message translates to:
+  /// **'Doubles score for an hour. Using it again restarts the hour.'**
+  String get achievementsBoostBody;
+
+  /// Power-up that makes the next item count twice
+  ///
+  /// In en, this message translates to:
+  /// **'Double Credit'**
+  String get achievementsDoubleCredit;
+
+  /// What the Double Credit power-up does
+  ///
+  /// In en, this message translates to:
+  /// **'The next thing you finish counts twice towards badges.'**
+  String get achievementsDoubleCreditBody;
+
+  /// Power-up that protects a watch streak
+  ///
+  /// In en, this message translates to:
+  /// **'Streak Freeze'**
+  String get achievementsStreakFreeze;
+
+  /// What the Streak Freeze power-up does
+  ///
+  /// In en, this message translates to:
+  /// **'Covers one missed day. Only one can be banked.'**
+  String get achievementsStreakFreezeBody;
+
+  /// How many of a power-up the user owns
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{None held} =1{1 held} other{{count} held}}'**
+  String achievementsPowerUpHeld(int count);
+
+  /// Marker on a power-up that is currently in effect
+  ///
+  /// In en, this message translates to:
+  /// **'Running now'**
+  String get achievementsPowerUpActive;
+
+  /// Title of the dialog confirming a power-up is spent
+  ///
+  /// In en, this message translates to:
+  /// **'Use this power-up?'**
+  String get achievementsUsePowerUp;
+
+  /// Body of the dialog confirming a power-up is spent
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s spent as soon as you confirm.'**
+  String get achievementsUsePowerUpBody;
+
+  /// Message shown when using a power-up did not go through
+  ///
+  /// In en, this message translates to:
+  /// **'Could not use that power-up.'**
+  String get achievementsPowerUpFailed;
+
   /// Leaderboard category: hours watched
   ///
   /// In en, this message translates to:

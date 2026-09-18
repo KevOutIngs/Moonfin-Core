@@ -22,9 +22,9 @@ BaseOptions achievementRequestOptions() => BaseOptions(
 /// jellyfin-web. Everything it knows is on a plain HTTP API, which is what this
 /// reads so the panel can be drawn natively on every platform.
 ///
-/// Almost all of it is reading. The login ping and the quest reroll are the
-/// only things written, because they are the only parts the plugin expects a
-/// client to drive.
+/// Almost all of it is reading. The login ping, the quest reroll and spending a
+/// power-up are the only things written, because they are the only parts the
+/// plugin expects a client to drive.
 class AchievementsService extends ChangeNotifier {
   static const String _root = 'Plugins/AchievementBadges';
 
@@ -159,6 +159,41 @@ class AchievementsService extends ChangeNotifier {
     }
   }
 
+  /// Writes to [path] and tells a refusal apart from a fault.
+  ///
+  /// [refusedWith] is the status the plugin answers when it means no, so that
+  /// one stays quiet while anything else is worth a line in the log.
+  Future<_Written> _post(
+    MediaServerClient client,
+    String path, {
+    required int refusedWith,
+  }) async {
+    final headers = _authHeaders(client);
+    if (headers == null) return const _Written();
+
+    try {
+      final response = await _dio.post<dynamic>(
+        '${_base(client)}/$_root/$path',
+        options: Options(headers: headers),
+      );
+      final data = response.data;
+      return _Written(body: data is Map<String, dynamic> ? data : null);
+    } catch (e) {
+      final status = e is DioException ? e.response?.statusCode : null;
+      if (status != refusedWith) {
+        debugPrint('[AchievementsService] $path failed: $e');
+        return const _Written();
+      }
+      final data = (e as DioException).response?.data;
+      return _Written(
+        refused: true,
+        message: data is Map<String, dynamic>
+            ? data['Message'] as String?
+            : null,
+      );
+    }
+  }
+
   Future<Map<String, dynamic>?> _getMap(
     MediaServerClient client,
     String path, {
@@ -270,6 +305,43 @@ class AchievementsService extends ChangeNotifier {
     return json == null ? null : BadgeChase.fromJson(json);
   }
 
+  /// The score bank and the consumables it has already bought.
+  Future<PowerUpState?> fetchPowerUps(MediaServerClient client) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) return null;
+
+    final json = await _getMap(client, 'users/$userId/powerups');
+    return json == null ? null : PowerUpState.fromJson(json);
+  }
+
+  /// Spends one power-up.
+  ///
+  /// The plugin refuses with 400 when the slot is empty or the boost is already
+  /// running, and its wording explains which better than a guess here would.
+  Future<PowerUpUse> usePowerUp(MediaServerClient client, String type) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) {
+      return const PowerUpUse(PowerUpUseOutcome.failed);
+    }
+
+    final written = await _post(
+      client,
+      'users/$userId/powerups/use/$type',
+      refusedWith: 400,
+    );
+    if (written.refused) {
+      return PowerUpUse(PowerUpUseOutcome.refused, message: written.message);
+    }
+
+    final body = written.body;
+    if (body == null) return const PowerUpUse(PowerUpUseOutcome.failed);
+    return PowerUpUse(
+      PowerUpUseOutcome.used,
+      message: body['Message'] as String?,
+      slots: PowerUpState.parseSlots(body['Inventory']),
+    );
+  }
+
   /// Swaps one quest set for a fresh one.
   ///
   /// The plugin grants a single daily and a single weekly reroll and answers
@@ -279,33 +351,27 @@ class AchievementsService extends ChangeNotifier {
     required bool weekly,
   }) async {
     final userId = client.userId;
-    final headers = _authHeaders(client);
-    if (userId == null || userId.isEmpty || headers == null) {
+    if (userId == null || userId.isEmpty) {
       return const QuestReroll(QuestRerollOutcome.failed);
     }
 
     final questSet = weekly ? 'weekly' : 'daily';
-    try {
-      final response = await _dio.post<dynamic>(
-        '${_base(client)}/$_root/users/$userId/quests/$questSet/reroll',
-        options: Options(headers: headers),
-      );
-      final data = response.data;
-      if (data is! Map<String, dynamic>) {
-        return const QuestReroll(QuestRerollOutcome.failed);
-      }
-      return QuestReroll(
-        QuestRerollOutcome.rerolled,
-        quests: AchievementQuests.parseList(data['Quests']),
-        rerollsLeft: (data['RerollsRemaining'] as num?)?.toInt() ?? 0,
-      );
-    } catch (e) {
-      if (e is DioException && e.response?.statusCode == 429) {
-        return const QuestReroll(QuestRerollOutcome.alreadyUsed);
-      }
-      debugPrint('[AchievementsService] $questSet reroll failed: $e');
-      return const QuestReroll(QuestRerollOutcome.failed);
+    final written = await _post(
+      client,
+      'users/$userId/quests/$questSet/reroll',
+      refusedWith: 429,
+    );
+    if (written.refused) {
+      return const QuestReroll(QuestRerollOutcome.alreadyUsed);
     }
+
+    final body = written.body;
+    if (body == null) return const QuestReroll(QuestRerollOutcome.failed);
+    return QuestReroll(
+      QuestRerollOutcome.rerolled,
+      quests: AchievementQuests.parseList(body['Quests']),
+      rerollsLeft: (body['RerollsRemaining'] as num?)?.toInt() ?? 0,
+    );
   }
 
   /// Reloads the recap alone, for the period picker.
@@ -345,4 +411,14 @@ class AchievementsService extends ChangeNotifier {
     final rows = await _getList(client, path, query: {'limit': limit});
     return rows.map(LeaderboardEntry.fromJson).toList();
   }
+}
+
+/// What a write came back with: a body, a refusal the plugin worded itself, or
+/// neither when it failed outright.
+class _Written {
+  const _Written({this.body, this.refused = false, this.message});
+
+  final Map<String, dynamic>? body;
+  final bool refused;
+  final String? message;
 }

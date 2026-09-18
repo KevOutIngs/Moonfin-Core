@@ -11090,6 +11090,15 @@ class AppLocalizationsSv extends AppLocalizations {
   String get achievementsRerollFailed => 'Could not reroll those quests.';
 
   @override
+  String get achievementsSuggested => 'Suggested items to watch';
+
+  @override
+  String get achievementsNoSuggestions => 'Nothing to suggest for this badge.';
+
+  @override
+  String get achievementsProgressLabel => 'Progress';
+
+  @override
   String get achievementsHours => 'Hours';
 
   @override

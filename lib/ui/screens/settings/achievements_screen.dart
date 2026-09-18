@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:moonfin_design/moonfin_design.dart';
 import 'package:server_core/server_core.dart';
@@ -7,7 +8,9 @@ import '../../../data/models/achievement_models.dart';
 import '../../../data/services/achievements_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../util/achievement_icons.dart';
+import '../../../util/focus/dpad_keys.dart';
 import '../../../util/platform_detection.dart';
+import '../../navigation/destinations.dart';
 import '../../widgets/adaptive/adaptive_dialog.dart';
 import '../../widgets/adaptive/adaptive_list_section.dart';
 import '../../widgets/focus/dpad_list_tile.dart';
@@ -222,27 +225,39 @@ class _AchievementsScaffoldState extends State<_AchievementsScaffold> {
   );
 }
 
-/// A row that exists to be read rather than pressed.
+/// A row inside one of these lists.
 ///
-/// On TV it still has to be a focus stop, because a list whose rows can't take
-/// focus is a list the remote can't scroll.
-class _ReadOnlyRow extends StatefulWidget {
-  const _ReadOnlyRow({required this.builder});
+/// On TV it has to be a focus stop even when it does nothing, because a list
+/// whose rows can't take focus is a list the remote can't scroll. When it does
+/// something, select has to be handled here as well, since d-pad centre does
+/// doesn't always reach an InkWell.
+class _AchievementRow extends StatefulWidget {
+  const _AchievementRow({required this.builder, this.onTap});
 
-  /// Built with whether the tile is currently inverted onto a light ground.
+  /// Built with whether the row is currently inverted onto a light ground.
   final Widget Function(BuildContext context, bool highlighted) builder;
+  final VoidCallback? onTap;
 
   @override
-  State<_ReadOnlyRow> createState() => _ReadOnlyRowState();
+  State<_AchievementRow> createState() => _AchievementRowState();
 }
 
-class _ReadOnlyRowState extends State<_ReadOnlyRow> {
-  final _node = FocusNode(debugLabel: 'AchievementsReadOnlyRow');
+class _AchievementRowState extends State<_AchievementRow> {
+  final _node = FocusNode(debugLabel: 'AchievementsRow');
 
   @override
   void dispose() {
     _node.dispose();
     super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final onTap = widget.onTap;
+    if (onTap == null || !event.logicalKey.isSelectKey) {
+      return KeyEventResult.ignored;
+    }
+    if (event is KeyDownEvent) onTap();
+    return KeyEventResult.handled;
   }
 
   @override
@@ -254,6 +269,7 @@ class _ReadOnlyRowState extends State<_ReadOnlyRow> {
     return TvFocusHighlight(
       builder: (context, focused) => Focus(
         focusNode: _node,
+        onKeyEvent: _onKey,
         child: widget.builder(
           context,
           focused && settingsTileInvertsOnFocus,
@@ -261,6 +277,21 @@ class _ReadOnlyRowState extends State<_ReadOnlyRow> {
       ),
     );
   }
+}
+
+/// A tap handler for the tile inside an [_AchievementRow].
+///
+/// On TV the row already handles select, and a handler here would make the
+/// tile a focus stop of its own, leaving the remote to step through every row
+/// twice. Off TV there is no row handler, so the tile carries the tap.
+VoidCallback? _tileTap(VoidCallback onTap) =>
+    PlatformDetection.isTV ? null : onTap;
+
+/// Leaves the settings panel behind and opens the item on the main navigator.
+void _openItem(BuildContext context, String itemId) {
+  final root = Navigator.of(context, rootNavigator: true);
+  if (root.canPop()) root.pop();
+  context.navigateTopLevel(Destinations.item(itemId));
 }
 
 /// The rarity tiers keep recognisable hues, because people read rarity by
@@ -715,10 +746,17 @@ class _BadgeTile extends StatelessWidget {
   final AchievementBadge badge;
 
   @override
-  Widget build(BuildContext context) =>
-      _ReadOnlyRow(builder: (context, highlighted) => _tile(context, highlighted));
+  Widget build(BuildContext context) {
+    void open() =>
+        context.pushSettingsScreen(_BadgeChaseScreen(badge: badge));
 
-  Widget _tile(BuildContext context, bool highlighted) {
+    return _AchievementRow(
+      onTap: open,
+      builder: (context, highlighted) => _tile(context, highlighted, open),
+    );
+  }
+
+  Widget _tile(BuildContext context, bool highlighted, VoidCallback onTap) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final color = _hueOn(_rarityColor(badge.rarity), highlighted);
@@ -793,6 +831,126 @@ class _BadgeTile extends StatelessWidget {
         ],
       ),
       isThreeLine: subtitle.length > 1,
+      onTap: _tileTap(onTap),
+    );
+  }
+}
+
+/// One badge on its own, with what the plugin suggests watching for it.
+class _BadgeChaseScreen extends StatefulWidget {
+  const _BadgeChaseScreen({required this.badge});
+
+  final AchievementBadge badge;
+
+  @override
+  State<_BadgeChaseScreen> createState() => _BadgeChaseScreenState();
+}
+
+class _BadgeChaseScreenState extends State<_BadgeChaseScreen> {
+  BadgeChase? _chase;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final client = _client();
+    if (client == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    final chase = await GetIt.instance<AchievementsService>().fetchBadgeChase(
+      client,
+      widget.badge.id,
+    );
+    if (!mounted) return;
+    setState(() {
+      _chase = chase;
+      _loading = false;
+    });
+  }
+
+  String _itemSubtitle(AppLocalizations l10n, ChaseItem item) => [
+    if (item.type.isNotEmpty) item.type,
+    if (item.year > 0) '${item.year}',
+    if (item.runtimeMinutes > 0) l10n.minutesShort(item.runtimeMinutes),
+  ].join(' \u00b7 ');
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final badge = widget.badge;
+
+    return _AchievementsScaffold(
+      title: badge.isSecret ? l10n.achievementsHiddenBadge : badge.title,
+      builder: (context) => _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(context, l10n),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    final badge = widget.badge;
+    final chase = _chase;
+    final current = chase?.current ?? badge.currentValue;
+    final target = chase?.target ?? badge.targetValue;
+    final items = chase?.items ?? const <ChaseItem>[];
+
+    return ListView(
+      padding: _listPadding,
+      children: [
+        if (badge.description.isNotEmpty && !badge.descriptionHidden)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Text(badge.description),
+          ),
+        SettingsSectionHeader(l10n.achievementsProgressLabel),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$current / $target',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ProgressBar(
+                value: badge.progress,
+                color: _rarityColor(badge.rarity),
+                minHeight: 8,
+                radius: 4,
+              ),
+            ],
+          ),
+        ),
+        SettingsSectionHeader(l10n.achievementsSuggested),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(l10n.achievementsNoSuggestions),
+          )
+        else
+          adaptiveListSection(
+            children: [
+              for (final item in items)
+                _AchievementRow(
+                  onTap: () => _openItem(context, item.id),
+                  builder: (context, _) => ListTile(
+                    title: Text(item.name),
+                    subtitle: Text(_itemSubtitle(l10n, item)),
+                    onTap: _tileTap(() => _openItem(context, item.id)),
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -933,7 +1091,9 @@ class _QuestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      _ReadOnlyRow(builder: (context, highlighted) => _tile(context, highlighted));
+      _AchievementRow(
+        builder: (context, highlighted) => _tile(context, highlighted),
+      );
 
   Widget _tile(BuildContext context, bool highlighted) {
     final l10n = AppLocalizations.of(context);
@@ -1084,7 +1244,9 @@ class _LeaderboardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      _ReadOnlyRow(builder: (context, highlighted) => _tile(context, highlighted));
+      _AchievementRow(
+        builder: (context, highlighted) => _tile(context, highlighted),
+      );
 
   Widget _tile(BuildContext context, bool highlighted) {
     final l10n = AppLocalizations.of(context);
@@ -1257,7 +1419,7 @@ class _CountList extends StatelessWidget {
         adaptiveListSection(
           children: [
             for (final count in counts)
-              _ReadOnlyRow(
+              _AchievementRow(
                 builder: (context, _) => ListTile(
                   dense: true,
                   title: Text(count.name),
@@ -1290,7 +1452,7 @@ class _LibraryCompletionScreen extends StatelessWidget {
           adaptiveListSection(
             children: [
               for (final name in names)
-                _ReadOnlyRow(
+                _AchievementRow(
                   builder: (context, highlighted) => ListTile(
                     title: Text(name),
                     subtitle: Padding(

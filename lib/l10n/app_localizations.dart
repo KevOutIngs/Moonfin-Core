@@ -19504,6 +19504,24 @@ abstract class AppLocalizations {
   /// **'Could not reroll those quests.'**
   String get achievementsRerollFailed;
 
+  /// Header above the items the plugin suggests for a badge
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested items to watch'**
+  String get achievementsSuggested;
+
+  /// Shown when the plugin has no items to recommend for a badge
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing to suggest for this badge.'**
+  String get achievementsNoSuggestions;
+
+  /// Label above a badge's current progress figure
+  ///
+  /// In en, this message translates to:
+  /// **'Progress'**
+  String get achievementsProgressLabel;
+
   /// Leaderboard category: hours watched
   ///
   /// In en, this message translates to:

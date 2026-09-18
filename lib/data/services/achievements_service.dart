@@ -250,6 +250,26 @@ class AchievementsService extends ChangeNotifier {
     return result;
   }
 
+  /// What the plugin suggests watching to move [badgeId] along.
+  ///
+  /// The server picks unplayed items that match the badge's metric, so a badge
+  /// measured on something it can't query comes back with nothing to show.
+  Future<BadgeChase?> fetchBadgeChase(
+    MediaServerClient client,
+    String badgeId, {
+    int limit = 10,
+  }) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) return null;
+
+    final json = await _getMap(
+      client,
+      'users/$userId/chase/$badgeId',
+      query: {'limit': limit},
+    );
+    return json == null ? null : BadgeChase.fromJson(json);
+  }
+
   /// Swaps one quest set for a fresh one.
   ///
   /// The plugin grants a single daily and a single weekly reroll and answers

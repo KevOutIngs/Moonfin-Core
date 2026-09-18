@@ -21,6 +21,25 @@ void main() {
     client = buildAchievementClient();
   });
 
+  group('badge suggestions', () {
+    test('a badge carries its progress and what to watch', () async {
+      final chase = await service.fetchBadgeChase(client, 'binge-titan');
+
+      expect(chase?.current, 4);
+      expect(chase?.target, 10);
+      expect(chase?.items, hasLength(2));
+      expect(chase?.items.first.name, 'Trolls Band Together');
+      expect(chase?.items.first.runtimeMinutes, 91);
+      expect(chase?.items.first.id, 'item-1');
+    });
+
+    test('a badge the plugin cannot recommend for comes back empty', () async {
+      adapter.pluginMissing = true;
+
+      expect(await service.fetchBadgeChase(client, 'binge-titan'), isNull);
+    });
+  });
+
   group('quest reroll', () {
     test('a reroll swaps the set and spends the allowance', () async {
       final result = await service.rerollQuests(client, weekly: false);

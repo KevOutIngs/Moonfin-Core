@@ -82,6 +82,22 @@ void main() {
       expect(find.text('Hidden achievement'), findsOneWidget);
     });
 
+    testWidgets('a badge opens what to watch for it', (tester) async {
+      await pumpPanel(tester);
+      await tester.tap(find.text('Badges'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Binge'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Binge Titan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Suggested items to watch'), findsOneWidget);
+      expect(find.text('Trolls Band Together'), findsOneWidget);
+      expect(find.text('Movie \u00b7 2023 \u00b7 91 min'), findsOneWidget);
+      expect(find.text('Episode \u00b7 2026 \u00b7 24 min'), findsOneWidget);
+    });
+
     testWidgets('the filter tabs narrow the list', (tester) async {
       await pumpPanel(tester);
       await tester.tap(find.text('Badges'));
@@ -224,7 +240,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
         if (FocusManager.instance.primaryFocus?.debugLabel ==
-            'AchievementsReadOnlyRow') {
+            'AchievementsRow') {
           return;
         }
       }

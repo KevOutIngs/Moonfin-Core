@@ -10249,6 +10249,18 @@
   "@achievementsRerollFailed": {
     "description": "Message shown when a quest reroll did not go through"
   },
+  "achievementsSuggested": "Suggested items to watch",
+  "@achievementsSuggested": {
+    "description": "Header above the items the plugin suggests for a badge"
+  },
+  "achievementsNoSuggestions": "Nothing to suggest for this badge.",
+  "@achievementsNoSuggestions": {
+    "description": "Shown when the plugin has no items to recommend for a badge"
+  },
+  "achievementsProgressLabel": "Progress",
+  "@achievementsProgressLabel": {
+    "description": "Label above a badge's current progress figure"
+  },
   "achievementsHours": "Hours",
   "@achievementsHours": {
     "description": "Leaderboard category: hours watched"

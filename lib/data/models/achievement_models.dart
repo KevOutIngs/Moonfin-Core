@@ -21,6 +21,13 @@ double _asDouble(dynamic value) {
 
 String _asString(dynamic value) => value is String ? value : '';
 
+/// Every array the plugin sends is a list of objects, and a missing one comes
+/// through as null rather than an empty array.
+List<T> _mapList<T>(dynamic value, T Function(Map<String, dynamic>) from) {
+  if (value is! List) return <T>[];
+  return value.whereType<Map<String, dynamic>>().map(from).toList();
+}
+
 bool _asBool(dynamic value) => value is bool ? value : false;
 
 DateTime? _asDate(dynamic value) {
@@ -269,13 +276,8 @@ class AchievementQuests {
 
   /// Reads either the quest arrays on the overview or the replacement list a
   /// reroll answers with, which carry the same shape.
-  static List<AchievementQuest> parseList(dynamic value) {
-    if (value is! List) return const <AchievementQuest>[];
-    return value
-        .whereType<Map<String, dynamic>>()
-        .map(AchievementQuest.fromJson)
-        .toList();
-  }
+  static List<AchievementQuest> parseList(dynamic value) =>
+      _mapList(value, AchievementQuest.fromJson);
 
   factory AchievementQuests.fromJson(Map<String, dynamic> json) {
     return AchievementQuests(
@@ -283,6 +285,65 @@ class AchievementQuests {
       weekly: parseList(json['Weekly']),
       dailyRerollsLeft: (json['DailyRerollsRemaining'] as num?)?.toInt() ?? 0,
       weeklyRerollsLeft: (json['WeeklyRerollsRemaining'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// One thing to watch that would move a badge along.
+class ChaseItem {
+  const ChaseItem({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.year,
+    required this.runtimeMinutes,
+  });
+
+  final String id;
+  final String name;
+
+  /// Jellyfin's own type name, such as `Movie` or `Episode`.
+  final String type;
+
+  /// Zero when the server holds no year or runtime for the item.
+  final int year;
+  final int runtimeMinutes;
+
+  factory ChaseItem.fromJson(Map<String, dynamic> json) {
+    return ChaseItem(
+      id: _asString(json['Id']),
+      name: _asString(json['Name']),
+      type: _asString(json['Type']),
+      year: _asInt(json['Year']),
+      runtimeMinutes: _asInt(json['RunTimeMinutes']),
+    );
+  }
+}
+
+/// What the plugin suggests watching for one badge.
+///
+/// An empty [items] is a normal answer. The plugin only recommends against
+/// metrics it can turn into a library query, and says so for the rest.
+class BadgeChase {
+  const BadgeChase({
+    required this.current,
+    required this.target,
+    required this.items,
+  });
+
+  final int current;
+  final int target;
+  final List<ChaseItem> items;
+
+  factory BadgeChase.fromJson(Map<String, dynamic> json) {
+    final raw = json['Progress'];
+    final progress = raw is Map<String, dynamic>
+        ? raw
+        : const <String, dynamic>{};
+    return BadgeChase(
+      current: _asInt(progress['Current']),
+      target: _asInt(progress['Target']),
+      items: _mapList(json['Items'], ChaseItem.fromJson),
     );
   }
 }

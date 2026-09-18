@@ -47,6 +47,27 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         'QuestsEnabled': questsEnabled,
         'ForcePrivacyMode': false,
       };
+    } else if (path.contains('/chase/')) {
+      body = {
+        'BadgeId': path.split('/').last,
+        'Progress': {'Current': 4, 'Target': 10},
+        'Items': [
+          {
+            'Id': 'item-1',
+            'Name': 'Trolls Band Together',
+            'Type': 'Movie',
+            'Year': 2023,
+            'RunTimeMinutes': 91,
+          },
+          {
+            'Id': 'item-2',
+            'Name': 'Beef',
+            'Type': 'Episode',
+            'Year': 2026,
+            'RunTimeMinutes': 24,
+          },
+        ],
+      };
     } else if (path.endsWith('/login-ping')) {
       body = {'Success': true};
     } else if (path.endsWith('/quests/daily/reroll') ||

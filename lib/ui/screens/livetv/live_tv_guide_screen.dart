@@ -428,15 +428,22 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// most [_kArtworkPrefetchAllMaxChannels] channels; otherwise bounds it to
   /// channel rows near the current viewport (plus [_kArtworkPrefetchRowMargin]
   /// rows of slack above and below). Falls back to the first screenful of
-  /// channels before the scroll controller has attached.
+  /// channels before the scroll controller has attached. Every submission
+  /// replaces the pending queue, so a filter change cannot leave requests
+  /// for channels that are no longer shown ahead of the new work.
   void _queueArtworkPrefetch() {
     final channels = _vm.filteredChannels;
-    if (channels.isEmpty) return;
+    if (channels.isEmpty) {
+      // A filter matching nothing must still drop work queued for the
+      // lineup it replaced.
+      _vm.queueArtworkPrefetch(const [], replace: true);
+      return;
+    }
 
     if (channels.length <= _kArtworkPrefetchAllMaxChannels) {
       _vm.queueArtworkPrefetch([
         for (final channel in channels) ..._vm.programsForChannel(channel.id),
-      ]);
+      ], replace: true);
       return;
     }
 

@@ -1331,6 +1331,58 @@ void main() {
   );
 
   test(
+    'an empty replacing submission clears the pending prefetch queue',
+    () async {
+      final completers = <String, Completer<Map<String, dynamic>>>{};
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) {
+        final id = inv.positionalArguments[0] as String;
+        return completers
+            .putIfAbsent(id, () => Completer<Map<String, dynamic>>())
+            .future;
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      GuideProgram program(String id) => GuideProgram(
+        id: id,
+        channelId: 'c0',
+        name: id,
+        startDate: DateTime.parse('2026-09-11T10:00:00Z'),
+        endDate: DateTime.parse('2026-09-11T10:30:00Z'),
+        rawData: const {},
+      );
+
+      // Concurrency is 3, so p0-p2 start and p3/p4 sit queued behind them.
+      vm.queueArtworkPrefetch([
+        program('p0'),
+        program('p1'),
+        program('p2'),
+        program('p3'),
+        program('p4'),
+      ]);
+
+      // The guide screen relies on this to drop work for a lineup that a
+      // filter has emptied.
+      vm.queueArtworkPrefetch(const [], replace: true);
+
+      completers['p0']!.complete(_program('p0', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+      completers['p1']!.complete(_program('p1', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+      completers['p2']!.complete(_program('p2', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        completers.containsKey('p3'),
+        isFalse,
+        reason: 'an emptied lineup must not keep fetching its old programs',
+      );
+      expect(completers.containsKey('p4'), isFalse);
+    },
+  );
+
+  test(
     'replacing the prefetch queue drops previously queued, now-obsolete '
     'programs',
     () async {

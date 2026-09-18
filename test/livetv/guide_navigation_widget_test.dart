@@ -13,6 +13,7 @@ import 'package:moonfin/l10n/app_localizations.dart';
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:moonfin/ui/navigation/destinations.dart';
 import 'package:moonfin/ui/screens/livetv/epg/widgets/epg_filter_rail.dart';
+import 'package:moonfin/ui/screens/livetv/epg/widgets/epg_hero_preview.dart';
 import 'package:moonfin/ui/screens/livetv/guide/guide_window.dart';
 import 'package:moonfin/ui/screens/livetv/live_tv_guide_screen.dart';
 import 'package:server_core/server_core.dart';
@@ -980,6 +981,62 @@ void main() {
       // channel has ever actually been tuned.
       expect(find.byType(LiveTvGuideScreen), findsOneWidget);
       expect(_focusedLabel(), 'GuideChannel:0');
+    },
+  );
+
+  testWidgets(
+    'a genre filter that swaps a focused row\'s channel updates the hero '
+    'band',
+    (tester) async {
+      // ch5 is the only favorite; switching to favorites collapses the
+      // lineup to that one channel, so row 0 -- still focused from entry --
+      // now holds ch5 instead of the entry channel ch0.
+      final favoriteChannel = _channelRaw(5)
+        ..['UserData'] = <String, dynamic>{'IsFavorite': true};
+      when(
+        () => liveTvApi.getChannels(
+          startIndex: any(named: 'startIndex'),
+          limit: any(named: 'limit'),
+          sortBy: any(named: 'sortBy'),
+          sortOrder: any(named: 'sortOrder'),
+          fields: any(named: 'fields'),
+          enableTotalRecordCount: any(named: 'enableTotalRecordCount'),
+          userId: any(named: 'userId'),
+        ),
+      ).thenAnswer(
+        (_) async => <String, dynamic>{
+          'Items': [
+            for (var i = 0; i < channelCount; i++)
+              if (i == 5) favoriteChannel else _channelRaw(i),
+          ],
+        },
+      );
+
+      await pumpGuide(tester);
+
+      // Put real focus on row 0 (the entry channel, ch0) and confirm the
+      // hero band describes it before the filter changes anything.
+      _nodeLabelled(tester, 'GuideChannel:0').requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EpgHeroPreview>(find.byType(EpgHeroPreview)).title,
+        'Channel 0',
+      );
+
+      final filterRail = tester.widget<EpgFilterRail>(
+        find.byType(EpgFilterRail),
+      );
+      filterRail.onSelect(GuideFilter.values.indexOf(GuideFilter.favorites));
+      await tester.pumpAndSettle();
+
+      // Row 0's FocusNode is still the one focused (true -> true fires no
+      // onFocusChange), but it now holds ch5. The hero band must describe
+      // the channel actually in that row, not the pre-filter one.
+      expect(_focusedLabel(), 'GuideChannel:0');
+      expect(
+        tester.widget<EpgHeroPreview>(find.byType(EpgHeroPreview)).title,
+        'Channel 5',
+      );
     },
   );
 }

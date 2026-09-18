@@ -373,6 +373,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     _visibleChannelIds = channelIds;
     setState(_initializeMiniPlayerMode);
     if (lineupChanged) {
+      _refreshFocusedChannelAfterLineupChange();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _rebindSelectionAfterLineupChange();
       });
@@ -476,6 +477,26 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     return !_filterFocusNodes.containsValue(focus) &&
         !_windowBarFocusNodes.containsValue(focus) &&
         focus != _miniPlayerFocusNode;
+  }
+
+  /// A channel row's FocusNode is cached by row index, so a filter that swaps
+  /// which channel sits in a focused row fires no focus change and leaves the
+  /// tracked channel naming the old one. Re-derive it from whichever row's
+  /// node actually holds focus; this only updates tracked state, never real
+  /// focus, so it stays safe to call while the guide is covered.
+  void _refreshFocusedChannelAfterLineupChange() {
+    final channels = _vm.filteredChannels;
+    for (final entry in _channelFocusNodes.entries) {
+      if (!entry.value.hasFocus) continue;
+      final index = entry.key;
+      if (index >= channels.length) return;
+      final channel = channels[index];
+      if (_focusedChannel.value?.id == channel.id) return;
+      _channelRailFocused.value = true;
+      _focusedProgram.value = null;
+      _focusedChannel.value = channel;
+      return;
+    }
   }
 
   void _rebindSelectionAfterLineupChange() {

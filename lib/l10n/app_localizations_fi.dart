@@ -16,7 +16,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get animeMarkerFiller => 'Täytejakso';
 
   @override
-  String get animeMarkerMixed => 'MIxed';
+  String get animeMarkerMixed => 'Mixed';
 
   @override
   String get animeMarkerAnimeCanon => 'Anime Canon';
@@ -699,20 +699,20 @@ class AppLocalizationsFi extends AppLocalizations {
   String get collectionPlaceholder => 'Kokoelman kohteet näkyvät täällä';
 
   @override
-  String get browseByLetter => 'Selaa kirjeen mukaan';
+  String get browseByLetter => 'Selaa Aakkosjärjestyksessä';
 
   @override
   String get alphabeticalBrowsePlaceholder =>
       'Aakkosellinen selaus tulee näkyviin tähän';
 
   @override
-  String get suggestions => 'ehdotuksia';
+  String get suggestions => 'Ehdotuksia';
 
   @override
   String get suggestionsPlaceholder => 'Ehdotetut kohteet näkyvät täällä';
 
   @override
-  String get failedToLoadLibraries => 'Kirjastojen lataaminen epäonnistui';
+  String get failedToLoadLibraries => 'Kirjastoja ei voitu ladata';
 
   @override
   String get noLibrariesFound => 'Kirjastoja ei löytynyt';
@@ -727,7 +727,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get allGenres => 'Kaikki Genret';
 
   @override
-  String get noGenresFound => 'Genrejä ei löytynyt';
+  String get noGenresFound => 'Mitään genrejä ei löytynyt';
 
   @override
   String failedToLoadFolderError(String error) {
@@ -9520,7 +9520,8 @@ class AppLocalizationsFi extends AppLocalizations {
       'Yhteensopivia kirjastoja ei ole saatavilla.';
 
   @override
-  String get shuffleNoGenres => 'Tälle sekoitustilalle ei löytynyt genrejä.';
+  String get shuffleNoGenres =>
+      'Tälle shuffle-tilalle ei löytynyt yhtään tyylilajia.';
 
   @override
   String get posterDisplayTitle => 'Näyttö';
@@ -9665,15 +9666,16 @@ class AppLocalizationsFi extends AppLocalizations {
   String get contextMenuAddToCollection => 'Lisää kokoelmaan';
 
   @override
-  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+  String get contextMenuRemoveFromCollection => 'Poista Kokoelmasta';
 
   @override
   String removeFromCollectionConfirm(String item, String collection) {
-    return 'Remove $item from $collection? The item stays in your library.';
+    return 'Poistatko $item kohteen $collection kokoelmasta? Kohde säilyy kirjastossasi.';
   }
 
   @override
-  String get removeFromCollectionFailed => 'Failed to remove from collection';
+  String get removeFromCollectionFailed =>
+      'Poistaminen kokoelmasta epäonnistui';
 
   @override
   String get settingsAdministrationSubtitle =>
@@ -12421,11 +12423,11 @@ class AppLocalizationsFi extends AppLocalizations {
       'Lisää valikkoon painikkeen, joka koskee palvelimen järjestelmänvalvojan lähettämiä viestejä';
 
   @override
-  String get showBookDiscoverTab => 'Show Book Library Discovery';
+  String get showBookDiscoverTab => 'Näytä Kirjasto Kirjastohakutoiminto';
 
   @override
   String get showBookDiscoverTabDescription =>
-      'Browse titles from Open Library and LibriVox in your book and audiobook libraries';
+      'Selaa Open Libraryn ja LibriVoxin teoksia kirja- ja äänikirjastoissasi';
 
   @override
   String get autoDownloadNewEpisodes =>

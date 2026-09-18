@@ -1282,6 +1282,55 @@ void main() {
   );
 
   test(
+    'same-named programs without an episode title do not share artwork '
+    'across channels',
+    () async {
+      var callCount = 0;
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) async {
+        callCount++;
+        final id = inv.positionalArguments[0] as String;
+        return {
+          'Id': id,
+          'ChannelId': id == 'p1' ? 'c0' : 'c1',
+          'Name': 'Paid Programming',
+          'StartDate': '2026-09-11T10:00:00Z',
+          'EndDate': '2026-09-11T10:30:00Z',
+          'ImageTags': {'Primary': 'tag-$id'},
+        };
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      GuideProgram filler(String id, String channelId) => GuideProgram(
+        id: id,
+        channelId: channelId,
+        name: 'Paid Programming',
+        startDate: DateTime.parse('2026-09-11T10:00:00Z'),
+        endDate: DateTime.parse('2026-09-11T10:30:00Z'),
+        rawData: const {},
+      );
+
+      final first = await vm.artworkSourceFor(filler('p1', 'c0'));
+      final second = await vm.artworkSourceFor(filler('p2', 'c1'));
+
+      expect(first?.tag, 'tag-p1');
+      expect(
+        second?.tag,
+        'tag-p2',
+        reason: 'a generic name with no episode title recurs across unrelated '
+            'channels, so it must not inherit artwork from another channel',
+      );
+      expect(
+        callCount,
+        2,
+        reason: 'the second channel must resolve its own artwork rather than '
+            'reusing the content-key entry of the first',
+      );
+    },
+  );
+
+  test(
     'replacing the prefetch queue drops previously queued, now-obsolete '
     'programs',
     () async {

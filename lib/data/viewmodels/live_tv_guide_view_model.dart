@@ -1319,8 +1319,14 @@ class LiveTvGuideViewModel extends ChangeNotifier {
 
   /// The key [_artworkByContentKey] is keyed on. `\u0000` separates the two
   /// fields since it cannot appear in either.
-  String _contentKeyFor(GuideProgram program) =>
-      '${program.name}\u0000${program.episodeTitle ?? ''}';
+  String _contentKeyFor(GuideProgram program) {
+    final episode = program.episodeTitle?.trim() ?? '';
+    // Without an episode title the name alone would be the whole key, and
+    // generic names recur across unrelated channels.
+    return episode.isEmpty
+        ? '${program.name}\u0000CH\u0000${program.channelId}'
+        : '${program.name}\u0000$episode';
+  }
 
   /// Inserts [value] under [key] in [cache], evicting the oldest entry first
   /// once [_artworkCacheCap] is reached.

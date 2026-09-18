@@ -80,7 +80,11 @@ class _AchievementsScreenState extends State<AchievementsScreen>
         padding: _listPadding,
         children: [
           if (overview.rank != null || overview.summary != null)
-            _RankHeader(rank: overview.rank, summary: overview.summary),
+            _RankHeader(
+              rank: overview.rank,
+              summary: overview.summary,
+              worn: overview.cosmetics,
+            ),
           if (overview.equipped.isNotEmpty)
             _ShowcaseStrip(badges: overview.equipped),
           adaptiveListSection(
@@ -164,6 +168,22 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 onTap: () =>
                     context.pushSettingsScreen(const _LoadoutScreen()),
               ),
+              if (overview.cosmetics?.isEmpty == false)
+                DpadListTile(
+                  useSettingsIconShell: true,
+                  leading: const Icon(Icons.face_retouching_natural),
+                  trailing: const Icon(Icons.chevron_right),
+                  title: Text(l10n.achievementsAppearance),
+                  subtitle: Text(l10n.achievementsAppearanceSubtitle),
+                  // Reloading on the way back, since the header above is
+                  // drawn from whatever was equipped in there.
+                  onTap: () async {
+                    await context.pushSettingsScreen(
+                      const _AppearanceScreen(),
+                    );
+                    if (mounted) reload();
+                  },
+                ),
               if (completion.isNotEmpty)
                 DpadListTile(
                   useSettingsIconShell: true,
@@ -550,10 +570,18 @@ class _RetryPanel extends StatelessWidget {
 
 /// Rank tier, score and the bar towards the next tier.
 class _RankHeader extends StatelessWidget {
-  const _RankHeader({required this.rank, required this.summary});
+  const _RankHeader({
+    required this.rank,
+    required this.summary,
+    required this.worn,
+  });
 
   final AchievementRank? rank;
   final AchievementSummary? summary;
+
+  /// What the profile is dressed in, which stands in for the tier's own icon
+  /// and name wherever a slot is filled.
+  final CosmeticLoadout? worn;
 
   @override
   Widget build(BuildContext context) {
@@ -578,7 +606,7 @@ class _RankHeader extends StatelessWidget {
                   radius: 24,
                   backgroundColor: _tintedSurface(tierColor),
                   child: Icon(
-                    achievementIcon(rank.tier.icon),
+                    achievementIcon(worn?.avatarIcon ?? rank.tier.icon),
                     color: tierColor,
                   ),
                 ),
@@ -588,7 +616,7 @@ class _RankHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        rank.tier.name,
+                        worn?.customTitle ?? rank.tier.name,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -1178,6 +1206,255 @@ class _LoadoutScreenState extends State<_LoadoutScreen>
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The avatars and titles a profile can wear, and the shop for the rest.
+class _AppearanceScreen extends StatefulWidget {
+  const _AppearanceScreen();
+
+  @override
+  State<_AppearanceScreen> createState() => _AppearanceScreenState();
+}
+
+class _AppearanceScreenState extends State<_AppearanceScreen>
+    with _LoadsOnOpen<_AppearanceScreen> {
+  CosmeticLoadout? _worn;
+  CosmeticKind _kind = CosmeticKind.avatar;
+  bool _busy = false;
+
+  @override
+  Future<void> fetch(MediaServerClient client) async {
+    _worn = await GetIt.instance<AchievementsService>().fetchCosmetics(client);
+  }
+
+  /// Puts [item] on, or takes it off when it is already the one worn.
+  Future<void> _wear(AppLocalizations l10n, Cosmetic item) async {
+    final client = _client();
+    final worn = _worn;
+    if (client == null || worn == null || _busy) return;
+
+    final wearing = worn.equipped(item.kind) == item.id;
+    setState(() => _busy = true);
+    final service = GetIt.instance<AchievementsService>();
+    final result = wearing
+        ? await service.unequipCosmetic(client, item.kind)
+        : await service.equipCosmetic(client, item.id);
+    if (!mounted) return;
+
+    setState(() {
+      _busy = false;
+      if (result.outcome == CosmeticChangeOutcome.changed) {
+        _worn = worn.wearing(item.kind, wearing ? null : item.id);
+      }
+    });
+
+    if (result.outcome == CosmeticChangeOutcome.changed) return;
+    final text = result.message ?? l10n.achievementsAppearanceFailed;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> _buy(AppLocalizations l10n, Cosmetic item) async {
+    final client = _client();
+    final worn = _worn;
+    if (client == null || worn == null || _busy) return;
+
+    final go = await _confirmSpend(
+      context,
+      title: l10n.achievementsBuyConfirm,
+      body: l10n.achievementsBuyConfirmBody,
+    );
+    if (!go || !mounted) return;
+
+    setState(() => _busy = true);
+    final result = await GetIt.instance<AchievementsService>().buy(
+      client,
+      item.id,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _busy = false;
+      if (result.outcome == PurchaseOutcome.bought) {
+        _worn = worn.bought(item.id, result.bankAfter ?? worn.bank);
+      }
+    });
+
+    if (result.outcome == PurchaseOutcome.bought) return;
+    final text = result.message ?? l10n.achievementsBuyFailed;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return _AchievementsScaffold(
+      title: l10n.achievementsAppearance,
+      builder: (context) => loading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildBody(context, l10n),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    final worn = _worn;
+    if (worn == null) {
+      return _RetryPanel(
+        message: l10n.achievementsLoadFailed,
+        onRetry: () {
+          setState(() => loading = true);
+          reload();
+        },
+      );
+    }
+    if (worn.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(l10n.achievementsAppearanceEmpty),
+      );
+    }
+
+    return ListView(
+      padding: _listPadding,
+      children: [
+        _TabStrip(
+          labels: [l10n.achievementsAvatars, l10n.achievementsTitles],
+          selectedIndex: _kind.index,
+          onChanged: (index) =>
+              setState(() => _kind = CosmeticKind.values[index]),
+        ),
+        _ScoreBank(worn.bank),
+        adaptiveListSection(
+          children: [
+            for (final item in worn.items(_kind))
+              _CosmeticTile(
+                item: item,
+                worn: worn,
+                busy: _busy,
+                onWear: () => _wear(l10n, item),
+                onBuy: () => _buy(l10n, item),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// One avatar or title, and whichever of wearing or buying it allows.
+class _CosmeticTile extends StatelessWidget {
+  const _CosmeticTile({
+    required this.item,
+    required this.worn,
+    required this.busy,
+    required this.onWear,
+    required this.onBuy,
+  });
+
+  final Cosmetic item;
+  final CosmeticLoadout worn;
+  final bool busy;
+  final VoidCallback onWear;
+  final VoidCallback onBuy;
+
+  bool get _wearing => worn.equipped(item.kind) == item.id;
+  bool get _held => worn.has(item);
+  bool get _affordable => item.priceScore <= worn.bank;
+
+  /// Nothing to do with one that has to be earned and hasn't been, or with
+  /// one the bank is short of.
+  VoidCallback? get _action {
+    if (busy) return null;
+    if (_held) return onWear;
+    if (item.isEarned) return null;
+    return _affordable ? onBuy : null;
+  }
+
+  @override
+  Widget build(BuildContext context) => _AchievementRow(
+    onTap: _action,
+    builder: (context, highlighted) => _tile(context, highlighted),
+  );
+
+  Widget _tile(BuildContext context, bool highlighted) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final accent = _hueOn(AppColorScheme.accent, highlighted);
+    final action = _action;
+
+    // Deliberately not marked disabled, for the same reason the power-up
+    // rows are not: a disabled tile greys its title past reading once the
+    // highlight inverts. What blocks a tap shows in the row itself, as a
+    // dimmed price or the score an earned one still needs.
+    return ListTile(
+      leading: _TileIcon(
+        icon: achievementIcon(item.icon),
+        colour: accent,
+        highlighted: highlighted,
+      ),
+      title: Text(item.name),
+      subtitle: _status(l10n, theme, highlighted, accent),
+      trailing: _trailing(l10n, theme, highlighted, accent),
+      onTap: action == null ? null : _tileTap(action),
+    );
+  }
+
+  Widget? _status(
+    AppLocalizations l10n,
+    ThemeData theme,
+    bool highlighted,
+    Color accent,
+  ) {
+    if (_wearing) {
+      return Text(
+        l10n.achievementsEquipped,
+        style: theme.textTheme.bodySmall?.copyWith(color: accent),
+      );
+    }
+    if (_held) {
+      return Text(
+        l10n.achievementsOwned,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: _secondaryText(highlighted),
+        ),
+      );
+    }
+    // Everything else is for sale, and its price is the trailing figure.
+    if (!item.isEarned) return null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.achievementsEarnedAt(item.milestoneScore),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: _secondaryText(highlighted),
+          ),
+        ),
+        const SizedBox(height: 6),
+        _ProgressBar(
+          value: (worn.lifetimeScore / item.milestoneScore).clamp(0.0, 1.0),
+          color: accent,
+          highlighted: highlighted,
+        ),
+      ],
+    );
+  }
+
+  Widget? _trailing(
+    AppLocalizations l10n,
+    ThemeData theme,
+    bool highlighted,
+    Color accent,
+  ) {
+    if (_wearing) return Icon(Icons.check, color: accent);
+    if (_held || item.isEarned) return null;
+    return Text(
+      l10n.achievementsScore(item.priceScore),
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: _affordable ? accent : _secondaryText(highlighted),
+      ),
     );
   }
 }

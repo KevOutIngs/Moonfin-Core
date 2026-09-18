@@ -19534,6 +19534,60 @@ abstract class AppLocalizations {
   /// **'Score to spend and the boosts you hold'**
   String get achievementsLoadoutSubtitle;
 
+  /// Row that opens the avatars and rank titles a profile can wear
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get achievementsAppearance;
+
+  /// Subtitle on the row that opens the appearance screen
+  ///
+  /// In en, this message translates to:
+  /// **'The avatar and title on your profile'**
+  String get achievementsAppearanceSubtitle;
+
+  /// Tab of the icons that can sit on a profile
+  ///
+  /// In en, this message translates to:
+  /// **'Avatars'**
+  String get achievementsAvatars;
+
+  /// Tab of the titles that can replace a rank name
+  ///
+  /// In en, this message translates to:
+  /// **'Titles'**
+  String get achievementsTitles;
+
+  /// State of the avatar or title a profile is wearing
+  ///
+  /// In en, this message translates to:
+  /// **'Equipped'**
+  String get achievementsEquipped;
+
+  /// State of an avatar or title that is held but not worn
+  ///
+  /// In en, this message translates to:
+  /// **'Owned'**
+  String get achievementsOwned;
+
+  /// What a user has to reach to unlock a cosmetic without paying
+  ///
+  /// In en, this message translates to:
+  /// **'Earned at {score} lifetime score'**
+  String achievementsEarnedAt(int score);
+
+  /// Shown when the plugin carries no cosmetics this panel can draw
+  ///
+  /// In en, this message translates to:
+  /// **'This server has no avatars or titles to wear.'**
+  String get achievementsAppearanceEmpty;
+
+  /// Shown when equipping or removing an avatar or title fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not change how the profile looks.'**
+  String get achievementsAppearanceFailed;
+
   /// Section header above the consumable boosts a user holds
   ///
   /// In en, this message translates to:

@@ -21,6 +21,12 @@ double _asDouble(dynamic value) {
 
 String _asString(dynamic value) => value is String ? value : '';
 
+/// A string field the server leaves blank when it means nothing is set.
+String? _nonEmpty(dynamic value) {
+  final text = _asString(value);
+  return text.isEmpty ? null : text;
+}
+
 /// Every array the plugin sends is a list of objects, and a missing one comes
 /// through as null rather than an empty array.
 List<T> _mapList<T>(dynamic value, T Function(Map<String, dynamic>) from) {
@@ -582,8 +588,8 @@ class ShopPowerUp {
     );
   }
 
-  /// The catalogue also carries cosmetics, which this panel has no way to
-  /// draw, so only the power-ups are read.
+  /// The catalogue carries cosmetics too, which [Cosmetic.parseCatalog]
+  /// reads from the same payload.
   static List<ShopPowerUp> parseCatalog(Map<String, dynamic> json) =>
       _mapList(json['PowerUps'], ShopPowerUp.fromJson);
 }
@@ -601,6 +607,213 @@ class Purchase {
 
   /// What the bank holds now, so nothing has to be fetched again.
   final int? bankAfter;
+}
+
+/// Which part of the profile a cosmetic dresses.
+///
+/// The plugin sells six kinds. These two are the ones whose id carries data,
+/// an icon name and a title, so they are the two that can be drawn natively.
+/// The other four name CSS rules only the plugin's own page ships, and
+/// selling those here would equip something nobody could see.
+enum CosmeticKind {
+  avatar('Avatar'),
+  rankTitle('RankTitle');
+
+  const CosmeticKind(this.wireName);
+
+  /// What the plugin calls it, which is also what unequip asks for back.
+  final String wireName;
+
+  static CosmeticKind? parse(String value) {
+    for (final kind in CosmeticKind.values) {
+      if (kind.wireName == value) return kind;
+    }
+    return null;
+  }
+}
+
+/// Closer icons than the ones the catalogue carries.
+///
+/// The plugin picks its icons for its own page and gives several cosmetics
+/// the same one, so a crown, a unicorn and a tastemaker all arrive as plain
+/// sparkles. These name a nearer match where Material has one. An id absent
+/// from here keeps whatever the server sent, which is what anything added in
+/// a later release will do.
+const Map<String, String> _closerIcons = <String, String>{
+  'avatar-clapper': 'movie_creation',
+  'avatar-crown': 'crown',
+  'avatar-dragon': 'whatshot',
+  'avatar-owl': 'owl',
+  'avatar-popcorn': 'fastfood',
+  'avatar-unicorn': 'auto_fix_high',
+  'title-archivist': 'archive',
+  'title-tastemaker': 'trending_up',
+};
+
+/// One avatar or rank title a profile can wear.
+class Cosmetic {
+  const Cosmetic({
+    required this.id,
+    required this.kind,
+    required this.name,
+    required this.icon,
+    required this.priceScore,
+    required this.milestoneScore,
+  });
+
+  final String id;
+  final CosmeticKind kind;
+
+  /// English, the way the catalogue writes it. A release can add more, so
+  /// there is nothing fixed here to translate against.
+  final String name;
+
+  /// A Material Icons name, which every one of them carries. This is the
+  /// catalogue's own unless [_closerIcons] names a better one.
+  final String icon;
+  final int priceScore;
+
+  /// Lifetime score that earns it rather than buying it, and zero on
+  /// everything that is only ever bought.
+  final int milestoneScore;
+
+  bool get isEarned => milestoneScore > 0;
+
+  /// Free to everyone, so it is the slot's starting look and not stock.
+  bool get isDefault => priceScore == 0 && milestoneScore == 0;
+
+  factory Cosmetic.fromJson(Map<String, dynamic> json, CosmeticKind kind) {
+    final id = _asString(json['Id']);
+    return Cosmetic(
+      id: id,
+      kind: kind,
+      name: _asString(json['DisplayName']),
+      icon: _closerIcons[id] ?? _asString(json['PreviewIcon']),
+      priceScore: _asInt(json['PriceScore']),
+      milestoneScore: _asInt(json['MilestoneScore']),
+    );
+  }
+
+  /// Reads the catalogue, keeping the kinds this can draw.
+  static List<Cosmetic> parseCatalog(Map<String, dynamic> json) {
+    final entries = json['Cosmetics'];
+    if (entries is! List) return const <Cosmetic>[];
+
+    final result = <Cosmetic>[];
+    for (final entry in entries) {
+      if (entry is! Map<String, dynamic>) continue;
+      final kind = CosmeticKind.parse(_asString(entry['Kind']));
+      if (kind != null) result.add(Cosmetic.fromJson(entry, kind));
+    }
+    return result;
+  }
+}
+
+/// What a profile wears, against the catalogue that names it.
+class CosmeticLoadout {
+  const CosmeticLoadout({
+    required this.avatars,
+    required this.titles,
+    required this.owned,
+    required this.avatarId,
+    required this.titleId,
+    required this.lifetimeScore,
+    required this.bank,
+  });
+
+  final List<Cosmetic> avatars;
+  final List<Cosmetic> titles;
+
+  /// Ids the profile holds. The plugin fills in the free ones and any
+  /// milestone the score has already passed, so this is the whole answer.
+  final Set<String> owned;
+
+  final String? avatarId;
+  final String? titleId;
+
+  /// Score earned over the life of the profile, which is what a milestone
+  /// measures against. Not [bank], which is only what is left unspent.
+  final int lifetimeScore;
+  final int bank;
+
+  bool get isEmpty => avatars.isEmpty && titles.isEmpty;
+
+  bool has(Cosmetic item) => item.isDefault || owned.contains(item.id);
+
+  List<Cosmetic> items(CosmeticKind kind) =>
+      kind == CosmeticKind.avatar ? avatars : titles;
+
+  String? equipped(CosmeticKind kind) =>
+      kind == CosmeticKind.avatar ? avatarId : titleId;
+
+  /// The icon the rank header draws, or null to keep the tier's own.
+  String? get avatarIcon => _look(avatars, avatarId)?.icon;
+
+  /// The name that stands in for the tier's, or null to keep it.
+  String? get customTitle => _look(titles, titleId)?.name;
+
+  static Cosmetic? _look(List<Cosmetic> items, String? id) {
+    if (id == null) return null;
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
+
+  /// The same loadout with [kind]'s slot filled by [id], or emptied by null.
+  CosmeticLoadout wearing(CosmeticKind kind, String? id) => CosmeticLoadout(
+    avatars: avatars,
+    titles: titles,
+    owned: owned,
+    avatarId: kind == CosmeticKind.avatar ? id : avatarId,
+    titleId: kind == CosmeticKind.rankTitle ? id : titleId,
+    lifetimeScore: lifetimeScore,
+    bank: bank,
+  );
+
+  /// The same loadout holding [id], with what the bank has left after it.
+  CosmeticLoadout bought(String id, int bankAfter) => CosmeticLoadout(
+    avatars: avatars,
+    titles: titles,
+    owned: {...owned, id},
+    avatarId: avatarId,
+    titleId: titleId,
+    lifetimeScore: lifetimeScore,
+    bank: bankAfter,
+  );
+
+  /// Joins the catalogue to a profile's state, which is missing entirely
+  /// until the plugin has a profile to hold it.
+  factory CosmeticLoadout.from(
+    List<Cosmetic> catalog,
+    Map<String, dynamic>? state,
+  ) {
+    final ids = state?['Owned'];
+    return CosmeticLoadout(
+      avatars: catalog
+          .where((item) => item.kind == CosmeticKind.avatar)
+          .toList(),
+      titles: catalog
+          .where((item) => item.kind == CosmeticKind.rankTitle)
+          .toList(),
+      owned: ids is List ? ids.whereType<String>().toSet() : <String>{},
+      avatarId: _nonEmpty(state?['EquippedAvatarId']),
+      titleId: _nonEmpty(state?['EquippedCustomTitleId']),
+      lifetimeScore: _asInt(state?['LifetimeScore']),
+      bank: _asInt(state?['ScoreBank']),
+    );
+  }
+}
+
+enum CosmeticChangeOutcome { changed, refused, failed }
+
+class CosmeticChange {
+  const CosmeticChange(this.outcome, {this.message});
+
+  final CosmeticChangeOutcome outcome;
+
+  /// The plugin's own wording for a refusal.
+  final String? message;
 }
 
 /// One row of either leaderboard.
@@ -720,6 +933,7 @@ class AchievementsOverview {
     required this.leaderboardEnabled,
     required this.questsEnabled,
     required this.activityEnabled,
+    required this.cosmetics,
   });
 
   final AchievementSummary? summary;
@@ -732,6 +946,9 @@ class AchievementsOverview {
 
   /// Library name to percent complete.
   final Map<String, int> libraryCompletion;
+
+  /// Null on a server whose plugin is too old to carry a catalogue.
+  final CosmeticLoadout? cosmetics;
 
   /// Admin switches from the plugin's config. The panel hides a section the
   /// server turned off rather than drawing an empty one.

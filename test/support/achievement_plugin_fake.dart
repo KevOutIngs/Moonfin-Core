@@ -67,6 +67,67 @@ class AchievementPluginAdapter implements HttpClientAdapter {
     },
   ];
 
+  /// A free one, one to buy, one the bank is short of, one that has to be
+  /// earned, one whose catalogue icon is reused elsewhere, and a theme to
+  /// prove the kinds this panel can't draw are dropped rather than listed.
+  final List<Map<String, dynamic>> cosmetics = [
+    {
+      'Id': 'avatar-medal',
+      'Kind': 'Avatar',
+      'DisplayName': 'Medal',
+      'PriceScore': 0,
+      'MilestoneScore': 0,
+      'PreviewIcon': 'military_tech',
+    },
+    {
+      'Id': 'avatar-owl',
+      'Kind': 'Avatar',
+      'DisplayName': 'Night Owl',
+      'PriceScore': 250,
+      'MilestoneScore': 0,
+      'PreviewIcon': 'nights_stay',
+    },
+    {
+      'Id': 'avatar-diamond',
+      'Kind': 'Avatar',
+      'DisplayName': 'Diamond',
+      'PriceScore': 4000,
+      'MilestoneScore': 0,
+      'PreviewIcon': 'diamond',
+    },
+    {
+      'Id': 'avatar-clapper',
+      'Kind': 'Avatar',
+      'DisplayName': 'Clapperboard',
+      'PriceScore': 250,
+      'MilestoneScore': 0,
+      'PreviewIcon': 'local_movies',
+    },
+    {
+      'Id': 'title-cinephile',
+      'Kind': 'RankTitle',
+      'DisplayName': 'Cinephile',
+      'PriceScore': 0,
+      'MilestoneScore': 1000,
+      'PreviewIcon': 'movie_filter',
+    },
+    {
+      'Id': 'theme-sunset',
+      'Kind': 'ProfileTheme',
+      'DisplayName': 'Sunset',
+      'PriceScore': 250,
+      'MilestoneScore': 0,
+      'PreviewIcon': 'wb_twilight',
+    },
+  ];
+
+  final Set<String> ownedCosmetics = {'avatar-medal'};
+  String equippedAvatarId = '';
+  String equippedTitleId = '';
+
+  /// Short of the one milestone above, so it reads as still to be earned.
+  int lifetimeScore = 600;
+
   List<Map<String, dynamic>> get _inventory => [
     for (final entry in powerUps.entries)
       {
@@ -186,10 +247,10 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         ],
       };
     } else if (path.endsWith('/shop/catalog')) {
-      body = {'PowerUps': catalog, 'Cosmetics': const <dynamic>[]};
+      body = {'PowerUps': catalog, 'Cosmetics': cosmetics};
     } else if (path.endsWith('/shop/purchase')) {
       final itemId = (jsonDecode(lastBody ?? '{}') as Map)['ItemId'];
-      final item = catalog.firstWhere(
+      final item = [...catalog, ...cosmetics].firstWhere(
         (i) => i['Id'] == itemId,
         orElse: () => <String, dynamic>{},
       );
@@ -204,13 +265,70 @@ class AchievementPluginAdapter implements HttpClientAdapter {
         );
       }
       scoreBank -= price;
-      final type = item['Type'] as String;
-      powerUps[type] = (powerUps[type] ?? 0) + (item['BundleSize'] as int);
+      final type = item['Type'] as String?;
+      // Only a power-up carries a type. A cosmetic lands in the wardrobe.
+      if (type == null) {
+        ownedCosmetics.add(itemId as String);
+        body = {
+          'Success': true,
+          'Message': 'Bought.',
+          'ScoreBalanceAfter': scoreBank,
+          'OwnedCosmeticId': itemId,
+        };
+      } else {
+        powerUps[type] = (powerUps[type] ?? 0) + (item['BundleSize'] as int);
+        body = {
+          'Success': true,
+          'Message': 'Bought.',
+          'ScoreBalanceAfter': scoreBank,
+          'PowerUpInventoryAfter': powerUps[type],
+        };
+      }
+    } else if (path.endsWith('/cosmetics/equip')) {
+      final id = (jsonDecode(lastBody ?? '{}') as Map)['CosmeticId'];
+      if (!ownedCosmetics.contains(id)) {
+        return ResponseBody.fromString(
+          jsonEncode({'Message': 'Not owned.'}),
+          400,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+      final item = cosmetics.firstWhere((c) => c['Id'] == id);
+      if (item['Kind'] == 'Avatar') {
+        equippedAvatarId = id as String;
+      } else {
+        equippedTitleId = id as String;
+      }
       body = {
-        'Success': true,
-        'Message': 'Bought.',
-        'ScoreBalanceAfter': scoreBank,
-        'PowerUpInventoryAfter': powerUps[type],
+        'Message': 'Equipped.',
+        'EquippedAvatarId': equippedAvatarId,
+        'EquippedCustomTitleId': equippedTitleId,
+      };
+    } else if (path.endsWith('/cosmetics/unequip')) {
+      final kind = options.uri.queryParameters['kind'];
+      if (kind == 'Avatar') {
+        equippedAvatarId = '';
+      } else if (kind == 'RankTitle') {
+        equippedTitleId = '';
+      } else {
+        return ResponseBody.fromString(
+          jsonEncode({'Message': 'Unknown kind.'}),
+          400,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
+      body = {'Message': 'Removed.'};
+    } else if (path.endsWith('/cosmetics')) {
+      body = {
+        'Owned': ownedCosmetics.toList(),
+        'EquippedAvatarId': equippedAvatarId,
+        'EquippedCustomTitleId': equippedTitleId,
+        'LifetimeScore': lifetimeScore,
+        'ScoreBank': scoreBank,
       };
     } else if (path.contains('/powerups/use/')) {
       final type = path.split('/').last;

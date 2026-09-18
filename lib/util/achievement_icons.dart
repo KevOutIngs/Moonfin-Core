@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 /// Maps the Achievement Badges plugin's icon names to Flutter icons.
 ///
@@ -7,11 +8,15 @@ import 'package:flutter/material.dart';
 /// runtime and every icon a badge can carry has to be named here. Admins can
 /// author badges with arbitrary names, so anything unknown falls back to the
 /// same trophy the plugin's own web UI falls back to.
+///
+/// A few come from Material Symbols, the newer set, because the font Flutter
+/// bundles has no glyph for them at all.
 const Map<String, IconData> _achievementIcons = <String, IconData>{
   'ac_unit': Icons.ac_unit,
   'alarm': Icons.alarm,
   'album': Icons.album,
   'all_inclusive': Icons.all_inclusive,
+  'archive': Icons.archive,
   'audiotrack': Icons.audiotrack,
   'auto_awesome': Icons.auto_awesome,
   'auto_awesome_motion': Icons.auto_awesome_motion,
@@ -45,6 +50,7 @@ const Map<String, IconData> _achievementIcons = <String, IconData>{
   'connected_tv': Icons.connected_tv,
   'contrast': Icons.contrast,
   'crop_square': Icons.crop_square,
+  'crown': Symbols.crown,
   'dark_mode': Icons.dark_mode,
   'date_range': Icons.date_range,
   'devices': Icons.devices,
@@ -103,6 +109,7 @@ const Map<String, IconData> _achievementIcons = <String, IconData>{
   'nightlight': Icons.nightlight,
   'nights_stay': Icons.nights_stay,
   'ondemand_video': Icons.ondemand_video,
+  'owl': Symbols.owl,
   'paid': Icons.paid,
   'palette': Icons.palette,
   'park': Icons.park,

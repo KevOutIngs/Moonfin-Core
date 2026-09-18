@@ -10269,6 +10269,47 @@
   "@achievementsLoadoutSubtitle": {
     "description": "Subtitle on the row that opens the loadout"
   },
+  "achievementsAppearance": "Appearance",
+  "@achievementsAppearance": {
+    "description": "Row that opens the avatars and rank titles a profile can wear"
+  },
+  "achievementsAppearanceSubtitle": "The avatar and title on your profile",
+  "@achievementsAppearanceSubtitle": {
+    "description": "Subtitle on the row that opens the appearance screen"
+  },
+  "achievementsAvatars": "Avatars",
+  "@achievementsAvatars": {
+    "description": "Tab of the icons that can sit on a profile"
+  },
+  "achievementsTitles": "Titles",
+  "@achievementsTitles": {
+    "description": "Tab of the titles that can replace a rank name"
+  },
+  "achievementsEquipped": "Equipped",
+  "@achievementsEquipped": {
+    "description": "State of the avatar or title a profile is wearing"
+  },
+  "achievementsOwned": "Owned",
+  "@achievementsOwned": {
+    "description": "State of an avatar or title that is held but not worn"
+  },
+  "achievementsEarnedAt": "Earned at {score} lifetime score",
+  "@achievementsEarnedAt": {
+    "description": "What a user has to reach to unlock a cosmetic without paying",
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsAppearanceEmpty": "This server has no avatars or titles to wear.",
+  "@achievementsAppearanceEmpty": {
+    "description": "Shown when the plugin carries no cosmetics this panel can draw"
+  },
+  "achievementsAppearanceFailed": "Could not change how the profile looks.",
+  "@achievementsAppearanceFailed": {
+    "description": "Shown when equipping or removing an avatar or title fails"
+  },
   "achievementsPowerUps": "Power-ups",
   "@achievementsPowerUps": {
     "description": "Section header above the consumable boosts a user holds"

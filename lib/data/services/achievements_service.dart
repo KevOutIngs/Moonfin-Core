@@ -23,8 +23,9 @@ BaseOptions achievementRequestOptions() => BaseOptions(
 /// reads so the panel can be drawn natively on every platform.
 ///
 /// Almost all of it is reading. The login ping, the quest reroll, spending a
-/// power-up and buying one are the only things written, because they are the
-/// only parts the plugin expects a client to drive.
+/// power-up, buying one and changing what the profile wears are the only
+/// things written, because they are the only parts the plugin expects a
+/// client to drive.
 class AchievementsService extends ChangeNotifier {
   static const String _root = 'Plugins/AchievementBadges';
 
@@ -53,6 +54,10 @@ class AchievementsService extends ChangeNotifier {
   bool _activityEnabled = true;
   bool _privacyMode = false;
 
+  /// The catalogue lives in the plugin's own code, so it only changes when
+  /// the server takes a new release, which ends this session with it.
+  Map<String, dynamic>? _catalog;
+
   String _base(MediaServerClient client) =>
       client.baseUrl.replaceAll(RegExp(r'/+$'), '');
 
@@ -76,6 +81,7 @@ class AchievementsService extends ChangeNotifier {
     _questsEnabled = true;
     _activityEnabled = true;
     _privacyMode = false;
+    _catalog = null;
     if (!_available) return;
     debugPrint('[AchievementsService] cleared, the entry is hidden again');
     _available = false;
@@ -174,6 +180,7 @@ class AchievementsService extends ChangeNotifier {
     String path, {
     required int refusedWith,
     Map<String, dynamic>? body,
+    Map<String, dynamic>? query,
   }) async {
     final headers = _authHeaders(client);
     if (headers == null) return const _Written();
@@ -182,6 +189,7 @@ class AchievementsService extends ChangeNotifier {
       final response = await _dio.post<dynamic>(
         '${_base(client)}/$_root/$path',
         data: body,
+        queryParameters: query,
         options: Options(headers: headers),
       );
       final data = response.data;
@@ -251,6 +259,8 @@ class AchievementsService extends ChangeNotifier {
             ),
       _getMap(client, 'users/$userId/recap', query: {'period': recapPeriod}),
       _getMap(client, 'users/$userId/library-completion'),
+      _fetchCatalog(client),
+      _getMap(client, 'users/$userId/cosmetics'),
     ]);
 
     final summary = results[0] as Map<String, dynamic>?;
@@ -261,6 +271,8 @@ class AchievementsService extends ChangeNotifier {
     final leaderboard = results[5] as List<Map<String, dynamic>>;
     final recap = results[6] as Map<String, dynamic>?;
     final completion = results[7] as Map<String, dynamic>?;
+    final catalog = results[8] as Map<String, dynamic>?;
+    final worn = results[9] as Map<String, dynamic>?;
 
     // A server that answered none of it has lost the plugin, rather than
     // holding an empty profile.
@@ -278,7 +290,77 @@ class AchievementsService extends ChangeNotifier {
       leaderboardEnabled: _leaderboardEnabled,
       questsEnabled: _questsEnabled,
       activityEnabled: _activityEnabled,
+      cosmetics: _readLoadout(catalog, worn),
     );
+  }
+
+  /// Without the catalogue an equipped id names nothing, so a server that
+  /// answered neither leaves the profile with nothing to wear.
+  CosmeticLoadout? _readLoadout(
+    Map<String, dynamic>? catalog,
+    Map<String, dynamic>? worn,
+  ) {
+    if (catalog == null) return null;
+    final items = Cosmetic.parseCatalog(catalog);
+    if (items.isEmpty) return null;
+    return CosmeticLoadout.from(items, worn);
+  }
+
+  /// Reads what the profile owns and wears.
+  ///
+  /// The state route answers 404 until the plugin has a profile to hold, so
+  /// a user who has watched nothing yet owns nothing rather than failing.
+  Future<CosmeticLoadout?> fetchCosmetics(MediaServerClient client) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) return null;
+
+    final results = await Future.wait<Map<String, dynamic>?>([
+      _fetchCatalog(client),
+      _getMap(client, 'users/$userId/cosmetics'),
+    ]);
+    return _readLoadout(results[0], results[1]);
+  }
+
+  /// Wears [id], which the plugin refuses with 400 when it isn't owned.
+  Future<CosmeticChange> equipCosmetic(MediaServerClient client, String id) =>
+      _wear(client, 'cosmetics/equip', body: {'CosmeticId': id});
+
+  /// Empties whatever [kind] fills.
+  Future<CosmeticChange> unequipCosmetic(
+    MediaServerClient client,
+    CosmeticKind kind,
+  ) => _wear(client, 'cosmetics/unequip', query: {'kind': kind.wireName});
+
+  Future<CosmeticChange> _wear(
+    MediaServerClient client,
+    String path, {
+    Map<String, dynamic>? body,
+    Map<String, dynamic>? query,
+  }) async {
+    final userId = client.userId;
+    if (userId == null || userId.isEmpty) {
+      return const CosmeticChange(CosmeticChangeOutcome.failed);
+    }
+
+    final written = await _post(
+      client,
+      'users/$userId/$path',
+      refusedWith: 400,
+      body: body,
+      query: query,
+    );
+    if (written.refused) {
+      return CosmeticChange(
+        CosmeticChangeOutcome.refused,
+        message: written.message,
+      );
+    }
+    // Both routes answer with an object, so nothing back is a fault rather
+    // than a change that took.
+    if (written.body == null) {
+      return const CosmeticChange(CosmeticChangeOutcome.failed);
+    }
+    return const CosmeticChange(CosmeticChangeOutcome.changed);
   }
 
   Map<String, int> _readCompletion(Map<String, dynamic>? json) {
@@ -398,11 +480,14 @@ class AchievementsService extends ChangeNotifier {
         : ActivityEntry.parseFeed(json);
   }
 
+  Future<Map<String, dynamic>?> _fetchCatalog(MediaServerClient client) async =>
+      _catalog ??= await _getMap(client, 'shop/catalog');
+
   /// What the shop sells, narrowed to the power-ups.
   ///
   /// The catalogue is the same for everyone, so this route carries no user.
   Future<List<ShopPowerUp>> fetchShopPowerUps(MediaServerClient client) async {
-    final json = await _getMap(client, 'shop/catalog');
+    final json = await _fetchCatalog(client);
     return json == null
         ? const <ShopPowerUp>[]
         : ShopPowerUp.parseCatalog(json);

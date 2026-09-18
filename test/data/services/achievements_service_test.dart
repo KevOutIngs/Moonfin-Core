@@ -325,6 +325,19 @@ void main() {
       expect(adapter.requests.where((r) => r.contains('leaderboard')), isEmpty);
     });
 
+    test('the catalogue is read once and kept', () async {
+      await service.refreshAvailability(client);
+      adapter.requests.clear();
+
+      await service.loadOverview(client);
+      await service.fetchCosmetics(client);
+
+      expect(
+        adapter.requests.where((r) => r.contains('shop/catalog')),
+        hasLength(1),
+      );
+    });
+
     test('a plugin that answers nothing loads as nothing', () async {
       await service.refreshAvailability(client);
       adapter.pluginMissing = true;

@@ -10049,6 +10049,224 @@
   "warnings": "Warnings",
   "disk": "Disk",
   "openInBrowser": "Open in Browser",
+  "achievementBadges": "Achievement Badges",
+  "@achievementBadges": {
+    "description": "Title of the Achievement Badges plugin panel"
+  },
+  "achievementBadgesSubtitle": "Badges, ranks and quests earned from what you watch",
+  "@achievementBadgesSubtitle": {
+    "description": "Subtitle of the Achievement Badges entry in Integrations"
+  },
+  "achievementsBadges": "Badges",
+  "@achievementsBadges": {
+    "description": "Badges section title"
+  },
+  "achievementsBadgeCount": "{unlocked} of {total} badges",
+  "@achievementsBadgeCount": {
+    "description": "How many badges are unlocked out of the total",
+    "placeholders": {
+      "unlocked": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsQuests": "Quests",
+  "@achievementsQuests": {
+    "description": "Quests section title"
+  },
+  "achievementsQuestCount": "{count} completed",
+  "@achievementsQuestCount": {
+    "description": "How many quests are completed",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsLeaderboard": "Leaderboard",
+  "@achievementsLeaderboard": {
+    "description": "Leaderboard section title"
+  },
+  "achievementsLeaderboardSubtitle": "How you compare with other users on this server",
+  "@achievementsLeaderboardSubtitle": {
+    "description": "Leaderboard section subtitle"
+  },
+  "achievementsRecap": "Recap",
+  "@achievementsRecap": {
+    "description": "Recap section title"
+  },
+  "achievementsRecapSubtitle": "What you watched recently",
+  "@achievementsRecapSubtitle": {
+    "description": "Recap section subtitle"
+  },
+  "achievementsLibraryCompletion": "Library completion",
+  "@achievementsLibraryCompletion": {
+    "description": "Library completion section title"
+  },
+  "achievementsLibraryCount": "{count} libraries",
+  "@achievementsLibraryCount": {
+    "description": "How many libraries have a completion percentage",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsScore": "{score} points",
+  "@achievementsScore": {
+    "description": "The score a user has earned",
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsScoreLabel": "Score",
+  "@achievementsScoreLabel": {
+    "description": "Leaderboard category: overall score"
+  },
+  "achievementsTopRank": "Top rank reached",
+  "@achievementsTopRank": {
+    "description": "Shown instead of progress when the user is at the highest rank"
+  },
+  "achievementsPointsToNextRank": "{points} points to {tier}",
+  "@achievementsPointsToNextRank": {
+    "description": "Points needed to reach the next rank tier",
+    "placeholders": {
+      "points": {
+        "type": "int"
+      },
+      "tier": {
+        "type": "String"
+      }
+    }
+  },
+  "achievementsCurrentStreak": "{days} day streak",
+  "@achievementsCurrentStreak": {
+    "description": "The current watch streak",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsBestStreak": "Best: {days} days",
+  "@achievementsBestStreak": {
+    "description": "The best watch streak",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsShowcase": "Showcase",
+  "@achievementsShowcase": {
+    "description": "The badges a user pinned to their profile"
+  },
+  "achievementsUnlocked": "Unlocked",
+  "@achievementsUnlocked": {
+    "description": "Badge filter: unlocked only"
+  },
+  "achievementsLocked": "Locked",
+  "@achievementsLocked": {
+    "description": "Badge filter: locked only"
+  },
+  "achievementsNothingHere": "Nothing here yet.",
+  "@achievementsNothingHere": {
+    "description": "Empty state for an achievements list"
+  },
+  "achievementsHiddenBadge": "Hidden achievement",
+  "@achievementsHiddenBadge": {
+    "description": "Placeholder name for a secret badge that is still locked"
+  },
+  "achievementsUnlockedOn": "Unlocked {date}",
+  "@achievementsUnlockedOn": {
+    "description": "When a badge was unlocked",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "achievementsPoints": "{points} pts",
+  "@achievementsPoints": {
+    "description": "Points a badge is worth",
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsDailyQuests": "Daily",
+  "@achievementsDailyQuests": {
+    "description": "Daily quests section"
+  },
+  "achievementsWeeklyQuests": "Weekly",
+  "@achievementsWeeklyQuests": {
+    "description": "Weekly quests section"
+  },
+  "achievementsQuestReward": "+{points}",
+  "@achievementsQuestReward": {
+    "description": "Points a quest pays out",
+    "placeholders": {
+      "points": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsHours": "Hours",
+  "@achievementsHours": {
+    "description": "Leaderboard category: hours watched"
+  },
+  "achievementsStreak": "Streak",
+  "@achievementsStreak": {
+    "description": "Leaderboard category: best watch streak"
+  },
+  "achievementsPeriodWeek": "Week",
+  "@achievementsPeriodWeek": {
+    "description": "Recap period: the last week"
+  },
+  "achievementsPeriodMonth": "Month",
+  "@achievementsPeriodMonth": {
+    "description": "Recap period: the last month"
+  },
+  "achievementsPeriodYear": "Year",
+  "@achievementsPeriodYear": {
+    "description": "Recap period: the last year"
+  },
+  "achievementsDaysWatched": "{count} days watched",
+  "@achievementsDaysWatched": {
+    "description": "How many days the user watched something",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsBadgesEarned": "{count} badges earned",
+  "@achievementsBadgesEarned": {
+    "description": "How many badges were earned in the recap period",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "achievementsTopDirectors": "Top directors",
+  "@achievementsTopDirectors": {
+    "description": "Recap list of most-watched directors"
+  },
+  "achievementsTopActors": "Top actors",
+  "@achievementsTopActors": {
+    "description": "Recap list of most-watched actors"
+  },
+  "achievementsLoadFailed": "Could not load your achievements.",
+  "@achievementsLoadFailed": {
+    "description": "Shown when the Achievement Badges plugin data fails to load"
+  },
   "embeddedBrowserNotAvailable": "Embedded browser is not available on this platform.",
   "adminRestartServerConfirmation": "Are you sure you want to restart the server?",
   "adminShutdownServerConfirmation": "Are you sure you want to shut down the server? You will need to restart it manually.",

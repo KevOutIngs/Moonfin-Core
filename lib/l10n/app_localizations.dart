@@ -19288,6 +19288,234 @@ abstract class AppLocalizations {
   /// **'Open in Browser'**
   String get openInBrowser;
 
+  /// Title of the Achievement Badges plugin panel
+  ///
+  /// In en, this message translates to:
+  /// **'Achievement Badges'**
+  String get achievementBadges;
+
+  /// Subtitle of the Achievement Badges entry in Integrations
+  ///
+  /// In en, this message translates to:
+  /// **'Badges, ranks and quests earned from what you watch'**
+  String get achievementBadgesSubtitle;
+
+  /// Badges section title
+  ///
+  /// In en, this message translates to:
+  /// **'Badges'**
+  String get achievementsBadges;
+
+  /// How many badges are unlocked out of the total
+  ///
+  /// In en, this message translates to:
+  /// **'{unlocked} of {total} badges'**
+  String achievementsBadgeCount(int unlocked, int total);
+
+  /// Quests section title
+  ///
+  /// In en, this message translates to:
+  /// **'Quests'**
+  String get achievementsQuests;
+
+  /// How many quests are completed
+  ///
+  /// In en, this message translates to:
+  /// **'{count} completed'**
+  String achievementsQuestCount(int count);
+
+  /// Leaderboard section title
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard'**
+  String get achievementsLeaderboard;
+
+  /// Leaderboard section subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'How you compare with other users on this server'**
+  String get achievementsLeaderboardSubtitle;
+
+  /// Recap section title
+  ///
+  /// In en, this message translates to:
+  /// **'Recap'**
+  String get achievementsRecap;
+
+  /// Recap section subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'What you watched recently'**
+  String get achievementsRecapSubtitle;
+
+  /// Library completion section title
+  ///
+  /// In en, this message translates to:
+  /// **'Library completion'**
+  String get achievementsLibraryCompletion;
+
+  /// How many libraries have a completion percentage
+  ///
+  /// In en, this message translates to:
+  /// **'{count} libraries'**
+  String achievementsLibraryCount(int count);
+
+  /// The score a user has earned
+  ///
+  /// In en, this message translates to:
+  /// **'{score} points'**
+  String achievementsScore(int score);
+
+  /// Leaderboard category: overall score
+  ///
+  /// In en, this message translates to:
+  /// **'Score'**
+  String get achievementsScoreLabel;
+
+  /// Shown instead of progress when the user is at the highest rank
+  ///
+  /// In en, this message translates to:
+  /// **'Top rank reached'**
+  String get achievementsTopRank;
+
+  /// Points needed to reach the next rank tier
+  ///
+  /// In en, this message translates to:
+  /// **'{points} points to {tier}'**
+  String achievementsPointsToNextRank(int points, String tier);
+
+  /// The current watch streak
+  ///
+  /// In en, this message translates to:
+  /// **'{days} day streak'**
+  String achievementsCurrentStreak(int days);
+
+  /// The best watch streak
+  ///
+  /// In en, this message translates to:
+  /// **'Best: {days} days'**
+  String achievementsBestStreak(int days);
+
+  /// The badges a user pinned to their profile
+  ///
+  /// In en, this message translates to:
+  /// **'Showcase'**
+  String get achievementsShowcase;
+
+  /// Badge filter: unlocked only
+  ///
+  /// In en, this message translates to:
+  /// **'Unlocked'**
+  String get achievementsUnlocked;
+
+  /// Badge filter: locked only
+  ///
+  /// In en, this message translates to:
+  /// **'Locked'**
+  String get achievementsLocked;
+
+  /// Empty state for an achievements list
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing here yet.'**
+  String get achievementsNothingHere;
+
+  /// Placeholder name for a secret badge that is still locked
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden achievement'**
+  String get achievementsHiddenBadge;
+
+  /// When a badge was unlocked
+  ///
+  /// In en, this message translates to:
+  /// **'Unlocked {date}'**
+  String achievementsUnlockedOn(String date);
+
+  /// Points a badge is worth
+  ///
+  /// In en, this message translates to:
+  /// **'{points} pts'**
+  String achievementsPoints(int points);
+
+  /// Daily quests section
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get achievementsDailyQuests;
+
+  /// Weekly quests section
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get achievementsWeeklyQuests;
+
+  /// Points a quest pays out
+  ///
+  /// In en, this message translates to:
+  /// **'+{points}'**
+  String achievementsQuestReward(int points);
+
+  /// Leaderboard category: hours watched
+  ///
+  /// In en, this message translates to:
+  /// **'Hours'**
+  String get achievementsHours;
+
+  /// Leaderboard category: best watch streak
+  ///
+  /// In en, this message translates to:
+  /// **'Streak'**
+  String get achievementsStreak;
+
+  /// Recap period: the last week
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get achievementsPeriodWeek;
+
+  /// Recap period: the last month
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get achievementsPeriodMonth;
+
+  /// Recap period: the last year
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get achievementsPeriodYear;
+
+  /// How many days the user watched something
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days watched'**
+  String achievementsDaysWatched(int count);
+
+  /// How many badges were earned in the recap period
+  ///
+  /// In en, this message translates to:
+  /// **'{count} badges earned'**
+  String achievementsBadgesEarned(int count);
+
+  /// Recap list of most-watched directors
+  ///
+  /// In en, this message translates to:
+  /// **'Top directors'**
+  String get achievementsTopDirectors;
+
+  /// Recap list of most-watched actors
+  ///
+  /// In en, this message translates to:
+  /// **'Top actors'**
+  String get achievementsTopActors;
+
+  /// Shown when the Achievement Badges plugin data fails to load
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load your achievements.'**
+  String get achievementsLoadFailed;
+
   /// No description provided for @embeddedBrowserNotAvailable.
   ///
   /// In en, this message translates to:

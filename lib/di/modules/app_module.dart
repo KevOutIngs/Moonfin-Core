@@ -30,6 +30,7 @@ import '../../data/services/cast/native_dlna_channel.dart';
 import '../../data/services/cast/google_cast_provider.dart';
 import '../../data/services/cast/native_cast_channel.dart';
 import '../../data/services/cast/remote_session_cast_provider.dart';
+import '../../data/services/achievements_service.dart';
 import '../../data/services/plugin_sync_service.dart';
 import '../../data/services/server_messages_service.dart';
 import '../../data/services/retro_artwork/retro_artwork_activity_gate.dart';
@@ -143,6 +144,10 @@ void registerAppModule() {
   );
   _getIt.registerLazySingleton(
     () => PluginSyncService(_getIt<UserPreferences>(), _getIt()),
+  );
+  _getIt.registerLazySingleton(
+    () => AchievementsService(),
+    dispose: (service) => service.dispose(),
   );
   _getIt.registerLazySingleton(
     () => ServerMessagesService(_getIt<PreferenceStore>()),

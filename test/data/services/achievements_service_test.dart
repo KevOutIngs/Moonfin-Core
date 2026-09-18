@@ -1,0 +1,221 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:moonfin/data/services/achievements_service.dart';
+import 'package:server_core/server_core.dart';
+
+import '../../support/achievement_plugin_fake.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late AchievementPluginAdapter adapter;
+  late AchievementsService service;
+  late MockMediaServerClient client;
+
+  setUp(() {
+    adapter = AchievementPluginAdapter();
+    final dio = Dio();
+    dio.httpClientAdapter = adapter;
+    service = AchievementsService(dio: dio);
+    client = buildAchievementClient();
+  });
+
+  group('availability', () {
+    test(
+      'a server running the plugin is available and gets the login ping',
+      () async {
+        expect(await service.refreshAvailability(client), isTrue);
+        expect(service.available, isTrue);
+
+        // The ping is fired without being awaited, so let it land.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(
+          adapter.requests,
+          containsAllInOrder([
+            'GET /Plugins/AchievementBadges/public-config',
+            'POST /Plugins/AchievementBadges/users/user1/login-ping',
+          ]),
+        );
+      },
+    );
+
+    test('a server without the plugin stays unavailable', () async {
+      adapter.pluginMissing = true;
+
+      expect(await service.refreshAvailability(client), isFalse);
+      expect(service.available, isFalse);
+      expect(adapter.requests, [
+        'GET /Plugins/AchievementBadges/public-config',
+      ]);
+    });
+
+    test('an Emby server is never probed', () async {
+      final emby = buildAchievementClient(serverType: ServerType.emby);
+
+      expect(await service.refreshAvailability(emby), isFalse);
+      expect(adapter.requests, isEmpty);
+    });
+
+    test(
+      'reset clears availability, so it can\'t survive a sign-out',
+      () async {
+        expect(await service.refreshAvailability(client), isTrue);
+
+        service.reset();
+
+        expect(service.available, isFalse);
+      },
+    );
+  });
+
+  group('overview', () {
+    test('reads the plugin\'s PascalCase payloads', () async {
+      await service.refreshAvailability(client);
+      final overview = await service.loadOverview(client);
+
+      expect(overview, isNotNull);
+      expect(overview!.summary?.unlocked, 12);
+      expect(overview.summary?.total, 200);
+      expect(overview.summary?.bestWatchStreak, 9);
+      expect(overview.rank?.tier.name, 'Viewer');
+      expect(overview.rank?.nextTier?.name, 'Regular');
+      expect(overview.rank?.isTopTier, isFalse);
+      expect(overview.badges, hasLength(3));
+      expect(overview.equipped, hasLength(1));
+      expect(overview.quests?.daily, hasLength(1));
+      expect(overview.quests?.weekly, isEmpty);
+      expect(overview.leaderboard.single.userName, 'Ada');
+      expect(overview.recap?.moviesWatched, 4);
+      expect(overview.recap?.topGenres.single.name, 'Drama');
+      expect(overview.libraryCompletion, {'Movies': 63, 'Shows': 12});
+    });
+
+    test(
+      'a locked badge keeps its progress and an unlocked one its date',
+      () async {
+        await service.refreshAvailability(client);
+        final overview = await service.loadOverview(client);
+
+        final unlocked = overview!.badges.firstWhere(
+          (b) => b.id == 'first-contact',
+        );
+        expect(unlocked.unlocked, isTrue);
+        expect(unlocked.unlockedAt, isNotNull);
+        expect(unlocked.progress, 1);
+        expect(unlocked.score, 10);
+
+        final locked = overview.badges.firstWhere((b) => b.id == 'binge-titan');
+        expect(locked.unlocked, isFalse);
+        // UnlockedAt is absent from the payload, not null.
+        expect(locked.unlockedAt, isNull);
+        expect(locked.progress, closeTo(0.4, 0.001));
+        expect(locked.score, 60);
+      },
+    );
+
+    test('a masked secret badge is recognized as one', () async {
+      await service.refreshAvailability(client);
+      final overview = await service.loadOverview(client);
+
+      final secret = overview!.badges.firstWhere((b) => b.id == 'deep-cut');
+      expect(secret.isSecret, isTrue);
+
+      // An ordinary locked badge must not read as secret.
+      expect(
+        overview.badges.firstWhere((b) => b.id == 'binge-titan').isSecret,
+        isFalse,
+      );
+    });
+
+    test('sections the admin switched off are not even requested', () async {
+      adapter
+        ..leaderboardEnabled = false
+        ..questsEnabled = false;
+      await service.refreshAvailability(client);
+      adapter.requests.clear();
+
+      final overview = await service.loadOverview(client);
+
+      expect(overview!.leaderboardEnabled, isFalse);
+      expect(overview.questsEnabled, isFalse);
+      expect(overview.quests, isNull);
+      expect(overview.leaderboard, isEmpty);
+      expect(adapter.requests.where((r) => r.contains('quests')), isEmpty);
+      expect(adapter.requests.where((r) => r.contains('leaderboard')), isEmpty);
+    });
+
+    test('a plugin that answers nothing loads as nothing', () async {
+      await service.refreshAvailability(client);
+      adapter.pluginMissing = true;
+
+      expect(await service.loadOverview(client), isNull);
+    });
+
+    test('a session without a user has nothing to load', () async {
+      expect(
+        await service.loadOverview(buildAchievementClient(userId: null)),
+        isNull,
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
+    test('a trailing slash on the server address doesn\'t double up', () async {
+      final slashed = buildAchievementClient(baseUrl: 'http://badges.test/');
+      await service.refreshAvailability(slashed);
+
+      expect(
+        adapter.requests.first,
+        'GET /Plugins/AchievementBadges/public-config',
+      );
+    });
+  });
+
+  group('pickers', () {
+    test('a category board carries a value instead of a score', () async {
+      await service.refreshAvailability(client);
+
+      final entries = await service.fetchLeaderboard(
+        client,
+        category: 'movies',
+      );
+
+      expect(entries.single.value, 42);
+      expect(entries.single.score, isNull);
+    });
+
+    test('an empty category asks for the overall board', () async {
+      await service.refreshAvailability(client);
+      adapter.requests.clear();
+
+      final entries = await service.fetchLeaderboard(client);
+
+      expect(entries.single.score, 430);
+      // The login ping can still be in flight, so look at the leaderboard
+      // calls rather than at every request made.
+      expect(adapter.requests.where((r) => r.contains('leaderboard')), [
+        'GET /Plugins/AchievementBadges/leaderboard',
+      ]);
+    });
+
+    test(
+      'the leaderboard isn\'t fetched when the admin turned it off',
+      () async {
+        adapter.leaderboardEnabled = false;
+        await service.refreshAvailability(client);
+        adapter.requests.clear();
+
+        expect(await service.fetchLeaderboard(client), isEmpty);
+        expect(adapter.requests, isEmpty);
+      },
+    );
+
+    test('the recap is refetched for the chosen period', () async {
+      await service.refreshAvailability(client);
+
+      final recap = await service.fetchRecap(client, 'year');
+
+      expect(recap?.period, 'year');
+      expect(recap?.daysWatched, 11);
+    });
+  });
+}

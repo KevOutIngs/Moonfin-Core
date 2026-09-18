@@ -10936,6 +10936,146 @@ class AppLocalizationsSi extends AppLocalizations {
   String get openInBrowser => 'බ්‍රවුසරයේ විවෘත කරන්න';
 
   @override
+  String get achievementBadges => 'Achievement Badges';
+
+  @override
+  String get achievementBadgesSubtitle =>
+      'Badges, ranks and quests earned from what you watch';
+
+  @override
+  String get achievementsBadges => 'Badges';
+
+  @override
+  String achievementsBadgeCount(int unlocked, int total) {
+    return '$unlocked of $total badges';
+  }
+
+  @override
+  String get achievementsQuests => 'Quests';
+
+  @override
+  String achievementsQuestCount(int count) {
+    return '$count completed';
+  }
+
+  @override
+  String get achievementsLeaderboard => 'Leaderboard';
+
+  @override
+  String get achievementsLeaderboardSubtitle =>
+      'How you compare with other users on this server';
+
+  @override
+  String get achievementsRecap => 'Recap';
+
+  @override
+  String get achievementsRecapSubtitle => 'What you watched recently';
+
+  @override
+  String get achievementsLibraryCompletion => 'Library completion';
+
+  @override
+  String achievementsLibraryCount(int count) {
+    return '$count libraries';
+  }
+
+  @override
+  String achievementsScore(int score) {
+    return '$score points';
+  }
+
+  @override
+  String get achievementsScoreLabel => 'Score';
+
+  @override
+  String get achievementsTopRank => 'Top rank reached';
+
+  @override
+  String achievementsPointsToNextRank(int points, String tier) {
+    return '$points points to $tier';
+  }
+
+  @override
+  String achievementsCurrentStreak(int days) {
+    return '$days day streak';
+  }
+
+  @override
+  String achievementsBestStreak(int days) {
+    return 'Best: $days days';
+  }
+
+  @override
+  String get achievementsShowcase => 'Showcase';
+
+  @override
+  String get achievementsUnlocked => 'Unlocked';
+
+  @override
+  String get achievementsLocked => 'Locked';
+
+  @override
+  String get achievementsNothingHere => 'Nothing here yet.';
+
+  @override
+  String get achievementsHiddenBadge => 'Hidden achievement';
+
+  @override
+  String achievementsUnlockedOn(String date) {
+    return 'Unlocked $date';
+  }
+
+  @override
+  String achievementsPoints(int points) {
+    return '$points pts';
+  }
+
+  @override
+  String get achievementsDailyQuests => 'Daily';
+
+  @override
+  String get achievementsWeeklyQuests => 'Weekly';
+
+  @override
+  String achievementsQuestReward(int points) {
+    return '+$points';
+  }
+
+  @override
+  String get achievementsHours => 'Hours';
+
+  @override
+  String get achievementsStreak => 'Streak';
+
+  @override
+  String get achievementsPeriodWeek => 'Week';
+
+  @override
+  String get achievementsPeriodMonth => 'Month';
+
+  @override
+  String get achievementsPeriodYear => 'Year';
+
+  @override
+  String achievementsDaysWatched(int count) {
+    return '$count days watched';
+  }
+
+  @override
+  String achievementsBadgesEarned(int count) {
+    return '$count badges earned';
+  }
+
+  @override
+  String get achievementsTopDirectors => 'Top directors';
+
+  @override
+  String get achievementsTopActors => 'Top actors';
+
+  @override
+  String get achievementsLoadFailed => 'Could not load your achievements.';
+
+  @override
   String get embeddedBrowserNotAvailable =>
       'මෙම වේදිකාවේ කාවැද්දූ බ්‍රවුසරයක් නොමැත.';
 

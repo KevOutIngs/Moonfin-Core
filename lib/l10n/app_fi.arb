@@ -11724,5 +11724,128 @@
     "showBookDiscoverTabDescription": "Selaa Open Libraryn ja LibriVoxin teoksia kirja- ja äänikirjastoissasi",
     "@showBookDiscoverTabDescription": {
         "description": "Explains the setting that shows or hides the discovery tab in book libraries"
-    }
+    },
+    "spotlightFactsCount": "{count, plural, =1{1 fact} other{{count} facts}}",
+    "@spotlightFactsCount": {
+        "description": "Count fragment on spotlight summary cards: Seerr facts",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "spotlightTagsCount": "{count, plural, =1{1 tag} other{{count} tags}}",
+    "@spotlightTagsCount": {
+        "description": "Count fragment on spotlight summary cards: genres, networks and keywords",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "activeDownloads": "Aktiiviset Lataukset",
+    "@activeDownloads": {
+        "description": "Tab title for downloads that are transferring or queued"
+    },
+    "savedMediaCount": "{count, plural, =1{1 item} other{{count} items}}",
+    "@savedMediaCount": {
+        "description": "How many downloads the saved media list holds, shown beside the total size",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "savedMediaOfLimit": "{used} of {limit}",
+    "@savedMediaOfLimit": {
+        "description": "Storage used against the configured limit, for example '56.4 GB of 80 GB'",
+        "placeholders": {
+            "used": {
+                "type": "String"
+            },
+            "limit": {
+                "type": "String"
+            }
+        }
+    },
+    "savedMediaSelectItems": "Valitse kohteet",
+    "@savedMediaSelectItems": {
+        "description": "Overflow menu entry that turns on multi-select in the saved media list"
+    },
+    "savedMediaNoDownloads": "Mitään ei ole vielä tallennettu",
+    "@savedMediaNoDownloads": {
+        "description": "Empty state title when no downloads are on the device"
+    },
+    "savedMediaNoDownloadsDetail": "Täältä näkyvät aloittamasi lataukset, ja niitä voi toistaa ilman verkkoyhteyttä.",
+    "@savedMediaNoDownloadsDetail": {
+        "description": "Empty state body when no downloads are on the device"
+    },
+    "savedMediaNoActiveDownloads": "Tällä hetkellä ei ole käynnissä yhtään latausta",
+    "@savedMediaNoActiveDownloads": {
+        "description": "Empty state for the active downloads tab"
+    },
+    "savedMediaNoResults": "Hakutuloksia ei löytynyt",
+    "@savedMediaNoResults": {
+        "description": "Empty state when a search over saved media matches nothing"
+    },
+    "savedMediaPlayFromStart": "Toista alusta alkaen",
+    "@savedMediaPlayFromStart": {
+        "description": "Row menu action that restarts a partly watched download from the beginning"
+    },
+    "savedMediaGoToDetails": "Siirry yksityiskohtiin",
+    "@savedMediaGoToDetails": {
+        "description": "Row menu action that opens the item's detail screen"
+    },
+    "savedMediaDeleteDownload": "Poista lataus",
+    "@savedMediaDeleteDownload": {
+        "description": "Row menu action that removes one downloaded file from the device"
+    },
+    "savedMediaDeleteSeason": "Poista {season}",
+    "@savedMediaDeleteSeason": {
+        "description": "Menu action that removes every saved episode of one season",
+        "placeholders": {
+            "season": {
+                "type": "String"
+            }
+        }
+    },
+    "savedMediaDeleteEpisodes": "{count, plural, =1{Delete 1 episode} other{Delete {count} episodes}}",
+    "@savedMediaDeleteEpisodes": {
+        "description": "Menu action that removes every saved episode of one series",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "savedMediaOpenShow": "Avaa esitys",
+    "@savedMediaOpenShow": {
+        "description": "Row menu action that opens a saved show's seasons and episodes"
+    },
+    "savedMediaPlayNextUnwatched": "Toista seuraava katsomaton",
+    "@savedMediaPlayNextUnwatched": {
+        "description": "Row menu action that plays the earliest unwatched saved episode of a show"
+    },
+    "savedMediaRead": "Lue",
+    "@savedMediaRead": {
+        "description": "Row menu action that opens a downloaded book in the reader"
+    },
+    "savedMediaCancelDownload": "Peruuta lataus",
+    "@savedMediaCancelDownload": {
+        "description": "Row menu action that stops a running or queued transfer"
+    },
+    "sortBySize": "Koko",
+    "@sortBySize": {
+        "description": "Sort option: largest download first"
+    },
+    "sortByName": "Nimi",
+    "@sortByName": {
+        "description": "Sort option: alphabetical by title"
+    },
+    "sortByDateAdded": "Lisäyspäivä",
+    "@sortByDateAdded": {
+        "description": "Sort option: most recently downloaded first"
+    },
+    "locallyDecodedCodecs": "Paikallisesti dekoodatut koodekit",
+    "transcodeTargetCodecs": "Transkoodauksen kohdekoodekit"
 }

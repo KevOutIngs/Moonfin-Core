@@ -643,6 +643,36 @@ void main() {
     expect(_focusedLabel(), 'GuideChannel:1');
   });
 
+  testWidgets(
+    'the mini-player guide fetches no program artwork, having no hero band',
+    (tester) async {
+      when(
+        () => liveTvApi.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer(
+        (inv) async => <String, dynamic>{
+          'Id': inv.positionalArguments[0],
+          'ChannelId': 'ch0',
+          'Name': 'anything',
+          'StartDate': DateTime.now().toUtc().toIso8601String(),
+          'EndDate': DateTime.now()
+              .toUtc()
+              .add(const Duration(minutes: 30))
+              .toIso8601String(),
+          'ImageTags': <String, dynamic>{'Primary': 'tag'},
+        },
+      );
+
+      await pumpGuide(tester, miniPlayerMode: true);
+      // Past both the scroll debounce and the on-focus artwork debounce.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      verifyNever(
+        () => liveTvApi.getProgram(any(), userId: any(named: 'userId')),
+      );
+    },
+  );
+
   testWidgets('UP from row zero reaches the mini player in miniPlayerMode', (
     tester,
   ) async {

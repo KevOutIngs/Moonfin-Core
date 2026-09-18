@@ -209,6 +209,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   );
   Duration? _pendingGuideWindow;
 
+  /// Whether the current layout actually renders the hero band, the only
+  /// widget that consumes per-program artwork.
+  bool _heroVisible = false;
+
   /// The grid's selection model. Vertical navigation resolves against its
   /// anchor time instead of focus geometry. Seeded on the first cell focus.
   GuideSelection? _selection;
@@ -366,8 +370,8 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
         .map((channel) => channel.id)
         .toList();
     _precacheGuideLogos(_vm.filteredChannels);
-    // The whole lineup is submitted on ordinary lineups; only large ones are
-    // bounded to the rows around the current viewport.
+    // The whole lineup is submitted on ordinary lineups; only large ones
+    // are bounded to the rows around the current viewport.
     _queueArtworkPrefetch();
     final lineupChanged = !listEquals(channelIds, _visibleChannelIds);
     _visibleChannelIds = channelIds;
@@ -416,6 +420,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
 
   void _scheduleArtworkPrefetch() {
     _artworkPrefetchScrollDebounce?.cancel();
+    if (!_heroVisible) return;
     _artworkPrefetchScrollDebounce = Timer(
       const Duration(milliseconds: 250),
       () {
@@ -432,6 +437,8 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// replaces the pending queue, so a filter change cannot leave requests
   /// for channels that are no longer shown ahead of the new work.
   void _queueArtworkPrefetch() {
+    // The hero band is the only consumer of per-program artwork.
+    if (!_heroVisible) return;
     final channels = _vm.filteredChannels;
     if (channels.isEmpty) {
       // A filter matching nothing must still drop work queued for the
@@ -930,6 +937,25 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
           textScaleFactor: MediaQuery.textScalerOf(context).scale(1),
         );
         _layoutProfile = profile;
+        final heroVisible = landscape && !widget.miniPlayerMode;
+        if (heroVisible != _heroVisible) {
+          _heroVisible = heroVisible;
+          // Deferred because this runs during build: gaining the hero has
+          // to start artwork work that nothing else will trigger until the
+          // next notification, and losing it has to drop work already
+          // queued for a band that is no longer on screen.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_heroVisible) {
+              _queueArtworkPrefetch();
+              _scheduleArtworkLookup();
+            } else {
+              _artworkPrefetchScrollDebounce?.cancel();
+              _artworkLookupDebounce?.cancel();
+              _vm.queueArtworkPrefetch(const [], replace: true);
+            }
+          });
+        }
         if (landscape) _scheduleGuideWindowUpdate(profile.guideWindow);
         return Padding(
           padding: EdgeInsets.only(
@@ -1064,6 +1090,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// future programs carry artwork just as often as live ones.
   void _scheduleArtworkLookup() {
     _artworkLookupDebounce?.cancel();
+    if (!_heroVisible) return;
     final preview = _currentPreviewProgram();
     if (preview == null ||
         preview.artworkSource != null ||

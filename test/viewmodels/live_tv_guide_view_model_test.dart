@@ -1233,4 +1233,117 @@ void main() {
       expect(vm.hasArtworkResult('p500'), isTrue);
     },
   );
+
+  test(
+    'a failed artwork lookup does not poison the cache and a later call retries',
+    () async {
+      var callCount = 0;
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) async {
+        callCount++;
+        if (callCount == 1) throw Exception('transient failure');
+        return _program(inv.positionalArguments[0] as String, 'c0');
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      final program = GuideProgram(
+        id: 'p1',
+        channelId: 'c0',
+        name: 'p1',
+        startDate: DateTime.parse('2026-09-11T10:00:00Z'),
+        endDate: DateTime.parse('2026-09-11T10:30:00Z'),
+        rawData: const {},
+      );
+
+      final first = await vm.artworkSourceFor(program);
+      expect(first, isNull);
+      expect(
+        vm.hasArtworkResult('p1'),
+        isFalse,
+        reason:
+            'a transient lookup failure must not be cached as a permanent '
+            'negative',
+      );
+
+      await vm.artworkSourceFor(program);
+      expect(
+        callCount,
+        2,
+        reason: 'the retry must issue a fresh request, not reuse a cached '
+            'null from the failed attempt',
+      );
+      expect(
+        vm.hasArtworkResult('p1'),
+        isTrue,
+        reason: 'a genuine (non-error) result is still cached',
+      );
+    },
+  );
+
+  test(
+    'replacing the prefetch queue drops previously queued, now-obsolete '
+    'programs',
+    () async {
+      final completers = <String, Completer<Map<String, dynamic>>>{};
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) {
+        final id = inv.positionalArguments[0] as String;
+        return completers
+            .putIfAbsent(id, () => Completer<Map<String, dynamic>>())
+            .future;
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      GuideProgram program(String id) => GuideProgram(
+        id: id,
+        channelId: 'c0',
+        name: id,
+        startDate: DateTime.parse('2026-09-11T10:00:00Z'),
+        endDate: DateTime.parse('2026-09-11T10:30:00Z'),
+        rawData: const {},
+      );
+
+      // Concurrency is 3: p0-p2 start fetching immediately (blocked on
+      // their completers) and p3/p4 sit queued behind them, never dequeued.
+      vm.queueArtworkPrefetch([
+        program('p0'),
+        program('p1'),
+        program('p2'),
+        program('p3'),
+        program('p4'),
+      ]);
+
+      // Replace the queue with an unrelated program before any of the
+      // active three complete.
+      vm.queueArtworkPrefetch([program('q0')], replace: true);
+
+      completers['p0']!.complete(_program('p0', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+      completers['p1']!.complete(_program('p1', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+      completers['p2']!.complete(_program('p2', 'c0'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        completers.containsKey('p3'),
+        isFalse,
+        reason: 'p3 was only queued, not in flight, and the replace should '
+            'have dropped it',
+      );
+      expect(
+        completers.containsKey('p4'),
+        isFalse,
+        reason: 'p4 was only queued, not in flight, and the replace should '
+            'have dropped it',
+      );
+      expect(
+        completers.containsKey('q0'),
+        isTrue,
+        reason: 'the replacement program should start once a concurrency '
+            'slot frees up',
+      );
+    },
+  );
 }

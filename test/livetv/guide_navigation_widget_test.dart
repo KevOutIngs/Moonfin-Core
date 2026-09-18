@@ -917,12 +917,9 @@ void main() {
       expect(after, isNot(before), reason: 'window did not page');
 
       await tester.binding.handlePopRoute();
-      await tester.pump();
-      // The guide's periodic display-clock timer (15s) is the next thing
-      // that schedules a frame; ride it to let the reset's second deferred
-      // postFrameCallback run, exactly as it would once anything else in
-      // the running app requested a frame.
-      await tester.pump(const Duration(seconds: 15));
+      // The reset now schedules its own frames for both deferred
+      // postFrameCallbacks, so ordinary pumping settles it without waiting
+      // on the guide's periodic display-clock timer.
       await tester.pumpAndSettle();
 
       // Back re-homed to the last-tuned channel (ch2), not the channel

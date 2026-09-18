@@ -463,7 +463,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     _vm.queueArtworkPrefetch([
       for (final channel in channels.sublist(start, end))
         ..._vm.programsForChannel(channel.id),
-    ]);
+    ], replace: true);
   }
 
   /// True unless focus is sitting on one of this screen's non-grid controls.
@@ -2122,12 +2122,19 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     return !_vm.atLivePosition || _focusedChannel.value?.id != homeId;
   }
 
-  /// Resets to the entry channel at the already-resolved [index] into
-  /// [LiveTvGuideViewModel.filteredChannels]. Callers must resolve that index
-  /// themselves (see [_consumeBackIfExploring]) before committing to a reset.
-  Future<void> _resetToEntryState(int index) async {
+  /// Resets to [_homeChannelId], re-resolving it into
+  /// [LiveTvGuideViewModel.filteredChannels] AFTER [_goToNow] reloads the
+  /// lineup, since a genre filter can change which channels are present
+  /// during that reload -- resolving before it would risk landing on
+  /// whatever channel now sits at a stale index.
+  Future<void> _resetToEntryState() async {
     await _goToNow();
     if (!mounted) return;
+    final homeId = _homeChannelId;
+    if (homeId == null) return;
+    final channels = _vm.filteredChannels;
+    final index = channels.indexWhere((channel) => channel.id == homeId);
+    if (index < 0) return;
     // Set the tracked focus target directly instead of waiting on the
     // channel row's own focus-change callback: the row can be scrolled many
     // screens away, so its FocusNode isn't attached until the list has
@@ -2136,20 +2143,26 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     // focused channel after a "reset" that never visually landed, so every
     // later back press re-triggered the same no-op reset instead of ever
     // exiting.
-    final channels = _vm.filteredChannels;
-    // The reload behind _goToNow() can itself change the lineup; guard
-    // against the resolved index no longer being in range rather than
-    // re-resolving it, since the caller already committed to this index.
-    if (index >= channels.length) return;
     _channelRailFocused.value = true;
     _focusedProgram.value = null;
     _focusedChannel.value = channels[index];
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Neither the field assignments above nor the reload behind _goToNow()
+    // are guaranteed to have scheduled a frame, and addPostFrameCallback
+    // only runs on a frame that actually happens -- so without an explicit
+    // scheduleFrame() the row can sit waiting for whatever unrelated widget
+    // (e.g. the guide's own clock) next triggers one. Schedule both frames
+    // this needs explicitly: one for the callback below to fire at all, and
+    // a second because the target row may still be off-screen with its
+    // FocusNode not yet attached, exactly as in _scheduleInitialChannelFocus.
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
       if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      binding.scheduleFrame();
+      binding.addPostFrameCallback((_) {
         if (mounted) _focusChannelRow(index, animate: false);
       });
     });
+    binding.scheduleFrame();
   }
 
   /// A back press resolves here first: if the grid has drifted from where the
@@ -2166,7 +2179,7 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
       (channel) => channel.id == homeId,
     );
     if (index < 0) return false;
-    unawaited(_resetToEntryState(index));
+    unawaited(_resetToEntryState());
     return true;
   }
 

@@ -1298,9 +1298,11 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   }
 
   /// Per-program artwork, keyed by program id. `null` means "looked up and
-  /// confirmed there is none" (see [artworkSourceFor]) — negative results are
-  /// cached exactly like positive ones, so a channel the user scrolls back
-  /// and forth across never re-issues the same request.
+  /// confirmed there is none" (see [artworkSourceFor]) — a genuine negative
+  /// result is cached like a positive one, so a channel the user scrolls
+  /// back and forth across never re-issues the same request. A failed
+  /// lookup (network/server error) is NOT cached here; see
+  /// [_fetchArtworkSource].
   ///
   /// A plain map literal is a [LinkedHashMap], so insertion order survives:
   /// past the cap, [artworkSourceFor] drops the oldest entry rather than the
@@ -1376,7 +1378,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   Future<({String itemId, String tag})?> _fetchArtworkSource(
     GuideProgram program,
   ) async {
-    ({String itemId, String tag})? result;
+    final ({String itemId, String tag})? result;
     try {
       final raw = await _client.liveTvApi.getProgram(
         program.id,
@@ -1384,7 +1386,11 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       );
       result = _programFromRaw(raw)?.artworkSource;
     } catch (_) {
-      result = null;
+      // A transient network/server failure is not proof there is no
+      // artwork. Leave both caches untouched so a later call retries,
+      // instead of permanently suppressing this program and every other
+      // program sharing its content key.
+      return null;
     }
     _insertWithCap(_artworkCache, program.id, result);
     _insertWithCap(_artworkByContentKey, _contentKeyFor(program), result);
@@ -1408,7 +1414,23 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   /// How far ahead of now the speculative prefetch reaches.
   static const _artworkPrefetchHorizon = Duration(hours: 6);
 
-  void queueArtworkPrefetch(Iterable<GuideProgram> programs) {
+  /// Queues [programs] for background artwork prefetch. When [replace] is
+  /// true, the pending queue is dropped first, so a caller re-submitting for
+  /// a new viewport doesn't leave stale, now-off-screen programs queued
+  /// ahead of it — only entries not yet dequeued are affected; a fetch
+  /// already in flight runs to completion either way and is never
+  /// cancelled or double-counted.
+  void queueArtworkPrefetch(
+    Iterable<GuideProgram> programs, {
+    bool replace = false,
+  }) {
+    if (replace) {
+      // Safe to clear both wholesale: _pumpArtworkPrefetch removes an id
+      // from _artworkQueued the moment it dequeues it, before the fetch
+      // starts, so nothing in-flight is ever tracked in _artworkQueued.
+      _artworkPrefetchQueue.clear();
+      _artworkQueued.clear();
+    }
     final horizon = _now().add(_artworkPrefetchHorizon);
     for (final program in programs) {
       if (program.startDate.isAfter(horizon)) continue;

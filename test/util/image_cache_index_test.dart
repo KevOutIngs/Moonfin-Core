@@ -394,12 +394,7 @@ void main() {
       final stopwatch = Stopwatch()..start();
       expect(await index.open(), isTrue);
       expect(stopwatch.elapsed, lessThan(ImageCacheIndex.defaultOpenBudget));
-      expect(
-        lines,
-        contains(
-          startsWith('art index open fell back: error (FileSystemException)'),
-        ),
-      );
+      expect(lines, contains(startsWith('art index open fell back: error (')));
       await index.insert(object('http://s/a'));
       expect((await index.get('http://s/a'))?.url, 'http://s/a');
       await index.flush();

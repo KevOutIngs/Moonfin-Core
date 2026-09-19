@@ -7,6 +7,7 @@ import '../../../data/providers/offline_providers.dart';
 import '../../../di/providers.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../preference/user_preferences.dart';
+import '../../../util/accent_folding.dart';
 import '../../../util/download_grouping.dart';
 import '../../../util/download_utils.dart';
 import '../../../util/focus/indexed_focus_nodes.dart';
@@ -168,16 +169,18 @@ class _DownloadsHomeState extends ConsumerState<DownloadsHome> {
   }
 
   List<DownloadGroup> _filtered(List<DownloadGroup> groups) {
-    final query = _query.trim().toLowerCase();
+    // The same search field the library carries, so it has to find a title the
+    // same way rather than only when the accents are typed exactly.
+    final query = foldForSearch(_query.trim());
     if (query.isEmpty) return groups;
     return groups
         .where(
           (group) =>
-              group.title.toLowerCase().contains(query) ||
+              foldForSearch(group.title).contains(query) ||
               group.items.any(
                 (item) =>
-                    item.name.toLowerCase().contains(query) ||
-                    (item.seriesName?.toLowerCase().contains(query) ?? false),
+                    foldForSearch(item.name).contains(query) ||
+                    foldForSearch(item.seriesName ?? '').contains(query),
               ),
         )
         .toList();

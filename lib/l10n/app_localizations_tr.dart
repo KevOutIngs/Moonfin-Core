@@ -2402,6 +2402,9 @@ class AppLocalizationsTr extends AppLocalizations {
   String get premiere => 'Prömiyer';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Kılavuz Zaman Çizelgesi';
 
   @override

@@ -2415,6 +2415,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get premiere => 'Onyesho la kwanza';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Mwongozo wa kalenda';
 
   @override

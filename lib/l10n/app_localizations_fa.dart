@@ -2395,6 +2395,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get premiere => 'اولین نمایش';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'راهنمای جدول زمانی';
 
   @override

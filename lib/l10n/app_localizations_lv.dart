@@ -2413,6 +2413,9 @@ class AppLocalizationsLv extends AppLocalizations {
   String get premiere => 'Pirmizrāde';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Ceļvedis laika skala';
 
   @override

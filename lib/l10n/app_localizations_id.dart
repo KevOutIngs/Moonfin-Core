@@ -2405,6 +2405,9 @@ class AppLocalizationsId extends AppLocalizations {
   String get premiere => 'Perdana';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Linimasa Panduan';
 
   @override

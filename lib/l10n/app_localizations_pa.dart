@@ -2402,6 +2402,9 @@ class AppLocalizationsPa extends AppLocalizations {
   String get premiere => 'ਪ੍ਰੀਮੀਅਰ';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'ਗਾਈਡ ਟਾਈਮਲਾਈਨ';
 
   @override

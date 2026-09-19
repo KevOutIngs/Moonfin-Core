@@ -2416,6 +2416,9 @@ class AppLocalizationsFi extends AppLocalizations {
   String get premiere => 'Ensiesitys';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Opas aikajana';
 
   @override

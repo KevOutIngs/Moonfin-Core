@@ -2419,6 +2419,9 @@ class AppLocalizationsSl extends AppLocalizations {
   String get premiere => 'Premiera';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Vodnik Časovnica';
 
   @override

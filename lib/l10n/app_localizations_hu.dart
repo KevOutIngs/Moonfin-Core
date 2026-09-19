@@ -2413,6 +2413,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get premiere => 'Bemutató';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Műsorújság idővonala';
 
   @override

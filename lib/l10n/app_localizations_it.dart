@@ -2409,6 +2409,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get premiere => 'Prima Visione';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Timeline Guida';
 
   @override

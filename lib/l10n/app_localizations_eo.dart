@@ -2402,6 +2402,9 @@ class AppLocalizationsEo extends AppLocalizations {
   String get premiere => 'Premiero';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Gvida Kronologio';
 
   @override

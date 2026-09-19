@@ -2426,6 +2426,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get premiere => 'Première';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Grille des Programmes';
 
   @override

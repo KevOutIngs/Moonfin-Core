@@ -2415,6 +2415,9 @@ class AppLocalizationsSq extends AppLocalizations {
   String get premiere => 'Premiera';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Afati kohor i udhëzuesit';
 
   @override

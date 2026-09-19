@@ -2410,6 +2410,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get premiere => 'Premjera';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Vadovo laiko juosta';
 
   @override

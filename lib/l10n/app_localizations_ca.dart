@@ -2428,6 +2428,9 @@ class AppLocalizationsCa extends AppLocalizations {
   String get premiere => 'Estrena';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Cronologia de la guia';
 
   @override

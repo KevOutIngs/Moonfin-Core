@@ -2402,6 +2402,9 @@ class AppLocalizationsSv extends AppLocalizations {
   String get premiere => 'Premiär';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Guide Tidslinje';
 
   @override

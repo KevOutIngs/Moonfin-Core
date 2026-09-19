@@ -2406,6 +2406,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get premiere => 'Esietendus';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Juhend ajaskaala';
 
   @override

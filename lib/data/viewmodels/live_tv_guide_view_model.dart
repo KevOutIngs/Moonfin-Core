@@ -36,6 +36,11 @@ class GuideChannel {
   );
 }
 
+/// Where a program's artwork lives: the item that carries it, the tag that
+/// identifies the image, and whether that tag names the item's Thumb image
+/// rather than its Primary one. The two are served by different endpoints.
+typedef GuideArtworkSource = ({String itemId, String tag, bool isThumb});
+
 class GuideProgram {
   final String id;
   final String channelId;
@@ -98,16 +103,28 @@ class GuideProgram {
   /// fallback chain the home screen's "On Now" row already resolves
   /// successfully for this same data, since a live TV program's own item
   /// essentially never carries unique art of its own.
-  ({String itemId, String tag})? get artworkSource {
-    if (imageTag case final tag?) return (itemId: id, tag: tag);
+  ///
+  /// Only the last branch sets `isThumb`. `ParentThumbImageTag` tags the
+  /// parent's Thumb image, so asking for its Primary with that tag serves
+  /// the parent's poster where it has one and 404s where it doesn't.
+  GuideArtworkSource? get artworkSource {
+    if (imageTag case final tag?) {
+      return (itemId: id, tag: tag, isThumb: false);
+    }
     if (seriesId case final sid?) {
-      if (seriesPrimaryImageTag case final tag?) return (itemId: sid, tag: tag);
+      if (seriesPrimaryImageTag case final tag?) {
+        return (itemId: sid, tag: tag, isThumb: false);
+      }
     }
     if (parentPrimaryImageItemId case final pid?) {
-      if (parentPrimaryImageTag case final tag?) return (itemId: pid, tag: tag);
+      if (parentPrimaryImageTag case final tag?) {
+        return (itemId: pid, tag: tag, isThumb: false);
+      }
     }
     if (parentThumbItemId case final pid?) {
-      if (parentThumbImageTag case final tag?) return (itemId: pid, tag: tag);
+      if (parentThumbImageTag case final tag?) {
+        return (itemId: pid, tag: tag, isThumb: true);
+      }
     }
     return null;
   }
@@ -1013,6 +1030,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     _artworkPrefetchQueue.clear();
     _artworkQueued.clear();
     _artworkInFlight.clear();
+    _artworkCache.clear();
     _artworkByContentKey.clear();
     super.dispose();
   }
@@ -1305,17 +1323,23 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   /// [_fetchArtworkSource].
   ///
   /// A plain map literal is a [LinkedHashMap], so insertion order survives:
-  /// past the cap, [artworkSourceFor] drops the oldest entry rather than the
+  /// past the cap, [_insertWithCap] drops the oldest entry rather than the
   /// whole cache, so one channel's worth of scrolling never costs every other
   /// channel's already-resolved artwork.
-  final Map<String, ({String itemId, String tag})?> _artworkCache = {};
-  static const _artworkCacheCap = 500;
+  final Map<String, GuideArtworkSource?> _artworkCache = {};
+
+  /// Well above what one submission can hold, since callers only queue the
+  /// rows around the viewport. That headroom is what keeps an eviction from
+  /// being re-queued, re-fetched, and evicting something else in turn.
+  static const _artworkCacheCap = 2000;
+
+  @visibleForTesting
+  static int get artworkCacheCap => _artworkCacheCap;
 
   /// Secondary cache keyed by content (name + episode title) rather than
   /// program id, so a repeat airing of an already-resolved episode is a cache
-  /// hit instead of a fetch. Same cap and oldest-entry eviction as
-  /// [_artworkCache].
-  final Map<String, ({String itemId, String tag})?> _artworkByContentKey = {};
+  /// hit instead of a fetch. Same cap and eviction as [_artworkCache].
+  final Map<String, GuideArtworkSource?> _artworkByContentKey = {};
 
   /// The key [_artworkByContentKey] is keyed on. `\u0000` separates the two
   /// fields since it cannot appear in either.
@@ -1331,10 +1355,13 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   /// Inserts [value] under [key] in [cache], evicting the oldest entry first
   /// once [_artworkCacheCap] is reached.
   void _insertWithCap(
-    Map<String, ({String itemId, String tag})?> cache,
+    Map<String, GuideArtworkSource?> cache,
     String key,
-    ({String itemId, String tag})? value,
+    GuideArtworkSource? value,
   ) {
+    // Without this, re-inserting a key already present evicts an unrelated
+    // entry to make room the map never needed.
+    cache.remove(key);
     if (cache.length >= _artworkCacheCap) {
       cache.remove(cache.keys.first);
     }
@@ -1343,12 +1370,11 @@ class LiveTvGuideViewModel extends ChangeNotifier {
 
   /// In-flight artwork fetches keyed by program id, so concurrent callers for
   /// the same program share one request instead of issuing duplicates.
-  final Map<String, Future<({String itemId, String tag})?>> _artworkInFlight =
-      {};
+  final Map<String, Future<GuideArtworkSource?>> _artworkInFlight = {};
 
   bool hasArtworkResult(String programId) => _artworkCache.containsKey(programId);
 
-  ({String itemId, String tag})? cachedArtworkFor(String programId) =>
+  GuideArtworkSource? cachedArtworkFor(String programId) =>
       _artworkCache[programId];
 
   /// [getGuide] disables images for its whole batch to keep the payload small
@@ -1361,9 +1387,14 @@ class LiveTvGuideViewModel extends ChangeNotifier {
   /// site's own debounced on-focus lookup can both land here for the same
   /// program, and concurrent callers for the same id share a single
   /// in-flight request.
-  Future<({String itemId, String tag})?> artworkSourceFor(
+  Future<GuideArtworkSource?> artworkSourceFor(
     GuideProgram program,
   ) {
+    // A program that already carries its art needs no lookup. The prefetch
+    // path skips these too, so this only catches the on-focus caller.
+    if (program.artworkSource case final source?) {
+      return Future.value(source);
+    }
     if (_artworkCache.containsKey(program.id)) {
       return Future.value(_artworkCache[program.id]);
     }
@@ -1373,6 +1404,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _insertWithCap(_artworkCache, program.id, result);
       return Future.value(result);
     }
+    if (_artworkLookupsDisabled) return Future.value(null);
     final inFlight = _artworkInFlight[program.id];
     if (inFlight != null) return inFlight;
 
@@ -1381,10 +1413,25 @@ class LiveTvGuideViewModel extends ChangeNotifier {
     return future.whenComplete(() => _artworkInFlight.remove(program.id));
   }
 
-  Future<({String itemId, String tag})?> _fetchArtworkSource(
+  /// Trips after [_artworkFailureLimit] lookups fail in a row and stays
+  /// tripped for the life of the view model.
+  ///
+  /// Failures aren't cached per program, so a server that can't answer
+  /// `/LiveTv/Programs/{id}` at all would otherwise be asked again for every
+  /// program in the lineup every time the queue is resubmitted. A run that
+  /// long is enough to conclude the route isn't going to start working, and
+  /// the guide falls back to channel logos.
+  bool _artworkLookupsDisabled = false;
+  int _artworkConsecutiveFailures = 0;
+  static const _artworkFailureLimit = 8;
+
+  @visibleForTesting
+  bool get artworkLookupsDisabled => _artworkLookupsDisabled;
+
+  Future<GuideArtworkSource?> _fetchArtworkSource(
     GuideProgram program,
   ) async {
-    final ({String itemId, String tag})? result;
+    final GuideArtworkSource? result;
     try {
       final raw = await _client.liveTvApi.getProgram(
         program.id,
@@ -1395,9 +1442,17 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       // A transient network/server failure is not proof there is no
       // artwork. Leave both caches untouched so a later call retries,
       // instead of permanently suppressing this program and every other
-      // program sharing its content key.
+      // program sharing its content key. A sustained run is a different
+      // thing, and [_artworkLookupsDisabled] catches that.
+      _artworkConsecutiveFailures++;
+      if (_artworkConsecutiveFailures >= _artworkFailureLimit) {
+        _artworkLookupsDisabled = true;
+        _artworkPrefetchQueue.clear();
+        _artworkQueued.clear();
+      }
       return null;
     }
+    _artworkConsecutiveFailures = 0;
     _insertWithCap(_artworkCache, program.id, result);
     _insertWithCap(_artworkByContentKey, _contentKeyFor(program), result);
     _scheduleArtworkNotify();
@@ -1437,6 +1492,7 @@ class LiveTvGuideViewModel extends ChangeNotifier {
       _artworkPrefetchQueue.clear();
       _artworkQueued.clear();
     }
+    if (_artworkLookupsDisabled) return;
     final horizon = _now().add(_artworkPrefetchHorizon);
     for (final program in programs) {
       if (program.startDate.isAfter(horizon)) continue;

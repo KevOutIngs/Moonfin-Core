@@ -2414,6 +2414,9 @@ class AppLocalizationsTl extends AppLocalizations {
   String get premiere => 'Premiere';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Gabay sa Timeline';
 
   @override

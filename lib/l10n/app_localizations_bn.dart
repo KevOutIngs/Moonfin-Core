@@ -2395,6 +2395,9 @@ class AppLocalizationsBn extends AppLocalizations {
   String get premiere => 'প্রিমিয়ার';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'গাইড টাইমলাইন';
 
   @override

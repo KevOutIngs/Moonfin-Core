@@ -2415,6 +2415,9 @@ class AppLocalizationsUk extends AppLocalizations {
   String get premiere => 'Прем\'єра';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Хронологія керівництва';
 
   @override

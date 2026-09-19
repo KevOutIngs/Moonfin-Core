@@ -2406,6 +2406,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get premiere => 'Estreia';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Linha do Tempo do Guia';
 
   @override

@@ -44,9 +44,6 @@ const _kGuideLogoPrecacheRows = 24;
 // Extra rows of slack above/below the viewport carried into the artwork
 // prefetch window, so a small scroll doesn't immediately fall outside it.
 const _kArtworkPrefetchRowMargin = 5;
-// Below this many channels the whole lineup is cheap enough to prefetch
-// outright, so the viewport bound only kicks in on large lineups.
-const _kArtworkPrefetchAllMaxChannels = 100;
 
 /// How far back the guide will page. Most EPG sources keep little history,
 /// so beyond this the grid would only ever show empty cells.
@@ -429,13 +426,21 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     );
   }
 
-  /// Submits artwork prefetch for the whole filtered lineup when it's at
-  /// most [_kArtworkPrefetchAllMaxChannels] channels; otherwise bounds it to
-  /// channel rows near the current viewport (plus [_kArtworkPrefetchRowMargin]
-  /// rows of slack above and below). Falls back to the first screenful of
-  /// channels before the scroll controller has attached. Every submission
-  /// replaces the pending queue, so a filter change cannot leave requests
-  /// for channels that are no longer shown ahead of the new work.
+  /// Submits artwork prefetch for the channel rows near the current viewport,
+  /// plus [_kArtworkPrefetchRowMargin] rows of slack above and below. Falls
+  /// back to the first screenful of channels before the scroll controller has
+  /// attached. Every submission replaces the pending queue, so a filter change
+  /// can't leave requests for channels that are no longer shown ahead of the
+  /// new work.
+  ///
+  /// The bound applies to every lineup, not just large ones. Submitting a
+  /// whole lineup queued a request per program, which is the same load issue
+  /// #666 was about spread across many small requests, and a submission
+  /// bigger than the view model's artwork cache made each pass evict entries
+  /// the next pass then re-fetched. Since [_onChanged] resubmits on every
+  /// notification and each resolved fetch notifies, that fed itself. A
+  /// viewport-sized submission stays well under the cache cap, so once its
+  /// rows resolve a resubmission does nothing.
   void _queueArtworkPrefetch() {
     // The hero band is the only consumer of per-program artwork.
     if (!_heroVisible) return;
@@ -444,13 +449,6 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
       // A filter matching nothing must still drop work queued for the
       // lineup it replaced.
       _vm.queueArtworkPrefetch(const [], replace: true);
-      return;
-    }
-
-    if (channels.length <= _kArtworkPrefetchAllMaxChannels) {
-      _vm.queueArtworkPrefetch([
-        for (final channel in channels) ..._vm.programsForChannel(channel.id),
-      ], replace: true);
       return;
     }
 
@@ -1099,7 +1097,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     }
     final programId = preview.id;
     _artworkLookupDebounce = Timer(const Duration(milliseconds: 500), () async {
-      await _vm.artworkSourceFor(preview);
+      // Nothing came back, so the hero has nothing new to paint. Rebuilding
+      // the whole guide anyway would cost a frame per focus move on any
+      // server whose programs carry no artwork.
+      if (await _vm.artworkSourceFor(preview) == null) return;
       if (mounted && _currentPreviewProgram()?.id == programId) {
         setState(() {});
       }
@@ -1136,8 +1137,16 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
         final artwork = preview == null
             ? null
             : preview.artworkSource ?? _vm.cachedArtworkFor(preview.id);
+        // A thumb tag names the parent's Thumb image, so asking for its
+        // Primary with that tag serves the wrong image or nothing at all.
         final programImageUrl = artwork == null
             ? null
+            : artwork.isThumb
+            ? _vm.imageApi.getThumbImageUrl(
+                artwork.itemId,
+                maxWidth: EpgHeroPreview.plateWidth.toInt(),
+                tag: artwork.tag,
+              )
             : _vm.imageApi.getPrimaryImageUrl(
                 artwork.itemId,
                 maxHeight: EpgHeroPreview.compactHeight.toInt(),
@@ -2184,6 +2193,10 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
     return !_vm.atLivePosition || !_channelFocusNodeFor(0).hasFocus;
   }
 
+  /// True while [_resetToEntryState] is awaiting its reload, so a second back
+  /// press in that window doesn't start the reset over.
+  bool _resettingToEntryState = false;
+
   /// Resets to [_homeChannelId], re-resolving it into
   /// [LiveTvGuideViewModel.filteredChannels] AFTER [_goToNow] reloads the
   /// lineup, since a genre filter can change which channels are present
@@ -2192,7 +2205,12 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// resets to row 0 instead, the same first-use fallback as
   /// [_scheduleInitialChannelFocus].
   Future<void> _resetToEntryState() async {
-    await _goToNow();
+    _resettingToEntryState = true;
+    try {
+      await _goToNow();
+    } finally {
+      _resettingToEntryState = false;
+    }
     if (!mounted) return;
     final homeId = _homeChannelId;
     final channels = _vm.filteredChannels;
@@ -2243,6 +2261,9 @@ class _LiveTvGuideScreenState extends State<LiveTvGuideScreen>
   /// channel ever tuned, the target is row 0 as long as the lineup is
   /// non-empty.
   bool _consumeBackIfExploring() {
+    // A reset already running owns this press. Consuming it keeps the guide
+    // from closing out from under a reset that is about to land.
+    if (_resettingToEntryState) return true;
     if (!_isExploringAwayFromEntry()) return false;
     final homeId = _homeChannelId;
     if (homeId != null) {

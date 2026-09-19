@@ -2405,6 +2405,9 @@ class AppLocalizationsBg extends AppLocalizations {
   String get premiere => 'Премиера';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Ръководство Хронология';
 
   @override

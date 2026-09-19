@@ -2417,6 +2417,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get premiere => 'Премьера';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Руководство по временной шкале';
 
   @override

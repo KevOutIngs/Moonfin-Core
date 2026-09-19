@@ -715,7 +715,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     GetIt.instance<LogService>().playback(
       'Live TV: focus left the player for '
       '${focused?.debugLabel ?? focused ?? 'nothing'}, taking it back',
-      level: LogLevel.warning,
+      level: LogLevel.info,
     );
     // After this frame: reclaiming mid-notification would re-enter the
     // FocusManager while it is still dispatching this change.

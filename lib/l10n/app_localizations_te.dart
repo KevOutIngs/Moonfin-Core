@@ -2406,6 +2406,9 @@ class AppLocalizationsTe extends AppLocalizations {
   String get premiere => 'ప్రీమియర్';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'గైడ్ టైమ్‌లైన్';
 
   @override

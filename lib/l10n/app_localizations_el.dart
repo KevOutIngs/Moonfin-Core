@@ -2421,6 +2421,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get premiere => 'Πρεμιέρα';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'Οδηγός Χρονοδιάγραμμα';
 
   @override

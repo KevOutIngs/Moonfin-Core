@@ -2389,6 +2389,9 @@ class AppLocalizationsTh extends AppLocalizations {
   String get premiere => 'รอบปฐมทัศน์';
 
   @override
+  String get guideRepeatBadge => 'Repeat';
+
+  @override
   String get guideTimeline => 'คู่มือไทม์ไลน์';
 
   @override

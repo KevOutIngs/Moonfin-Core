@@ -1221,16 +1221,17 @@ void main() {
         rawData: const {},
       );
 
-      // One past the 500-entry cap: a clear-everything eviction would leave
-      // only p500 cached; the single-oldest eviction this guards leaves every
-      // entry but the very first.
-      for (var i = 0; i <= 500; i++) {
+      // One past the cap: a clear-everything eviction would leave only the
+      // last entry cached, where the single-entry eviction this guards
+      // leaves every entry but the oldest.
+      final cap = LiveTvGuideViewModel.artworkCacheCap;
+      for (var i = 0; i <= cap; i++) {
         await vm.artworkSourceFor(program('p$i'));
       }
 
       expect(vm.hasArtworkResult('p0'), isFalse);
       expect(vm.hasArtworkResult('p1'), isTrue);
-      expect(vm.hasArtworkResult('p500'), isTrue);
+      expect(vm.hasArtworkResult('p$cap'), isTrue);
     },
   );
 
@@ -1447,4 +1448,155 @@ void main() {
       );
     },
   );
+
+  group("artwork prefetch doesn't run away", () {
+    List<GuideProgram> makePrograms(int n) => [
+      for (var i = 0; i < n; i++)
+        GuideProgram(
+          id: 'p$i',
+          // Distinct channels, so the content-key cache can't absorb these
+          // and hide the behaviour under test.
+          channelId: 'c$i',
+          name: 'Show $i',
+          startDate: DateTime.now().add(const Duration(minutes: 5)),
+          endDate: DateTime.now().add(const Duration(minutes: 35)),
+          rawData: const {},
+        ),
+    ];
+
+    test('resubmitting a resolved lineup fetches nothing', () async {
+      var fetches = 0;
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) async {
+        fetches++;
+        final id = inv.positionalArguments[0] as String;
+        return _program(id, 'c${id.substring(1)}');
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      final programs = makePrograms(600);
+
+      vm.queueArtworkPrefetch(programs, replace: true);
+      await pumpEventQueue(times: 5000);
+      final settled = fetches;
+      expect(settled, programs.length);
+
+      // The screen resubmits the current window on every notification, and
+      // every resolved fetch notifies. A submission bigger than the cache
+      // used to evict entries that the next pass then re-fetched, so this
+      // fed itself instead of settling.
+      for (var i = 0; i < 3; i++) {
+        vm.queueArtworkPrefetch(programs, replace: true);
+        await pumpEventQueue(times: 200);
+      }
+
+      expect(fetches, settled);
+    });
+
+    test("a server that can't answer getProgram is asked a bounded number "
+        'of times', () async {
+      var fetches = 0;
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((_) async {
+        fetches++;
+        throw StateError('no such route');
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      final programs = makePrograms(600);
+
+      vm.queueArtworkPrefetch(programs, replace: true);
+      await pumpEventQueue(times: 5000);
+      // A later resubmission must not restart the storm.
+      vm.queueArtworkPrefetch(programs, replace: true);
+      await pumpEventQueue(times: 5000);
+
+      expect(vm.artworkLookupsDisabled, isTrue);
+      expect(
+        fetches,
+        lessThan(20),
+        reason: "failures aren't cached per program, so without the breaker "
+            'every program in the lineup was retried on every resubmission',
+      );
+    });
+
+    test('a program that already carries its art is never fetched', () async {
+      var fetches = 0;
+      when(
+        () => liveTv.getProgram(any(), userId: any(named: 'userId')),
+      ).thenAnswer((inv) async {
+        fetches++;
+        return _program(inv.positionalArguments[0] as String, 'c0');
+      });
+
+      final vm = LiveTvGuideViewModel(client);
+      final carriesOwnArt = GuideProgram(
+        id: 'p1',
+        channelId: 'c1',
+        name: 'Show',
+        startDate: DateTime.now(),
+        endDate: DateTime.now(),
+        rawData: const {
+          'ImageTags': {'Primary': 'tag1'},
+        },
+      );
+
+      final source = await vm.artworkSourceFor(carriesOwnArt);
+
+      expect(source?.itemId, 'p1');
+      expect(fetches, 0, reason: 'its art came with the program already');
+    });
+  });
+
+  group('artwork source picks the right image endpoint', () {
+    GuideProgram withRaw(Map<String, dynamic> raw) => GuideProgram(
+      id: 'p1',
+      channelId: 'c1',
+      name: 'Show',
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      rawData: raw,
+    );
+
+    test('a parent thumb is flagged so callers use the Thumb endpoint', () {
+      final source = withRaw(const {
+        'ParentThumbItemId': 'parent1',
+        'ParentThumbImageTag': 'thumbtag',
+      }).artworkSource;
+
+      expect(source?.itemId, 'parent1');
+      expect(source?.tag, 'thumbtag');
+      expect(
+        source?.isThumb,
+        isTrue,
+        reason: 'ParentThumbImageTag tags the parent Thumb image, so asking '
+            'for its Primary with that tag serves the wrong image or nothing',
+      );
+    });
+
+    test('a series poster stays on the Primary endpoint', () {
+      final source = withRaw(const {
+        'SeriesId': 's1',
+        'SeriesPrimaryImageTag': 'ptag',
+      }).artworkSource;
+
+      expect(source?.itemId, 's1');
+      expect(source?.isThumb, isFalse);
+    });
+
+    test("the program's own art wins over every fallback", () {
+      final source = withRaw(const {
+        'ImageTags': {'Primary': 'own'},
+        'SeriesId': 's1',
+        'SeriesPrimaryImageTag': 'ptag',
+        'ParentThumbItemId': 'parent1',
+        'ParentThumbImageTag': 'thumbtag',
+      }).artworkSource;
+
+      expect(source?.tag, 'own');
+      expect(source?.isThumb, isFalse);
+    });
+  });
 }

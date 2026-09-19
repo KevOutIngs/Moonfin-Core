@@ -14,6 +14,8 @@ import '../models/aggregated_item.dart';
 import '../models/home_row.dart';
 import '../utils/bounded_concurrency.dart';
 import '../utils/latest_media_row_normalizer.dart';
+import '../../util/parental_filter.dart';
+import '../utils/blocked_ratings.dart';
 import '../utils/genre_browse_utils.dart';
 import '../utils/next_up_cutoff.dart';
 import '../utils/next_up_enrichment.dart';
@@ -2285,13 +2287,11 @@ class RowDataSource {
     }
   }
 
-
   List<AggregatedItem> _parseItems(
     Map<String, dynamic> response,
     String serverId,
   ) {
     final rawItems = response['Items'] as List? ?? [];
-    final blocked = _blockedParentalRatings();
     final items = rawItems.map((item) {
       final data = item as Map<String, dynamic>;
       return AggregatedItem(
@@ -2299,13 +2299,8 @@ class RowDataSource {
         serverId: serverId,
         rawData: data,
       );
-    });
-    if (blocked.isEmpty) return items.toList();
-    return items.where((item) {
-      final rating = item.officialRating?.trim().toUpperCase();
-      if (rating == null || rating.isEmpty) return true;
-      return !blocked.contains(rating);
     }).toList();
+    return withoutBlockedItems(items);
   }
 
   // Ceilings that keep a row within reach of low memory devices like the
@@ -2378,9 +2373,16 @@ class RowDataSource {
           return aEp.compareTo(bEp);
         });
       if (episodes.isEmpty) return [item];
-      return episodes.length > _maxEpisodesPerSeries
-          ? episodes.sublist(0, _maxEpisodesPerSeries)
-          : episodes;
+      // A series whose episodes were all filtered out must not come back as
+      // its own card, which is what falling through to [item] would do.
+      final visible = withoutBlockedItems(
+        episodes,
+        fallbackRating: item.officialRating,
+      );
+      if (visible.isEmpty) return const [];
+      return visible.length > _maxEpisodesPerSeries
+          ? visible.sublist(0, _maxEpisodesPerSeries)
+          : visible;
     } catch (_) {
       return [item];
     }
@@ -2434,19 +2436,6 @@ class RowDataSource {
     return result;
   }
 
-  Set<String> _blockedParentalRatings() {
-    if (!GetIt.instance.isRegistered<UserPreferences>()) return const {};
-    final csv = GetIt.instance<UserPreferences>().get(
-      UserPreferences.blockedParentalRatings,
-    );
-    if (csv.trim().isEmpty) return const {};
-    return csv
-        .split(',')
-        .map((e) => e.trim().toUpperCase())
-        .where((e) => e.isNotEmpty)
-        .toSet();
-  }
-
   Future<List<AggregatedItem>> _enrichNextUpItemsWithSeriesLastPlayed(
     List<AggregatedItem> items,
   ) => enrichNextUpItemsWithSeriesLastPlayed(items, _client);
@@ -2467,47 +2456,6 @@ class RowDataSource {
     return parsed?.year;
   }
 
-  int _getRatingLevel(String? rating) {
-    if (rating == null || rating.isEmpty) return 100;
-    final clean = rating.trim().toUpperCase();
-
-    // Movies (US/Global)
-    if (clean == 'G') return 1;
-    if (clean == 'PG') return 2;
-    if (clean == 'PG-13') return 3;
-    if (clean == 'R') return 4;
-    if (clean == 'NC-17') return 5;
-
-    // TV Shows (US/Global)
-    if (clean == 'TV-Y' || clean == 'TV-Y7') return 1;
-    if (clean == 'TV-G') return 1;
-    if (clean == 'TV-PG') return 2;
-    if (clean == 'TV-14') return 3;
-    if (clean == 'TV-MA') return 4;
-
-    // UK Ratings
-    if (clean == 'U' || clean == 'UC') return 1;
-    if (clean == 'PG') return 2;
-    if (clean == '12' || clean == '12A') return 3;
-    if (clean == '15') return 4;
-    if (clean == '18') return 5;
-
-    // Fallback: parse numbers if found (e.g. "12", "16", "18")
-    final match = RegExp(r'\d+').firstMatch(clean);
-    if (match != null) {
-      final age = int.tryParse(match.group(0)!);
-      if (age != null) {
-        if (age <= 7) return 1;
-        if (age <= 12) return 2;
-        if (age <= 15) return 3;
-        if (age <= 17) return 4;
-        return 5;
-      }
-    }
-
-    return 3; // Default intermediate severity level
-  }
-
   /// Applies the row's watched and parental-rating rules. Both server paths
   /// get their candidates back unfiltered, so the rule lives here rather than
   /// in each of them.
@@ -2520,12 +2468,11 @@ class RowDataSource {
       UserPreferences.sinceYouWatchedIncludeWatched,
     );
     final applyRatingCap = prefs.effectiveRecommendationsApplyParentalRatingCap;
-    final sourceRatingLevel = _getRatingLevel(baseItem.officialRating);
 
     return candidates.where((item) {
       if (!includeWatched && item.isPlayed) return false;
       if (applyRatingCap &&
-          _getRatingLevel(item.officialRating) > sourceRatingLevel) {
+          exceedsRatingCap(item.officialRating, baseItem.officialRating)) {
         return false;
       }
       return true;
@@ -2935,7 +2882,7 @@ class RowDataSource {
       final bool effectiveIncludeWatched = includeWatched ?? prefs.get(UserPreferences.sinceYouWatchedIncludeWatched);
       final bool applyRatingCap = prefs.effectiveRecommendationsApplyParentalRatingCap;
       final sourceRating = baseItem.officialRating;
-      final sourceRatingLevel = _getRatingLevel(sourceRating);
+      final parentalFilter = activeParentalFilter;
 
       final scoredCandidates = <MapEntry<Map<String, dynamic>, double>>[];
 
@@ -2948,10 +2895,15 @@ class RowDataSource {
         final isPlayed = userData?['Played'] as bool? ?? false;
         if (!effectiveIncludeWatched && isPlayed) continue;
 
+        if (parentalFilter.isBlockedRaw(candidate)) continue;
+
         // Parental rating constraint upper bound
-        if (applyRatingCap) {
-          final candRating = candidate['OfficialRating'] as String?;
-          if (_getRatingLevel(candRating) > sourceRatingLevel) continue;
+        if (applyRatingCap &&
+            exceedsRatingCap(
+              candidate['OfficialRating'] as String?,
+              sourceRating,
+            )) {
+          continue;
         }
 
         final score = _scoreCandidate(
@@ -3004,9 +2956,14 @@ class RowDataSource {
               final isPlayed = userData?['Played'] as bool? ?? false;
               if (!effectiveIncludeWatched && isPlayed) continue;
 
-              if (applyRatingCap) {
-                final candRating = item['OfficialRating'] as String?;
-                if (_getRatingLevel(candRating) > sourceRatingLevel) continue;
+              if (parentalFilter.isBlockedRaw(item)) continue;
+
+              if (applyRatingCap &&
+                  exceedsRatingCap(
+                    item['OfficialRating'] as String?,
+                    sourceRating,
+                  )) {
+                continue;
               }
 
               final score = _scoreCandidate(

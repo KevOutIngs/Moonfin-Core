@@ -11,6 +11,7 @@ import '../../data/repositories/mdblist_repository.dart';
 import '../../data/repositories/multi_server_repository.dart';
 import '../../data/repositories/media_bar_repository.dart';
 import '../../data/repositories/offline_repository.dart';
+import '../../data/services/blocked_content_gate.dart';
 import '../../data/services/library_scope_service.dart';
 import '../../data/services/media_server_client_factory.dart';
 import '../../data/repositories/seerr_repository.dart';
@@ -78,6 +79,7 @@ void resetUserScopedSingletons() {
   unregister<SearchRepository>();
   unregister<UserViewsRepository>();
   unregister<LibraryScopeService>();
+  unregister<BlockedContentGate>();
   unregister<GameLibraryRegistry>();
   unregister<UpcomingEpisodeService>();
   // Watched state is per user, so the next account must not inherit it.
@@ -184,6 +186,9 @@ void _registerUserScopedSingletons() {
   );
   _getIt.registerLazySingleton(
     () => LibraryScopeService(_getIt(), _getIt<UserViewsRepository>()),
+  );
+  _getIt.registerLazySingleton(
+    () => BlockedContentGate(_getIt(), _getIt<UserPreferences>()),
   );
   _getIt.registerLazySingleton(() => GameLibraryRegistry());
   _getIt.registerLazySingleton(() => SearchRepository(_getIt()));

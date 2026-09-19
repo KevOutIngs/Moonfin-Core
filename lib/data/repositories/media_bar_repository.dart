@@ -12,6 +12,7 @@ import '../../preference/user_preferences.dart';
 import '../models/media_bar_slide_item.dart';
 import '../models/media_bar_state.dart';
 import '../services/library_scope_service.dart';
+import '../utils/blocked_ratings.dart';
 
 class MediaBarRepository {
   static const _precacheBackdropCount = 1;
@@ -210,13 +211,15 @@ class MediaBarRepository {
     int maxItems,
     Set<String> excludedGenres,
   ) {
+    final filter = activeParentalFilter;
     final withBackdrops =
         source
             .where(
               (item) =>
                   _hasBackdrop(item) &&
                   !_isBoxSet(item) &&
-                  !_hasExcludedGenre(item, excludedGenres),
+                  !_hasExcludedGenre(item, excludedGenres) &&
+                  !filter.isBlockedRaw(item),
             )
             .toList()
           ..shuffle();

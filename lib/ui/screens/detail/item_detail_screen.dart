@@ -665,6 +665,25 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
         style: _prefs.effectiveDetailScreenStyle,
         prefs: _prefs,
       ),
+      // Nothing about the title, deliberately. No artwork, no name, and no
+      // retry, which would read as an invitation.
+      ItemDetailState.blocked => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AdaptiveIcon(
+              Icons.lock_outline,
+              color: Colors.white54,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              AppLocalizations.of(context).itemBlockedByParentalControls,
+              style: const TextStyle(color: Colors.white54),
+            ),
+          ],
+        ),
+      ),
       ItemDetailState.error => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

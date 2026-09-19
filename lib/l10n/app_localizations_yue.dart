@@ -9436,6 +9436,16 @@ class AppLocalizationsYue extends AppLocalizations {
   String get settingsPrivacyAndSafetySection => '隱私與安全';
 
   @override
+  String get itemBlockedByParentalControls => 'This isn\'t available';
+
+  @override
+  String get blockedRatingsCeilingHint =>
+      'Blocking a rating also blocks everything stronger than it.';
+
+  @override
+  String get blockedRatingsUnrankedSection => 'Only blocks itself';
+
+  @override
   String get settingsBlockedRatings => '屏蔽評級';
 
   @override

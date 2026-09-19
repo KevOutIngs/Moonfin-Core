@@ -9655,6 +9655,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPrivacyAndSafetySection => 'PRIVACY & SAFETY';
 
   @override
+  String get itemBlockedByParentalControls => 'This isn\'t available';
+
+  @override
+  String get blockedRatingsCeilingHint =>
+      'Blocking a rating also blocks everything stronger than it.';
+
+  @override
+  String get blockedRatingsUnrankedSection => 'Only blocks itself';
+
+  @override
   String get settingsBlockedRatings => 'Blocked Ratings';
 
   @override

@@ -10,11 +10,13 @@ import '../../preference/user_preferences.dart';
 import '../models/aggregated_item.dart';
 import '../models/lyrics.dart';
 import '../models/tmdb_item_ref.dart';
+import '../services/blocked_content_gate.dart';
 import '../services/row_data_source.dart';
 import '../repositories/item_mutation_repository.dart';
 import '../repositories/mdblist_repository.dart';
 import '../repositories/tmdb_repository.dart';
 import '../repositories/seerr_repository.dart';
+import '../utils/blocked_ratings.dart';
 import '../utils/playlist_utils.dart';
 import '../../preference/seerr_preferences.dart';
 import '../../util/episode_playability.dart';
@@ -69,7 +71,7 @@ class _PlaylistItemIndexEntry {
   }
 }
 
-enum ItemDetailState { loading, ready, error }
+enum ItemDetailState { loading, ready, blocked, error }
 
 /// Why a delete request failed.
 ///
@@ -845,11 +847,27 @@ class ItemDetailViewModel extends ChangeNotifier {
         }
       } else {
         final data = await _client.itemsApi.getItem(itemId, mediaSourceId: mediaSourceId);
-        _item = AggregatedItem(
+        final candidate = AggregatedItem(
           id: itemId,
           serverId: _serverId ?? _client.baseUrl,
           rawData: data,
         );
+        // Checked before the item is published and before the secondary loads
+        // fan out, so nothing downstream can read the title and nothing goes
+        // off fetching episodes for a page that will never be shown. No gate
+        // registered means a boot ordering this knows nothing about, and
+        // refusing the screen outright would be worse than the gap.
+        final gate = GetIt.instance.isRegistered<BlockedContentGate>()
+            ? GetIt.instance<BlockedContentGate>()
+            : null;
+        if (gate != null && await gate.isBlocked(candidate)) {
+          _item = null;
+          _state = ItemDetailState.blocked;
+          notifyListeners();
+          return;
+        }
+        gate?.observe(candidate);
+        _item = candidate;
       }
       _lyrics = LyricsData.empty;
       final prefs = GetIt.instance<UserPreferences>();
@@ -934,7 +952,7 @@ class ItemDetailViewModel extends ChangeNotifier {
         fields: 'ChildCount,UserData',
       );
       final items = (data['Items'] as List?) ?? [];
-      _seasons = _mapItems(items);
+      _seasons = _mapItems(items, fallbackRating: _item?.officialRating);
     } catch (_) {
     } finally {
       _seasonsLoaded = true;
@@ -957,7 +975,10 @@ class ItemDetailViewModel extends ChangeNotifier {
           seasonId: seasonId,
           fields: _episodeOverviewFields,
         );
-        return _mapItems((data['Items'] as List?) ?? []);
+        return _mapItems(
+          (data['Items'] as List?) ?? [],
+          fallbackRating: _item?.officialRating,
+        );
       }
 
       var seasonId = requestedSeasonId;
@@ -1001,7 +1022,10 @@ class ItemDetailViewModel extends ChangeNotifier {
         fields: _episodeOverviewFields,
       );
       final items = (data['Items'] as List?) ?? [];
-      _seriesEpisodes = _mapItems(items);
+      _seriesEpisodes = _mapItems(
+        items,
+        fallbackRating: _item?.officialRating,
+      );
       _seriesEpisodesLoaded = true;
       notifyListeners();
     } catch (_) {
@@ -1047,8 +1071,12 @@ class ItemDetailViewModel extends ChangeNotifier {
     }
   }
 
-  List<AggregatedItem> _mapItems(List items) {
-    return items
+  /// [fallbackRating] is the rating to judge an item by when it carries none of
+  /// its own, which is the normal case for an episode under a rated series.
+  /// Without it, blocking a rating hides the series everywhere and leaves its
+  /// episodes listed and playable underneath.
+  List<AggregatedItem> _mapItems(List items, {String? fallbackRating}) {
+    final mapped = items
         .cast<Map<String, dynamic>>()
         .map(
           (raw) => AggregatedItem(
@@ -1058,6 +1086,7 @@ class ItemDetailViewModel extends ChangeNotifier {
           ),
         )
         .toList();
+    return withoutBlockedItems(mapped, fallbackRating: fallbackRating);
   }
 
   Future<void> _loadAlbums() async {
@@ -1656,7 +1685,10 @@ class ItemDetailViewModel extends ChangeNotifier {
           batch.map((series) async {
             try {
               final epData = await _client.itemsApi.getEpisodes(series.id);
-              return _mapItems((epData['Items'] as List?) ?? []);
+              return _mapItems(
+                (epData['Items'] as List?) ?? [],
+                fallbackRating: _item?.officialRating,
+              );
             } catch (_) {
               return const <AggregatedItem>[];
             }

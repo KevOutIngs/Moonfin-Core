@@ -9462,6 +9462,18 @@
     "description": "Description for the allow self-signed certificates setting"
   },
   "settingsPrivacyAndSafetySection": "PRIVACY & SAFETY",
+  "itemBlockedByParentalControls": "This isn't available",
+  "@itemBlockedByParentalControls": {
+    "description": "Shown instead of a title whose rating the viewer has blocked. Deliberately says nothing about what the title is."
+  },
+  "blockedRatingsCeilingHint": "Blocking a rating also blocks everything stronger than it.",
+  "@blockedRatingsCeilingHint": {
+    "description": "Explains that the blocked ratings list works as a ceiling"
+  },
+  "blockedRatingsUnrankedSection": "Only blocks itself",
+  "@blockedRatingsUnrankedSection": {
+    "description": "Heading for ratings the app can't rank, which block only the exact rating rather than everything above it"
+  },
   "settingsBlockedRatings": "Blocked Ratings",
   "settingsGeneralStyle": "General Style",
   "settingsGeneralStyleSubtitle": "Theme accents, backdrops, and watched indicators",

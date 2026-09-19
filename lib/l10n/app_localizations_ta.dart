@@ -9793,6 +9793,16 @@ class AppLocalizationsTa extends AppLocalizations {
   String get settingsPrivacyAndSafetySection => 'தனியுரிமை & பாதுகாப்பு';
 
   @override
+  String get itemBlockedByParentalControls => 'This isn\'t available';
+
+  @override
+  String get blockedRatingsCeilingHint =>
+      'Blocking a rating also blocks everything stronger than it.';
+
+  @override
+  String get blockedRatingsUnrankedSection => 'Only blocks itself';
+
+  @override
   String get settingsBlockedRatings => 'தடுக்கப்பட்ட மதிப்பீடுகள்';
 
   @override

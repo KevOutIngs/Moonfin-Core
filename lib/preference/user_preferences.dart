@@ -488,6 +488,10 @@ class UserPreferences extends ChangeNotifier {
     'pref_glass_quality',
     'pref_oled_mode',
     'pref_kids_mode',
+    // The other half of parental controls, kept beside Kids Mode because the
+    // two get set together and have the same reason to be scoped.
+    'blocked_ratings',
+    'blocked_series_ids',
     'pref_navbar_position',
     'focus_color',
     'pref_watched_indicator_behavior',
@@ -2562,8 +2566,24 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: 'stars,imdb,tmdb,tomatoes,metacritic',
   );
 
+  /// Content ratings the viewer has blocked, as an upper cased CSV. Blocked
+  /// means hidden from every list and refused on open and on play, not just
+  /// filtered out of the home rows. Scoped but deliberately not synced: a
+  /// parent locking down the child's TV hasn't asked for their own phone to be
+  /// locked down too.
   static final blockedParentalRatings = Preference(
     key: 'blocked_ratings',
+    defaultValue: '',
+  );
+
+  /// Series last seen carrying a blocked rating, as a CSV of ids.
+  ///
+  /// An episode usually carries no rating while its series does, so the gate
+  /// looks the series up. A refusal a dropped connection can undo isn't a
+  /// refusal, so a series that was once blocked stays blocked until a lookup
+  /// succeeds and says otherwise.
+  static final blockedSeriesIds = Preference(
+    key: 'blocked_series_ids',
     defaultValue: '',
   );
 

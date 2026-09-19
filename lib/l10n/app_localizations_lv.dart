@@ -9773,6 +9773,16 @@ class AppLocalizationsLv extends AppLocalizations {
   String get settingsPrivacyAndSafetySection => 'PRIVĀTUMS UN DROŠĪBA';
 
   @override
+  String get itemBlockedByParentalControls => 'This isn\'t available';
+
+  @override
+  String get blockedRatingsCeilingHint =>
+      'Blocking a rating also blocks everything stronger than it.';
+
+  @override
+  String get blockedRatingsUnrankedSection => 'Only blocks itself';
+
+  @override
   String get settingsBlockedRatings => 'Bloķētie vērtējumi';
 
   @override

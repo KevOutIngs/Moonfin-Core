@@ -10,6 +10,7 @@ import '../../preference/user_preferences.dart';
 import '../../util/network_errors.dart';
 import '../../util/parental_rating_severity.dart';
 import '../models/aggregated_item.dart';
+import '../utils/blocked_ratings.dart';
 import '../repositories/mdblist_repository.dart';
 import '../services/plugin_sync_service.dart';
 import '../services/user_data_sync.dart';
@@ -319,6 +320,7 @@ class LibraryBrowseViewModel extends ChangeNotifier {
   Future<List<AggregatedItem>> _filterLibraryItems(
     List<AggregatedItem> items,
   ) async {
+    items = withoutBlockedItems(items);
     if (!isPlaylistBrowse) return items;
 
     // A playlist the summary can't settle costs a request of its own, so keep a
@@ -892,10 +894,10 @@ class LibraryBrowseViewModel extends ChangeNotifier {
 
     var filtered = await _filterLibraryItems(mapped);
 
-    if (isPlaylistBrowse) {
-      final filteredOutInBatch = mapped.length - filtered.length;
-      _filteredOutCount += filteredOutInBatch;
-    }
+    // Counted for every browse, not just playlists. A dropped item is gone for
+    // good, so the total has to shrink with it or the grid keeps asking for
+    // pages that will never arrive.
+    _filteredOutCount += mapped.length - filtered.length;
 
     // A playlist is free to list the same item more than once, so only the
     // library browses drop repeats. A repeat means the server reshuffled

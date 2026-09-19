@@ -9786,6 +9786,16 @@ class AppLocalizationsTe extends AppLocalizations {
   String get settingsPrivacyAndSafetySection => 'గోప్యత & భద్రత';
 
   @override
+  String get itemBlockedByParentalControls => 'This isn\'t available';
+
+  @override
+  String get blockedRatingsCeilingHint =>
+      'Blocking a rating also blocks everything stronger than it.';
+
+  @override
+  String get blockedRatingsUnrankedSection => 'Only blocks itself';
+
+  @override
   String get settingsBlockedRatings => 'బ్లాక్ చేయబడిన రేటింగ్‌లు';
 
   @override

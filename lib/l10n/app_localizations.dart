@@ -17188,6 +17188,24 @@ abstract class AppLocalizations {
   /// **'PRIVACY & SAFETY'**
   String get settingsPrivacyAndSafetySection;
 
+  /// Shown instead of a title whose rating the viewer has blocked. Deliberately says nothing about what the title is.
+  ///
+  /// In en, this message translates to:
+  /// **'This isn\'t available'**
+  String get itemBlockedByParentalControls;
+
+  /// Explains that the blocked ratings list works as a ceiling
+  ///
+  /// In en, this message translates to:
+  /// **'Blocking a rating also blocks everything stronger than it.'**
+  String get blockedRatingsCeilingHint;
+
+  /// Heading for ratings the app can't rank, which block only the exact rating rather than everything above it
+  ///
+  /// In en, this message translates to:
+  /// **'Only blocks itself'**
+  String get blockedRatingsUnrankedSection;
+
   /// No description provided for @settingsBlockedRatings.
   ///
   /// In en, this message translates to:

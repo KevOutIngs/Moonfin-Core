@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +11,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:moonfin/util/image_cache_index.dart';
 import 'package:moonfin/util/image_file_service.dart';
+import 'package:server_core/server_core.dart';
+
+/// A legacy repository whose first question never gets an answer, the shape
+/// of a platform channel that has stopped replying.
+class _StalledLegacy extends NonStoringObjectProvider {
+  @override
+  Future<bool> exists() => Completer<bool>().future;
+}
+
+/// A legacy repository that answers only when the test lets it.
+class _LateLegacy extends NonStoringObjectProvider {
+  _LateLegacy(this.rows, this.release);
+
+  final List<CacheObject> rows;
+  final Future<void> release;
+  final closed = Completer<void>();
+
+  @override
+  Future<bool> exists() async => true;
+
+  @override
+  Future<List<CacheObject>> getAllObjects() async {
+    await release;
+    return rows;
+  }
+
+  @override
+  Future<bool> close() async {
+    closed.complete();
+    return true;
+  }
+}
 
 /// A file system rooted in a test directory, standing in for the package's
 /// own temp-directory one, which needs path_provider.
@@ -247,7 +280,7 @@ void main() {
 
         final index = ImageCacheIndex(
           directory: cacheDir,
-          legacy: JsonCacheInfoRepository.withFile(legacyFile),
+          legacy: () async => JsonCacheInfoRepository.withFile(legacyFile),
         );
         await index.open();
         expect(index.length, 2);
@@ -258,6 +291,7 @@ void main() {
           isTrue,
           reason: 'a downgrade must find it',
         );
+        await index.flush();
         expect(
           File('${cacheDir.path}/${ImageCacheIndex.indexFileName}')
               .existsSync(),
@@ -275,7 +309,7 @@ void main() {
 
       final first = ImageCacheIndex(
         directory: cacheDir,
-        legacy: JsonCacheInfoRepository.withFile(legacyFile),
+        legacy: () async => JsonCacheInfoRepository.withFile(legacyFile),
       );
       await first.open();
       final id = (await first.get('http://s/legacy'))!.id!;
@@ -284,7 +318,7 @@ void main() {
 
       final second = ImageCacheIndex(
         directory: cacheDir,
-        legacy: JsonCacheInfoRepository.withFile(legacyFile),
+        legacy: () async => JsonCacheInfoRepository.withFile(legacyFile),
       );
       await second.open();
       expect(second.length, 0);
@@ -292,13 +326,108 @@ void main() {
     });
   });
 
+  group('open budget', () {
+    late List<String> lines;
+
+    setUp(() {
+      lines = <String>[];
+      ServerLog.sink = (category, level, message, {error}) {
+        if (category == 'artwork') lines.add(message);
+      };
+    });
+
+    tearDown(() => ServerLog.sink = null);
+
+    test('legacy rows that arrive after the budget are dropped', () async {
+      final release = Completer<void>();
+      final legacy = _LateLegacy([
+        object('http://s/late1'),
+        object('http://s/late2'),
+      ], release.future);
+      final index = ImageCacheIndex(
+        directory: cacheDir,
+        openBudget: const Duration(milliseconds: 100),
+        legacy: () async => legacy,
+      );
+      expect(await index.open(), isTrue);
+      expect(index.length, 0);
+      final a = await index.insert(object('http://s/a'));
+
+      release.complete();
+      await legacy.closed.future;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(index.length, 1, reason: 'the late rows were merged');
+      expect(await index.get('http://s/late1'), isNull);
+      expect(index.migratedCount, 0);
+      final b = await index.insert(object('http://s/b'));
+      expect(b.id, a.id! + 1, reason: 'the id counter moved');
+
+      await index.flush();
+      final written = File('${cacheDir.path}/${ImageCacheIndex.indexFileName}')
+          .readAsStringSync();
+      expect(written, isNot(contains('late1')));
+      expect(written, contains('"next":${b.id! + 1}'));
+    });
+
+    test('a close during an open drops the read that open started', () async {
+      final release = Completer<void>();
+      final legacy = _LateLegacy([object('http://s/late')], release.future);
+      final index = ImageCacheIndex(
+        directory: cacheDir,
+        openBudget: const Duration(seconds: 5),
+        legacy: () async => legacy,
+      );
+      final opening = index.open();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await index.close();
+      release.complete();
+      await opening;
+      expect(index.length, 0);
+    });
+
+    test('a directory that cannot be created leaves a working index', () async {
+      final blocker = File('${temp.path}/blocker')..writeAsStringSync('');
+      final index = ImageCacheIndex(
+        directory: Directory('${blocker.path}/libCachedImageData'),
+      );
+      final stopwatch = Stopwatch()..start();
+      expect(await index.open(), isTrue);
+      expect(stopwatch.elapsed, lessThan(ImageCacheIndex.defaultOpenBudget));
+      expect(
+        lines,
+        contains(
+          startsWith('art index open fell back: error (FileSystemException)'),
+        ),
+      );
+      await index.insert(object('http://s/a'));
+      expect((await index.get('http://s/a'))?.url, 'http://s/a');
+      await index.flush();
+    });
+
+    test('an index with no directory lives in memory', () async {
+      final index = ImageCacheIndex(directory: null);
+      expect(await index.open(), isTrue);
+      expect(await index.exists(), isFalse);
+      final a = await index.insert(object('http://s/a'));
+      expect((await index.get('http://s/a'))?.id, a.id);
+      await index.flush();
+      expect(await index.delete(a.id!), 1);
+      expect(await index.close(), isTrue);
+      expect(lines, contains(startsWith('art index opened n=0')));
+    });
+  });
+
   group('through a real CacheManager', () {
     late HttpServer server;
+    late int hits;
 
     setUp(() async {
       HttpOverrides.global = null;
+      hits = 0;
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((request) {
+        hits++;
         request.response.headers.contentType = ContentType('image', 'jpeg');
         request.response.add(List<int>.filled(64, 0x41));
         request.response.close();
@@ -306,6 +435,49 @@ void main() {
     });
 
     tearDown(() => server.close(force: true));
+
+    // The cache manager holds every lookup until the repository opens, so a
+    // legacy repository that never answers used to hold every image with it.
+    test(
+      'a legacy repository that never answers cannot hold an image',
+      () async {
+        final lines = <String>[];
+        ServerLog.sink = (category, level, message, {error}) {
+          if (category == 'artwork') lines.add(message);
+        };
+        addTearDown(() => ServerLog.sink = null);
+
+        final index = ImageCacheIndex(
+          directory: cacheDir,
+          openBudget: const Duration(milliseconds: 200),
+          legacy: () async => _StalledLegacy(),
+        );
+        final manager = CacheManager(
+          Config(
+            'test-index',
+            repo: index,
+            fileSystem: _DirectoryFileSystem(cacheDir),
+            fileService: BoundedImageFileService(http.Client()),
+            maxNrOfCacheObjects: 100,
+          ),
+        );
+        final file = await manager
+            .getSingleFile('http://127.0.0.1:${server.port}/hang.jpg')
+            .timeout(const Duration(seconds: 5));
+        expect(file.existsSync(), isTrue);
+        expect(hits, 1);
+        expect(
+          lines,
+          contains(startsWith('art index open fell back: timeout after ')),
+        );
+        // The library doesn't await its own putFile, so the row lands a tick
+        // or two after the file does.
+        for (var i = 0; i < 20 && index.length == 0; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        expect(index.length, 1);
+      },
+    );
 
     test('emptyCache really empties the directory', () async {
       final index = ImageCacheIndex(directory: cacheDir);

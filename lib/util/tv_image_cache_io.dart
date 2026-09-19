@@ -51,10 +51,11 @@ Future<void> configureImageDiskCache({
     final key = DefaultCacheManager.key;
     const stalePeriod = Duration(days: 14);
     final fileService = buildImageFileService(tier: tier);
-    final temp = await getTemporaryDirectory();
     final index = ImageCacheIndex(
-      directory: Directory('${temp.path}/$key'),
-      legacy: await _legacyImageCacheRepository(key),
+      directory: await _imageCacheDirectory(key),
+      // Resolved inside the index's own budget. Finding the old index means
+      // asking path_provider, and that ask must never hold the launch.
+      legacy: () => _legacyImageCacheRepository(key),
     );
     _imageCacheIndex = index;
     CachedNetworkImageProvider.defaultCacheManager = CacheManager(
@@ -67,6 +68,22 @@ Future<void> configureImageDiskCache({
       ),
     );
   } catch (_) {}
+}
+
+/// Where the index lives, or null when the platform didn't say in time.
+///
+/// Waits as long as the launch waits on any other platform channel. Null
+/// rather than a throw: a throw here would leave the image provider on the
+/// library's default manager, which is sqflite on Apple platforms.
+Future<Directory?> _imageCacheDirectory(String key) async {
+  try {
+    final temp = await getTemporaryDirectory().timeout(
+      const Duration(seconds: 2),
+    );
+    return Directory('${temp.path}/$key');
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Where the library kept the index before this app owned it: sqflite on the

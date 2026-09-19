@@ -75,10 +75,22 @@ class ArtworkTimings {
   static int _windowHits = 0;
   static Timer? _windowTimer;
 
+  /// Fetches begun and not yet finished. A request held in the scheduler
+  /// queue or hung mid transfer never reaches the window, so without this a
+  /// report with no fetch line reads the same as a report where nothing was
+  /// asked for.
+  static int _inFlight = 0;
+
+  /// How the index came up at launch. It opens before the log sink exists,
+  /// since LogService is registered after the cache is configured, so the
+  /// live line is lost and this copy is replayed into every report.
+  static (ServerLogLevel, String)? _indexOpenSummary;
+
   /// Null whenever diagnostic logging is off, so callers keep a nullable and
   /// never build a record nobody will read.
   static ArtworkTiming? begin(String url) {
     if (!enabled) return null;
+    _inFlight++;
     final timing = ArtworkTiming._(loggableArtworkUrl(url), DateTime.now());
     if (!kReleaseMode) {
       timing._task = developer.TimelineTask()
@@ -90,6 +102,7 @@ class ArtworkTimings {
   static void finish(ArtworkTiming? timing) {
     if (timing == null || timing._finished) return;
     timing._finished = true;
+    _inFlight--;
     timing.done();
     timing._task?.finish(
       arguments: <String, Object?>{
@@ -114,15 +127,61 @@ class ArtworkTimings {
     String? migratedFrom,
     int migratedCount = 0,
   }) {
-    if (!enabled) return;
     final migrated = migratedFrom == null
         ? ''
         : ' migrated $migratedCount from $migratedFrom';
+    _emitIndex(
+      ServerLogLevel.info,
+      'opened n=$entries in ${took.inMilliseconds}ms$migrated',
+    );
+  }
+
+  /// The open gave up and the index started empty. This is the line that
+  /// tells a cold cache from a stalled one when a report shows artwork
+  /// missing.
+  static void indexOpenFellBack({
+    required String reason,
+    required Duration took,
+    Object? error,
+  }) {
+    final detail = error == null ? reason : '$reason (${error.runtimeType})';
+    _emitIndex(
+      ServerLogLevel.warning,
+      'open fell back: $detail after ${took.inMilliseconds}ms',
+      error: error,
+    );
+  }
+
+  static void _emitIndex(
+    ServerLogLevel level,
+    String summary, {
+    Object? error,
+  }) {
+    _indexOpenSummary = (level, summary);
+    if (!enabled) return;
+    ServerLog.emit('artwork', level, 'art index $summary', error: error);
+  }
+
+  /// A screensaver slide that gave up. Its error widget is a black frame, so
+  /// without this a failed fetch and a plain black backdrop read the same.
+  static void screensaverSlideFailed(String url, Object error) {
+    if (!enabled) return;
     ServerLog.emit(
       'artwork',
-      ServerLogLevel.info,
-      'art index opened n=$entries in ${took.inMilliseconds}ms$migrated',
+      ServerLogLevel.warning,
+      'art screensaver slide failed ${loggableArtworkUrl(url)}: $error',
     );
+  }
+
+  /// What a report needs before it goes out: the window that hasn't closed
+  /// yet, how many fetches are still waiting, and how the index came up.
+  static void prepareReport() {
+    flushNow();
+    if (!enabled) return;
+    ServerLog.emit('artwork', ServerLogLevel.info, 'art in flight: $_inFlight');
+    final summary = _indexOpenSummary;
+    if (summary == null) return;
+    ServerLog.emit('artwork', summary.$1, 'art index at launch: ${summary.$2}');
   }
 
   static void indexFlushed({required int entries, required Duration took}) {
@@ -169,7 +228,8 @@ class ArtworkTimings {
           'hdr=${_p(header, 50)}/${_p(header, 95)}ms '
           'xfer=${_p(transfer, 50)}/${_p(transfer, 95)}ms '
           'KB=${_p(kb, 50)}/${_p(kb, 95)} '
-          'batches=$batches maxDepth=$maxDepth fail=$failed hits=$hits',
+          'batches=$batches maxDepth=$maxDepth fail=$failed hits=$hits '
+          'inflight=$_inFlight',
     );
   }
 

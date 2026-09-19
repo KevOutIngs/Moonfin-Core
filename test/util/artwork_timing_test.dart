@@ -50,6 +50,48 @@ void main() {
     });
   });
 
+  group('prepareReport', () {
+    test('replays how the index came up when the sink appeared later', () {
+      // At launch the index opens before LogService installs the sink, so
+      // the live line is dropped and a report has to carry it instead.
+      ServerLog.sink = null;
+      ArtworkTimings.indexOpened(
+        entries: 42,
+        took: const Duration(milliseconds: 7),
+      );
+
+      final lines = <String>[];
+      ServerLog.sink = (category, level, message, {error}) {
+        if (category == 'artwork') lines.add(message);
+      };
+      ArtworkTimings.prepareReport();
+      expect(lines, [
+        'art in flight: 0',
+        'art index at launch: opened n=42 in 7ms',
+      ]);
+    });
+
+    test('a fallback is replayed as a warning with its reason', () {
+      ServerLog.sink = null;
+      ArtworkTimings.indexOpenFellBack(
+        reason: 'timeout',
+        took: const Duration(seconds: 2),
+      );
+      final levels = <ServerLogLevel>[];
+      final lines = <String>[];
+      ServerLog.sink = (category, level, message, {error}) {
+        levels.add(level);
+        lines.add(message);
+      };
+      ArtworkTimings.prepareReport();
+      expect(
+        lines.last,
+        'art index at launch: open fell back: timeout after 2000ms',
+      );
+      expect(levels.last, ServerLogLevel.warning);
+    });
+  });
+
   group('with diagnostic logging on', () {
     late HttpServer server;
     late List<String> lines;

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -29,12 +28,32 @@ class ImageCacheIndex extends CacheInfoRepository {
   ImageCacheIndex({
     required this.directory,
     this.flushInterval = const Duration(seconds: 30),
-    CacheInfoRepository? legacy,
+    this.openBudget = defaultOpenBudget,
+    Future<CacheInfoRepository?> Function()? legacy,
     this.fileName = indexFileName,
   }) : _legacy = legacy; // ignore: prefer_initializing_formals
 
-  /// The repository this one replaced, read once when no index file exists.
-  final CacheInfoRepository? _legacy;
+  /// Finds the repository this one replaced. Called once, only when no index
+  /// file exists, and inside the open budget, since finding it can mean a
+  /// platform channel round trip.
+  final Future<CacheInfoRepository?> Function()? _legacy;
+
+  /// How long the first image waits for the index.
+  ///
+  /// The cache manager holds every lookup until open completes, so an open
+  /// that never returns is a blank app rather than a slow one. Two seconds
+  /// is the deadline the launch already gives a platform channel, and a cold
+  /// read of an eight thousand row index takes well under a tenth of that.
+  /// Past it the index starts empty: a cold cache, re-downloaded on demand,
+  /// while the size sweep reclaims the files by age.
+  static const defaultOpenBudget = Duration(seconds: 2);
+  final Duration openBudget;
+
+  /// Bumped by every open that does the work, by the last close, and by
+  /// deleteDataFile. A read that finishes late compares the generation it
+  /// started under with this one and drops its result on a mismatch, so a
+  /// stalled open can never write into a live index.
+  int _generation = 0;
 
   /// A dot-file inside the cache directory, beside the files it describes,
   /// so it goes wherever they go: when iOS purges the temporary directory
@@ -46,8 +65,10 @@ class ImageCacheIndex extends CacheInfoRepository {
 
   static const formatVersion = 1;
 
-  /// The cache directory: `<temp>/libCachedImageData`.
-  final Directory directory;
+  /// The cache directory: `<temp>/libCachedImageData`. Null when the
+  /// platform never said where that is, in which case the index lives in
+  /// memory for this run and persists nothing.
+  final Directory? directory;
   final String fileName;
 
   /// How long dirty rows wait before they are written.
@@ -77,52 +98,85 @@ class ImageCacheIndex extends CacheInfoRepository {
 
   int get length => _byKey.length;
 
-  File get _file => File(p.join(directory.path, fileName));
-  File get _tempFile => File('${_file.path}.tmp');
+  File? get _file {
+    final dir = directory;
+    return dir == null ? null : File(p.join(dir.path, fileName));
+  }
+
+  File? get _tempFile {
+    final file = _file;
+    return file == null ? null : File('${file.path}.tmp');
+  }
 
   @override
-  Future<bool> exists() => _file.exists();
+  Future<bool> exists() => _file?.exists() ?? Future<bool>.value(false);
 
   @override
   Future<bool> open() async {
     _openConnections++;
-    if (_openConnections > 1) return _opening!.future;
+    final pending = _opening;
+    if (pending != null) return pending.future;
     final completer = _opening = Completer<bool>();
+    final generation = ++_generation;
     final stopwatch = Stopwatch()..start();
+    String? fallback;
+    Object? failure;
     try {
-      await directory.create(recursive: true);
-      final loaded = await _load();
-      if (!loaded) await _importLegacy();
-    } catch (_) {
+      final loaded = await _read().timeout(openBudget);
+      if (generation == _generation) _publish(loaded);
+    } on TimeoutException {
+      fallback = 'timeout';
+    } catch (e) {
       // Whatever went wrong, an empty index is a cold cache, not a broken
       // one: every file on disk is re-downloaded on demand and the size sweep
       // reclaims the rest by age.
-      _byKey.clear();
-      _byId.clear();
-      _nextId = 1;
+      fallback = 'error';
+      failure = e;
     }
-    ArtworkTimings.indexOpened(
-      entries: length,
-      took: stopwatch.elapsed,
-      migratedFrom: migratedFrom,
-      migratedCount: migratedCount,
-    );
+    if (fallback == null) {
+      ArtworkTimings.indexOpened(
+        entries: length,
+        took: stopwatch.elapsed,
+        migratedFrom: migratedFrom,
+        migratedCount: migratedCount,
+      );
+    } else {
+      ArtworkTimings.indexOpenFellBack(
+        reason: fallback,
+        took: stopwatch.elapsed,
+        error: failure,
+      );
+    }
     completer.complete(true);
     return true;
   }
 
-  /// True when an index file was there to read. A parse failure counts as
-  /// read, so a corrupt file is never followed by a second import from the
-  /// legacy repository that would resurrect rows for files since evicted.
-  Future<bool> _load() async {
-    if (!await _file.exists()) return false;
+  /// Everything an open needs, built away from the live maps. Nothing here
+  /// touches instance state, so a read that outlives its budget, or finishes
+  /// after a close, has nothing to write into.
+  Future<_Loaded> _read() async {
+    final dir = directory;
+    if (dir == null) return _Loaded.empty;
+    await dir.create(recursive: true);
+    return await _readIndexFile(dir) ?? await _readLegacy() ?? _Loaded.empty;
+  }
+
+  /// Null when there is no index file. A parse failure or an unknown version
+  /// returns an empty result rather than null, so a corrupt file is never
+  /// followed by a legacy import that would resurrect rows for files since
+  /// evicted. Decoded on this isolate, since a spawned one that stalls never
+  /// completes and never throws, and a full index decodes in milliseconds.
+  Future<_Loaded?> _readIndexFile(Directory dir) async {
+    final file = File(p.join(dir.path, fileName));
+    if (!await file.exists()) return null;
     try {
-      final text = await _file.readAsString();
-      final decoded = await Isolate.run(() => jsonDecode(text));
-      if (decoded is! Map<String, dynamic>) return true;
-      if (decoded['v'] != formatVersion) return true;
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map<String, dynamic>) return _Loaded.empty;
+      if (decoded['v'] != formatVersion) return _Loaded.empty;
       final entries = decoded['e'];
-      if (entries is! List) return true;
+      if (entries is! List) return _Loaded.empty;
+      final byKey = <String, CacheObject>{};
+      final byId = <int, CacheObject>{};
       for (final entry in entries) {
         if (entry is! List || entry.length < 8) continue;
         final id = entry[0];
@@ -147,19 +201,19 @@ class ImageCacheIndex extends CacheInfoRepository {
           touched: DateTime.fromMillisecondsSinceEpoch(touched),
           length: entry[7] as int?,
         );
-        _byKey[object.key] = object;
-        _byId[id] = object;
+        byKey[object.key] = object;
+        byId[id] = object;
       }
       final next = decoded['next'];
-      _nextId = next is int
-          ? next
-          : (_byId.keys.fold(0, (a, b) => a > b ? a : b) + 1);
-      return true;
+      return _Loaded(
+        byKey: byKey,
+        byId: byId,
+        nextId: next is int
+            ? next
+            : byId.keys.fold(0, (a, b) => a > b ? a : b) + 1,
+      );
     } catch (_) {
-      _byKey.clear();
-      _byId.clear();
-      _nextId = 1;
-      return true;
+      return _Loaded.empty;
     }
   }
 
@@ -169,26 +223,58 @@ class ImageCacheIndex extends CacheInfoRepository {
   /// The legacy file is left where it is: a build that goes back to the old
   /// repository then still finds its index. The cache manager's own
   /// migration helper would delete it.
-  Future<void> _importLegacy() async {
-    final legacy = _legacy;
-    if (legacy == null) return;
-    if (!await legacy.exists()) return;
+  Future<_Loaded?> _readLegacy() async {
+    final resolve = _legacy;
+    if (resolve == null) return null;
+    final legacy = await resolve();
+    if (legacy == null || !await legacy.exists()) return null;
     await legacy.open();
+    final List<CacheObject> objects;
     try {
-      final objects = await legacy.getAllObjects();
-      for (final object in objects) {
-        if (_byKey.containsKey(object.key)) continue;
-        _put(object, id: _nextId++, touched: object.touched ?? clock.now());
-      }
-      migratedFrom = legacy.runtimeType.toString();
-      migratedCount = objects.length;
+      objects = await legacy.getAllObjects();
     } finally {
       await legacy.close();
     }
-    if (migratedCount > 0) {
-      _dirty = true;
-      await flush();
+    final byKey = <String, CacheObject>{};
+    final byId = <int, CacheObject>{};
+    var nextId = 1;
+    for (final object in objects) {
+      if (byKey.containsKey(object.key)) continue;
+      final row = _row(
+        object,
+        id: nextId,
+        touched: object.touched ?? clock.now(),
+      );
+      byKey[row.key] = row;
+      byId[nextId] = row;
+      nextId++;
     }
+    return _Loaded(
+      byKey: byKey,
+      byId: byId,
+      nextId: nextId,
+      migratedFrom: legacy.runtimeType.toString(),
+      migratedCount: objects.length,
+    );
+  }
+
+  /// The one place an open writes to the live maps. Replaces rather than
+  /// merges, and the id counter only ever moves up, so a row handed out
+  /// before this ran keeps an id no loaded row can collide with.
+  void _publish(_Loaded loaded) {
+    _byKey
+      ..clear()
+      ..addAll(loaded.byKey);
+    _byId
+      ..clear()
+      ..addAll(loaded.byId);
+    if (loaded.nextId > _nextId) _nextId = loaded.nextId;
+    migratedFrom = loaded.migratedFrom;
+    migratedCount = loaded.migratedCount;
+    // Rows from the legacy repository are not on disk yet. The timer writes
+    // them, and so does the pause hook, so the first image is never held
+    // behind a write of the whole index.
+    if (loaded.migratedCount > 0) _markDirty();
   }
 
   @override
@@ -287,6 +373,7 @@ class ImageCacheIndex extends CacheInfoRepository {
     if (_openConnections > 0) return false;
     _openConnections = 0;
     _opening = null;
+    _generation++;
     await flush();
     return true;
   }
@@ -296,9 +383,17 @@ class ImageCacheIndex extends CacheInfoRepository {
     _flushTimer?.cancel();
     _flushTimer = null;
     _dirty = false;
-    for (final file in [_file, _tempFile]) {
+    // A read in flight would bring the rows back, and so would the next
+    // timed write if the maps kept them.
+    _generation++;
+    _byKey.clear();
+    _byId.clear();
+    final file = _file;
+    final temp = _tempFile;
+    if (file == null || temp == null) return;
+    for (final f in [file, temp]) {
       try {
-        if (await file.exists()) await file.delete();
+        if (await f.exists()) await f.delete();
       } catch (_) {}
     }
   }
@@ -313,21 +408,27 @@ class ImageCacheIndex extends CacheInfoRepository {
     return _writeChain;
   }
 
+  static CacheObject _row(
+    CacheObject object, {
+    required int id,
+    required DateTime touched,
+  }) => CacheObject(
+    object.url,
+    id: id,
+    key: object.key,
+    relativePath: object.relativePath,
+    validTill: object.validTill,
+    eTag: object.eTag,
+    length: object.length,
+    touched: touched,
+  );
+
   CacheObject _put(
     CacheObject object, {
     required int id,
     required DateTime touched,
   }) {
-    final stored = CacheObject(
-      object.url,
-      id: id,
-      key: object.key,
-      relativePath: object.relativePath,
-      validTill: object.validTill,
-      eTag: object.eTag,
-      length: object.length,
-      touched: touched,
-    );
+    final stored = _row(object, id: id, touched: touched);
     _byKey[stored.key] = stored;
     _byId[id] = stored;
     if (id >= _nextId) _nextId = id + 1;
@@ -346,6 +447,9 @@ class ImageCacheIndex extends CacheInfoRepository {
     if (!_dirty) return;
     final stopwatch = Stopwatch()..start();
     _dirty = false;
+    final file = _file;
+    final temp = _tempFile;
+    if (file == null || temp == null) return;
     final rows = <List<Object?>>[
       for (final o in _byId.values)
         <Object?>[
@@ -367,8 +471,8 @@ class ImageCacheIndex extends CacheInfoRepository {
     try {
       // Temp then rename, so a kill mid-write leaves the previous index
       // whole rather than a truncated file that parses as empty.
-      await _tempFile.writeAsString(text, flush: true);
-      await _tempFile.rename(_file.path);
+      await temp.writeAsString(text, flush: true);
+      await temp.rename(file.path);
     } catch (_) {
       _dirty = true;
     }
@@ -376,8 +480,10 @@ class ImageCacheIndex extends CacheInfoRepository {
   }
 
   Future<void> _unlink(CacheObject object) async {
+    final dir = directory;
+    if (dir == null) return;
     try {
-      final file = File(p.join(directory.path, object.relativePath));
+      final file = File(p.join(dir.path, object.relativePath));
       if (await file.exists()) await file.delete();
     } catch (_) {
       // Already gone, or the directory is being cleared underneath us.
@@ -389,4 +495,23 @@ class ImageCacheIndex extends CacheInfoRepository {
 
   @visibleForTesting
   bool get isDirty => _dirty;
+}
+
+/// What an open read, held apart from the live maps until it is published.
+class _Loaded {
+  const _Loaded({
+    required this.byKey,
+    required this.byId,
+    required this.nextId,
+    this.migratedFrom,
+    this.migratedCount = 0,
+  });
+
+  static const empty = _Loaded(byKey: {}, byId: {}, nextId: 1);
+
+  final Map<String, CacheObject> byKey;
+  final Map<int, CacheObject> byId;
+  final int nextId;
+  final String? migratedFrom;
+  final int migratedCount;
 }

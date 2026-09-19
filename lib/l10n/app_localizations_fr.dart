@@ -12830,7 +12830,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get serverMessagesShowButtonSubtitle =>
-      'Ajoute au menu un bouton pour les messages envoyés par l\'administration du serveur';
+      'Ajoute au menu un bouton pour les messages envoyés par l\'admin du serveur';
 
   @override
   String get showBookDiscoverTab => 'Show Book Library Discovery';

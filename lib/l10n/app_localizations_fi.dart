@@ -2730,7 +2730,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get downloadedItems => 'Ladatut kohteet';
 
   @override
-  String get activeDownloads => 'Active Downloads';
+  String get activeDownloads => 'Aktiiviset Lataukset';
 
   @override
   String savedMediaCount(int count) {
@@ -2749,33 +2749,34 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get savedMediaSelectItems => 'Select items';
+  String get savedMediaSelectItems => 'Valitse kohteet';
 
   @override
-  String get savedMediaNoDownloads => 'Nothing saved yet';
+  String get savedMediaNoDownloads => 'Mitään ei ole vielä tallennettu';
 
   @override
   String get savedMediaNoDownloadsDetail =>
-      'Downloads you start appear here and play without a connection.';
+      'Täältä näkyvät aloittamasi lataukset, ja niitä voi toistaa ilman verkkoyhteyttä.';
 
   @override
-  String get savedMediaNoActiveDownloads => 'Nothing downloading right now';
+  String get savedMediaNoActiveDownloads =>
+      'Tällä hetkellä ei ole käynnissä yhtään latausta';
 
   @override
-  String get savedMediaNoResults => 'No downloads match that search';
+  String get savedMediaNoResults => 'Hakutuloksia ei löytynyt';
 
   @override
-  String get savedMediaPlayFromStart => 'Play from start';
+  String get savedMediaPlayFromStart => 'Toista alusta alkaen';
 
   @override
-  String get savedMediaGoToDetails => 'Go to details';
+  String get savedMediaGoToDetails => 'Siirry yksityiskohtiin';
 
   @override
-  String get savedMediaDeleteDownload => 'Delete download';
+  String get savedMediaDeleteDownload => 'Poista lataus';
 
   @override
   String savedMediaDeleteSeason(String season) {
-    return 'Delete $season';
+    return 'Poista $season';
   }
 
   @override
@@ -2790,25 +2791,25 @@ class AppLocalizationsFi extends AppLocalizations {
   }
 
   @override
-  String get savedMediaOpenShow => 'Open show';
+  String get savedMediaOpenShow => 'Avaa esitys';
 
   @override
-  String get savedMediaPlayNextUnwatched => 'Play next unwatched';
+  String get savedMediaPlayNextUnwatched => 'Toista seuraava katsomaton';
 
   @override
-  String get savedMediaRead => 'Read';
+  String get savedMediaRead => 'Lue';
 
   @override
-  String get savedMediaCancelDownload => 'Cancel download';
+  String get savedMediaCancelDownload => 'Peruuta lataus';
 
   @override
-  String get sortBySize => 'Size';
+  String get sortBySize => 'Koko';
 
   @override
-  String get sortByName => 'Name';
+  String get sortByName => 'Nimi';
 
   @override
-  String get sortByDateAdded => 'Date added';
+  String get sortByDateAdded => 'Lisäyspäivä';
 
   @override
   String get storageLimit => 'Tallennusrajoitus';
@@ -10754,10 +10755,10 @@ class AppLocalizationsFi extends AppLocalizations {
   String get connection => 'Yhteys';
 
   @override
-  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+  String get locallyDecodedCodecs => 'Paikallisesti dekoodatut koodekit';
 
   @override
-  String get transcodeTargetCodecs => 'Transcode Target Codecs';
+  String get transcodeTargetCodecs => 'Transkoodauksen kohdekoodekit';
 
   @override
   String get passthrough => 'Läpivienti';

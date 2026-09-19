@@ -236,8 +236,8 @@ class AppLocalizationsCa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count facts',
-      one: '1 fact',
+      other: '$count dades',
+      one: '1 dada',
     );
     return '$_temp0';
   }
@@ -247,8 +247,8 @@ class AppLocalizationsCa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count tags',
-      one: '1 tag',
+      other: '$count etiquetes',
+      one: '1 etiqueta',
     );
     return '$_temp0';
   }
@@ -2750,52 +2750,52 @@ class AppLocalizationsCa extends AppLocalizations {
   String get downloadedItems => 'Elements baixats';
 
   @override
-  String get activeDownloads => 'Active Downloads';
+  String get activeDownloads => 'Baixades actives';
 
   @override
   String savedMediaCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count items',
-      one: '1 item',
+      other: '$count elements',
+      one: '1 element',
     );
     return '$_temp0';
   }
 
   @override
   String savedMediaOfLimit(String used, String limit) {
-    return '$used of $limit';
+    return '$used de $limit';
   }
 
   @override
-  String get savedMediaSelectItems => 'Select items';
+  String get savedMediaSelectItems => 'Selecciona elements';
 
   @override
-  String get savedMediaNoDownloads => 'Nothing saved yet';
+  String get savedMediaNoDownloads => 'Encara no hi ha res desat';
 
   @override
   String get savedMediaNoDownloadsDetail =>
-      'Downloads you start appear here and play without a connection.';
+      'Les baixades que iniciïs apareixen aquí i es reprodueixen sense connexió.';
 
   @override
-  String get savedMediaNoActiveDownloads => 'Nothing downloading right now';
+  String get savedMediaNoActiveDownloads => 'Ara mateix no s\'està baixant res';
 
   @override
-  String get savedMediaNoResults => 'No downloads match that search';
+  String get savedMediaNoResults => 'Cap baixada coincideix amb aquesta cerca';
 
   @override
-  String get savedMediaPlayFromStart => 'Play from start';
+  String get savedMediaPlayFromStart => 'Reprodueix des del principi';
 
   @override
-  String get savedMediaGoToDetails => 'Go to details';
+  String get savedMediaGoToDetails => 'Ves als detalls';
 
   @override
-  String get savedMediaDeleteDownload => 'Delete download';
+  String get savedMediaDeleteDownload => 'Suprimeix la baixada';
 
   @override
   String savedMediaDeleteSeason(String season) {
-    return 'Delete $season';
+    return 'Suprimeix $season';
   }
 
   @override
@@ -2803,32 +2803,32 @@ class AppLocalizationsCa extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Delete $count episodes',
-      one: 'Delete 1 episode',
+      other: 'Suprimeix $count episodis',
+      one: 'Suprimeix 1 episodi',
     );
     return '$_temp0';
   }
 
   @override
-  String get savedMediaOpenShow => 'Open show';
+  String get savedMediaOpenShow => 'Obre la sèrie';
 
   @override
-  String get savedMediaPlayNextUnwatched => 'Play next unwatched';
+  String get savedMediaPlayNextUnwatched => 'Reprodueix el següent no vist';
 
   @override
-  String get savedMediaRead => 'Read';
+  String get savedMediaRead => 'Llegeix';
 
   @override
-  String get savedMediaCancelDownload => 'Cancel download';
+  String get savedMediaCancelDownload => 'Cancel·la la baixada';
 
   @override
-  String get sortBySize => 'Size';
+  String get sortBySize => 'Mida';
 
   @override
-  String get sortByName => 'Name';
+  String get sortByName => 'Nom';
 
   @override
-  String get sortByDateAdded => 'Date added';
+  String get sortByDateAdded => 'Data d\'afegiment';
 
   @override
   String get storageLimit => 'Límit d\'emmagatzematge';
@@ -9802,15 +9802,16 @@ class AppLocalizationsCa extends AppLocalizations {
   String get contextMenuAddToCollection => 'Afegeix a una col·lecció';
 
   @override
-  String get contextMenuRemoveFromCollection => 'Remove from Collection';
+  String get contextMenuRemoveFromCollection => 'Elimina de la col·lecció';
 
   @override
   String removeFromCollectionConfirm(String item, String collection) {
-    return 'Remove $item from $collection? The item stays in your library.';
+    return 'Vols eliminar $item de $collection? L\'element es manté a la teva biblioteca.';
   }
 
   @override
-  String get removeFromCollectionFailed => 'Failed to remove from collection';
+  String get removeFromCollectionFailed =>
+      'No s\'ha pogut eliminar de la col·lecció';
 
   @override
   String get settingsAdministrationSubtitle =>
@@ -10883,10 +10884,11 @@ class AppLocalizationsCa extends AppLocalizations {
   String get connection => 'Connexió';
 
   @override
-  String get locallyDecodedCodecs => 'Locally Decoded Codecs';
+  String get locallyDecodedCodecs => 'Còdecs descodificats localment';
 
   @override
-  String get transcodeTargetCodecs => 'Transcode Target Codecs';
+  String get transcodeTargetCodecs =>
+      'Còdecs de destinació de la transcodificació';
 
   @override
   String get passthrough => 'Passthrough';
@@ -12868,11 +12870,12 @@ class AppLocalizationsCa extends AppLocalizations {
       'Afegeix un botó al menú per als missatges enviats per l\'administrador del teu servidor';
 
   @override
-  String get showBookDiscoverTab => 'Show Book Library Discovery';
+  String get showBookDiscoverTab =>
+      'Mostra la pestanya Descobreix a les biblioteques de llibres';
 
   @override
   String get showBookDiscoverTabDescription =>
-      'Browse titles from Open Library and LibriVox in your book and audiobook libraries';
+      'Explora títols d\'Open Library i LibriVox a les teves biblioteques de llibres i audiollibres';
 
   @override
   String get autoDownloadNewEpisodes =>
@@ -13180,9 +13183,10 @@ class AppLocalizationsCa extends AppLocalizations {
   String get pageTransitionFadeLong => 'Esvaïment llarg';
 
   @override
-  String get siriRemoteSwipeSensitivity => 'Touchpad swipe sensitivity';
+  String get siriRemoteSwipeSensitivity =>
+      'Sensibilitat del lliscament al panell tàctil';
 
   @override
   String get siriRemoteSwipeSensitivityDescription =>
-      'How far focus moves for each swipe on the Siri Remote touchpad';
+      'Fins on es mou el focus amb cada lliscament al panell tàctil del Siri Remote';
 }

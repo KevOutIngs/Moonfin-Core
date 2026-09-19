@@ -7,6 +7,7 @@ import 'package:server_core/server_core.dart' hide ImageType;
 
 import '../../preference/preference_constants.dart';
 import '../../preference/user_preferences.dart';
+import '../../util/accent_folding.dart';
 import '../../util/network_errors.dart';
 import '../../util/parental_rating_severity.dart';
 import '../models/aggregated_item.dart';
@@ -64,17 +65,36 @@ class LibraryBrowseViewModel extends ChangeNotifier {
   List<AggregatedItem>? _searchResultsSource;
   String _searchResultsQuery = '';
 
+  // Folding costs a pass over every title, so the names are prepared once for
+  // a given set of items rather than again on each keystroke.
+  List<AggregatedItem>? _searchNamesSource;
+  List<String> _searchNames = const [];
+
+  List<String> get _foldedNames {
+    if (!identical(_searchNamesSource, _items)) {
+      _searchNames = [
+        for (final item in _items) foldForSearch(item.sortName ?? item.name),
+      ];
+      _searchNamesSource = _items;
+    }
+    return _searchNames;
+  }
+
   List<AggregatedItem> get items {
-    final query = _searchQuery.trim().toLowerCase();
+    // The server folds accents for the searches it answers, so matching here
+    // has to as well or the same query finds different things depending on
+    // which search box it was typed into.
+    final query = foldForSearch(_searchQuery.trim());
     if (query.isEmpty) return _items;
     if (_searchResults != null &&
         _searchResultsQuery == query &&
         identical(_searchResultsSource, _items)) {
       return _searchResults!;
     }
+    final names = _foldedNames;
     final matches = [
-      for (final item in _items)
-        if ((item.sortName ?? item.name).toLowerCase().contains(query)) item,
+      for (var i = 0; i < _items.length; i++)
+        if (names[i].contains(query)) _items[i],
     ];
     _searchResults = matches;
     _searchResultsSource = _items;

@@ -117,6 +117,7 @@ import '../../../util/focus/dpad_keys.dart';
 import '../../../util/language_matching.dart';
 import '../../../util/subtitle_track_logic.dart';
 import '../../../util/audio_track_logic.dart';
+import '../../../util/artwork_request_size.dart';
 import '../../../util/platform_detection.dart';
 import 'detail_layout_metrics.dart';
 
@@ -1763,9 +1764,10 @@ class _DetailContentState extends State<_DetailContent> {
         ? null
         : viewModel.imageApi.getPrimaryImageUrl(
             item.id,
-            maxHeight: BoundedNetworkImage.physicalPixels(
+            maxHeight: artworkRequestWidth(
               coverWidth * 3 / 2,
               dpr,
+              ArtworkShape.poster,
             ),
             tag: coverTag,
           );
@@ -4031,6 +4033,7 @@ class _Backdrop extends StatelessWidget {
       memCacheWidth: blurred
           ? BackgroundService.backdropBlurredDecodeWidth
           : BackgroundService.backdropMaxWidth,
+      priority: ImageFetchPriority.high,
       errorWidget: (_, _, _) => const SizedBox.shrink(),
     );
     if (!blurred) return image;
@@ -4475,7 +4478,11 @@ class DetailPosterImage extends StatelessWidget {
                   ? '$seerrPosterBase$posterPath'
                   : imageApi.getPrimaryImageUrl(
                       item.id,
-                      maxHeight: BoundedNetworkImage.physicalPixels(h, dpr),
+                      maxHeight: artworkRequestWidth(
+                        h,
+                        dpr,
+                        ArtworkShape.poster,
+                      ),
                       tag: item.primaryImageTag,
                     ),
               width: w,
@@ -4534,7 +4541,7 @@ class _EpisodeThumbnail extends StatelessWidget {
     final w = isMobile ? 200.0 : 280.0 * desktopScale;
     final h = isMobile ? 113.0 : 158.0 * desktopScale;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final maxW = BoundedNetworkImage.physicalPixels(w, dpr);
+    final maxW = artworkRequestWidth(w, dpr, ArtworkShape.landscape);
 
     final seriesThumbUrl =
         GetIt.instance<UserPreferences>().get(

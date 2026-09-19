@@ -33,6 +33,7 @@ import 'settings/settings_panel.dart';
 import 'shuffle_overlay.dart';
 import 'unread_badge.dart';
 import 'user_menu_dialog.dart';
+import 'image_source.dart';
 
 const double _kBarHeight = 54.0;
 const double _kIconSize = 24.0;
@@ -582,6 +583,10 @@ class _MobileBottomNavBarState extends State<MobileBottomNavBar> {
                   _userImageUrl!,
                   headers: serverImageHeaders,
                   fit: BoxFit.cover,
+                  cacheWidth: ArtworkDecode.widthFor(
+                    40,
+                    MediaQuery.devicePixelRatioOf(context),
+                  ),
                   errorBuilder: (_, _, _) => _avatarFallback(initial),
                 )
               : _avatarFallback(initial),

@@ -20,6 +20,7 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../preference/seerr_preferences.dart';
 import '../../navigation/destinations.dart';
+import '../../../util/artwork_request_size.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/game_library.dart';
 import '../../../util/focus/dpad_keys.dart';
@@ -1361,18 +1362,17 @@ class _SearchScreenState extends State<SearchScreen> with GridFocusNodeMixin {
     required FocusNode? focusNode,
     required KeyEventResult Function(FocusNode, KeyEvent)? onNavKey,
   }) {
-    // Card widths are logical pixels, so asking the server for that many
-    // leaves the screen stretching the image two or three times over. These
-    // are the widths library browse asks for at this card size.
-    final requestWidth = ar < 1 ? 420 : 720;
+    // The same stepped width library browse asks for at this card size, so a
+    // poster seen there is the file already on disk here.
+    final requestWidth = artworkRequestWidth(
+      width,
+      MediaQuery.devicePixelRatioOf(context),
+      ArtworkShape.forAspectRatio(ar),
+    );
     return MediaCard(
       title: item.name,
       subtitle: _subtitle(item),
-      imageUrl: _imageUrl(
-        item,
-        maxWidth: requestWidth,
-        maxHeight: (requestWidth / ar).round(),
-      ),
+      imageUrl: _imageUrl(item, maxWidth: requestWidth),
       width: width,
       aspectRatio: ar,
       isFavorite: item.isFavorite,

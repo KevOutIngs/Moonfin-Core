@@ -38,6 +38,14 @@ class MediaCard extends StatefulWidget {
   static double focusGap(double extent, {double minimum = 12.0}) =>
       math.max(minimum, extent * (focusScale - 1) / 2);
 
+  /// The widest decode a card of this shape ever holds, in physical pixels.
+  ///
+  /// Public so a prefetch of a card's image uses the same cap the card does.
+  /// A prefetch capped differently lands under a different cache key and the
+  /// card decodes the image a second time.
+  static int decodeMaxWidthFor(double aspectRatio) =>
+      aspectRatio > 1.2 ? 960 : 640;
+
   final String? title;
   final String? subtitle;
   final Widget? subtitleWidget;
@@ -737,7 +745,9 @@ class _CardImage extends StatelessWidget {
                                   ? BoxFit.contain
                                   : BoxFit.cover,
                               fadeInDuration: Duration.zero,
-                              maxWidth: aspectRatio > 1.2 ? 960 : 640,
+                              maxWidth: MediaCard.decodeMaxWidthFor(
+                                aspectRatio,
+                              ),
                               errorBuilder: (_, _, _) => _PlaceholderIcon(
                                 itemType: itemType,
                                 title: title,

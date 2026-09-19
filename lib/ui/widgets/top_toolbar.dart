@@ -882,6 +882,10 @@ class _TopToolbarState extends State<TopToolbar> with RouteAware {
                       fit: BoxFit.cover,
                       width: avatarSize,
                       height: avatarSize,
+                      cacheWidth: ArtworkDecode.widthFor(
+                        avatarSize,
+                        MediaQuery.devicePixelRatioOf(context),
+                      ),
                       errorBuilder: (_, _, _) => _avatarFallback(),
                     )
                   : _avatarFallback(),

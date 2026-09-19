@@ -40,11 +40,11 @@ import 'unread_badge.dart';
 import 'shuffle_overlay.dart';
 import 'user_menu_dialog.dart';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:playback_core/playback_core.dart';
 import '../../data/models/aggregated_item.dart';
 import '../../data/services/media_server_client_factory.dart';
 import '../navigation/app_router.dart';
+import 'offline_aware_image.dart';
 import 'adaptive/sf_symbol.dart';
 
 const _kExpandedWidthDesktop = 240.0;
@@ -1283,6 +1283,12 @@ class _LeftSidebarState extends State<LeftSidebar> with RouteAware {
                 fit: BoxFit.cover,
                 width: 40,
                 height: 40,
+                // The server sends the avatar at its stored size, so decode
+                // at the painted size instead of a full bitmap per user.
+                cacheWidth: ArtworkDecode.widthFor(
+                  40,
+                  MediaQuery.devicePixelRatioOf(context),
+                ),
                 errorBuilder: (_, _, _) => fallback,
               )
             : fallback,
@@ -1789,7 +1795,7 @@ class _SidebarMusicCardState extends State<SidebarMusicCard> {
                     ),
                     child: ClipOval(
                       child: artUrl != null
-                          ? CachedNetworkImage(
+                          ? OfflineAwareImage(
                               imageUrl: artUrl,
                               fit: BoxFit.cover,
                             )
@@ -1853,7 +1859,7 @@ class _SidebarMusicCardState extends State<SidebarMusicCard> {
                     width: 48,
                     height: 48,
                     child: artUrl != null
-                        ? CachedNetworkImage(
+                        ? OfflineAwareImage(
                             imageUrl: artUrl,
                             fit: BoxFit.cover,
                           )

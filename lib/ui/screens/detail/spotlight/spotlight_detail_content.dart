@@ -446,7 +446,10 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
             imageUrl: url,
             fit: BoxFit.cover,
             alignment: landscape ? Alignment.centerRight : Alignment.topCenter,
-            fadeInDuration: const Duration(milliseconds: 250),
+            fadeInDuration: Duration.zero,
+            sourceAspectRatio: 16 / 9,
+            maxDecodeWidth: ArtworkDecode.maxSourceWidth,
+            priority: ImageFetchPriority.high,
             errorWidget: (context, url, error) => const SizedBox.shrink(),
           ),
           if (item?.type == 'Person')

@@ -15,7 +15,6 @@ import '../../../../util/platform_detection.dart';
 import '../../../../util/seerr_credits.dart';
 import '../../../widgets/fullscreen_backdrop_switcher.dart';
 import '../../../widgets/navigation_layout.dart';
-import '../../../widgets/offline_aware_image.dart';
 import '../detail_layout_metrics.dart';
 import '../item_detail_screen.dart';
 import 'chapters/nouveau_chapters_section.dart';
@@ -1279,13 +1278,6 @@ class NouveauDetailContentState extends State<NouveauDetailContent> {
           duration: const Duration(milliseconds: 350),
           alignment: portrait ? Alignment.topCenter : Alignment.centerRight,
           fadeInDuration: Duration.zero,
-          imageBuilder: (imageUrl) => OfflineAwareImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            alignment: portrait ? Alignment.topCenter : Alignment.centerRight,
-            fadeInDuration: Duration.zero,
-            errorWidget: (_, _, _) => const SizedBox.shrink(),
-          ),
         ),
 
         ColoredBox(color: Colors.black.withValues(alpha: overlayAlpha)),

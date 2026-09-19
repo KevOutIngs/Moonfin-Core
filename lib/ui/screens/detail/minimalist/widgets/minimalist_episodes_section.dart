@@ -177,6 +177,7 @@ class _MinimalistEpisodesSectionState extends State<MinimalistEpisodesSection> {
           child: LockedFocusRow<AggregatedItem>(
             key: _railKey,
             items: episodes,
+            itemKey: (item, _) => '${item.serverId}|${item.id}',
             hubKey: 'minimalist-episodes-${_vm.item?.id ?? ''}-$selected',
             itemExtent: cardWidth,
             itemSpacing: 20,

@@ -157,12 +157,6 @@ class _MinimalistDetailContentState extends State<MinimalistDetailContent> {
                   alignment: landscape
                       ? Alignment.centerRight
                       : Alignment.topCenter,
-                  imageBuilder: (resolved) => OfflineAwareImage(
-                    imageUrl: resolved,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
                 ),
               ColoredBox(color: AppColors.black.withValues(alpha: alpha)),
             ],

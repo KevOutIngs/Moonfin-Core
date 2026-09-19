@@ -4852,9 +4852,11 @@ class _ModernDetailContentState extends State<ModernDetailContent> {
           OfflineAwareImage(
             imageUrl: url,
             fit: BoxFit.cover,
-            alignment:
-                landscape ? Alignment.centerRight : Alignment.topCenter,
-            fadeInDuration: const Duration(milliseconds: 250),
+            alignment: landscape ? Alignment.centerRight : Alignment.topCenter,
+            fadeInDuration: Duration.zero,
+            sourceAspectRatio: 16 / 9,
+            maxDecodeWidth: ArtworkDecode.maxSourceWidth,
+            priority: ImageFetchPriority.high,
             errorWidget: (context, url, error) => const SizedBox.shrink(),
           ),
           if (item?.type == 'Person' && _randomBackdropUrl == null)

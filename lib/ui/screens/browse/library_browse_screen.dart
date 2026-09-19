@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
-import '../../widgets/bounded_network_image.dart';
 import '../../widgets/offline_aware_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:moonfin_design/moonfin_design.dart';
@@ -20,6 +20,8 @@ import '../../../data/viewmodels/library_browse_view_model.dart';
 import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../ui/mixins/focus_state_mixin.dart';
+import '../../../util/artwork_request_size.dart';
+import '../home/home_row_prefetch.dart';
 import '../../../util/focus/dpad_keys.dart';
 import '../../../util/focus/grid_focus_node_mixin.dart';
 import '../../../util/platform_detection.dart';
@@ -527,22 +529,33 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
     return tags[imageType] as String?;
   }
 
-  /// Width to ask the server for, covering [cellWidth] at this display's
-  /// density. Rounded up in coarse steps so the server keeps serving the sizes
-  /// it has already encoded rather than a new one per device.
-  int _requestWidthFor(double cellWidth, int step) {
-    final pixels = BoundedNetworkImage.physicalPixels(
-      cellWidth,
-      MediaQuery.devicePixelRatioOf(context),
+  /// See [gridCacheExtentFor].
+  ScrollCacheExtent? _gridScrollCacheExtent({
+    required double cellExtent,
+    required double spacing,
+  }) {
+    final pixels = gridCacheExtentFor(
+      tier: _prefs.resolveDevicePerformanceTier(),
+      cellExtent: cellExtent,
+      spacing: spacing,
     );
-    return (pixels / step).ceil() * step;
+    return pixels == null ? null : ScrollCacheExtent.pixels(pixels);
   }
+
+  /// Width to ask the server for, covering [cellWidth] at this display's
+  /// density. See [artworkRequestWidth].
+  int _requestWidthFor(double cellWidth, ArtworkShape shape) =>
+      artworkRequestWidth(
+        cellWidth,
+        MediaQuery.devicePixelRatioOf(context),
+        shape,
+      );
 
   String? _imageUrl(AggregatedItem item, {double? cellWidth}) {
     final api = _vm.imageApi;
     final width = cellWidth ?? _cardWidth();
-    final posterMaxW = _requestWidthFor(width, 140);
-    final landscapeMaxW = _requestWidthFor(width, 240);
+    final posterMaxW = _requestWidthFor(width, ArtworkShape.poster);
+    final landscapeMaxW = _requestWidthFor(width, ArtworkShape.landscape);
 
     final itemThumbTag = _tagForType(item, 'Thumb');
     final itemBannerTag = _tagForType(item, 'Banner');
@@ -919,6 +932,7 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
       memCacheWidth: blurred
           ? BackgroundService.backdropBlurredDecodeWidth
           : BackgroundService.backdropMaxWidth,
+      priority: ImageFetchPriority.high,
       errorWidget: (_, _, _) => const SizedBox.shrink(),
     );
     if (!blurred) return image;
@@ -1304,6 +1318,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
 
         final verticalScrollView = CustomScrollView(
           controller: _scrollController,
+          scrollCacheExtent: _gridScrollCacheExtent(
+            cellExtent: cellHeight,
+            spacing: rowSpacing,
+          ),
           slivers: [
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
@@ -1621,6 +1639,10 @@ class _LibraryBrowseScreenState extends State<LibraryBrowseScreen>
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
+            scrollCacheExtent: _gridScrollCacheExtent(
+              cellExtent: actualCellWidth,
+              spacing: spacing,
+            ),
             slivers: [
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(

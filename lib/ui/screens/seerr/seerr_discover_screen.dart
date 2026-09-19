@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -33,6 +32,7 @@ import '../../../util/seerr_genre_art.dart';
 import '../../widgets/seerr/seerr_genre_label.dart';
 import '../../widgets/skeleton/skeleton_home_row.dart';
 import '../../widgets/skeleton/skeleton_shimmer.dart';
+import '../../widgets/offline_aware_image.dart';
 
 const _tmdbPosterBase = 'https://image.tmdb.org/t/p/w300';
 const _tmdbBackdropBase = 'https://image.tmdb.org/t/p/w1280';
@@ -1242,7 +1242,7 @@ class _GenreCardState extends State<_GenreCard> with FocusStateMixin {
                 fit: StackFit.expand,
                 children: [
                   if (widget.imageUrl != null)
-                    CachedNetworkImage(
+                    OfflineAwareImage(
                       imageUrl: widget.imageUrl!,
                       fit: BoxFit.cover,
                       errorWidget: (_, _, _) => Container(
@@ -1405,7 +1405,7 @@ class _LogoCardState extends State<_LogoCard> with FocusStateMixin {
               child: widget.logoUrl != null
                   ? Padding(
                       padding: const EdgeInsets.all(16),
-                      child: CachedNetworkImage(
+                      child: OfflineAwareImage(
                         imageUrl: widget.logoUrl!,
                         fit: BoxFit.contain,
                         errorWidget: (_, _, _) => Center(

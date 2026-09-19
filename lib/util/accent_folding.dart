@@ -4,6 +4,7 @@
 /// The media server already does this for the searches it answers itself, so
 /// anything matching locally has to fold too or the same query gives different
 /// results depending on which box ran it.
+library;
 
 /// [value] with every accented letter this knows replaced by its base letter.
 ///

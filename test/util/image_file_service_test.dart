@@ -389,6 +389,37 @@ void main() {
       await drain(await next);
     });
 
+    test('a request past the wait ceiling goes before a newer one', () async {
+      final service = BoundedImageFileService(
+        http.Client(),
+        concurrentFetches: 4096,
+        scheduler: ArtworkRequestScheduler(
+          slots: 1,
+          batchGap: const Duration(milliseconds: 5),
+          maxWait: const Duration(milliseconds: 100),
+        ),
+      );
+      final holder = service.get('${base()}/holder');
+      await settle();
+      final waited = service.get('${base()}/waited-for');
+      // Long enough that it is past the ceiling when the slot frees up.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      final newer = service.get('${base()}/newer');
+      await settle();
+      expect(arrived, ['/holder'], reason: 'both should still be queued');
+
+      answer('/holder');
+      await drain(await holder);
+      await settle();
+      expect(arrived, ['/holder', '/waited-for']);
+
+      answer('/waited-for');
+      await drain(await waited);
+      await settle();
+      answer('/newer');
+      await drain(await newer);
+    });
+
     test('a promoted request jumps its old batch', () async {
       final scheduler = ArtworkRequestScheduler(
         slots: 1,

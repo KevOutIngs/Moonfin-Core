@@ -163,6 +163,43 @@ void main() {
     });
   });
 
+  test('a queued request is not held back by a stream of newer ones', () {
+    // Newest batch first alone left the screensaver's request at the back of
+    // the queue for as long as the app behind it kept cycling, so every slide
+    // but the first stayed black.
+    run((async, s) {
+      want(s, 'in-flight');
+      async.flushMicrotasks();
+      want(s, 'slide-backdrop');
+      async.flushMicrotasks();
+
+      for (var i = 0; i < 30; i++) {
+        async.elapse(const Duration(milliseconds: 200));
+        want(s, 'background-$i');
+        async.flushMicrotasks();
+        s.release();
+        async.flushMicrotasks();
+      }
+
+      expect(order, contains('slide-backdrop'));
+    });
+  });
+
+  test('the wait ceiling does not disturb a settling screen', () {
+    run((async, s) {
+      want(s, 'in-flight');
+      async.flushMicrotasks();
+      want(s, 'old');
+      async.elapse(const Duration(milliseconds: 20));
+      want(s, 'new');
+      async.flushMicrotasks();
+      // Both queued well inside the ceiling, so the newer one still wins.
+      s.release();
+      async.flushMicrotasks();
+      expect(order, ['in-flight', 'new']);
+    });
+  });
+
   test('release with an empty queue is harmless', () {
     run((async, s) {
       s.release();

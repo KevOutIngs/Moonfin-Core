@@ -22,6 +22,7 @@ class ArtworkRequestScheduler {
   ArtworkRequestScheduler({
     required this.slots,
     this.batchGap = defaultBatchGap,
+    this.maxWait = defaultMaxWait,
   }) : assert(slots > 0);
 
   /// How many requests may be in flight at once. Matched to the connection
@@ -39,6 +40,17 @@ class ArtworkRequestScheduler {
   /// first.
   final Duration batchGap;
   static const defaultBatchGap = Duration(milliseconds: 8);
+
+  /// How long a queued request may wait before it goes next whatever has
+  /// arrived since.
+  ///
+  /// Newest batch first suits a screen that is settling, which takes a second
+  /// or two. Left unbounded it also lets a screen that keeps asking for
+  /// images hold an older request back for as long as it runs, which is what
+  /// left screensaver slides black. Five seconds is past any settle and well
+  /// inside what a viewer waits for a picture.
+  final Duration maxWait;
+  static const defaultMaxWait = Duration(seconds: 5);
 
   int _running = 0;
   int _batch = 0;
@@ -62,12 +74,14 @@ class ArtworkRequestScheduler {
     String url, {
     ImageFetchPriority priority = ImageFetchPriority.normal,
   }) {
-    _touchBatch();
+    final now = clock.now();
+    _touchBatch(now);
     final waiter = _Waiter(
       url,
       priority,
       batch: _batch,
       depthAtEnqueue: _waiting.length,
+      enqueuedAt: now,
     );
     if (_running < slots && _waiting.isEmpty) {
       _running++;
@@ -91,7 +105,7 @@ class ArtworkRequestScheduler {
   void promote(String url, ImageFetchPriority priority) {
     final waiter = _waiting[url];
     if (waiter == null) return;
-    _touchBatch();
+    _touchBatch(clock.now());
     if (waiter.priority.index <= priority.index && waiter.batch == _batch) {
       return;
     }
@@ -102,14 +116,16 @@ class ArtworkRequestScheduler {
         waiter.priority.index < priority.index ? waiter.priority : priority,
         batch: _batch,
         depthAtEnqueue: waiter.depthAtEnqueue,
+        // Keeps its original age, so a promoted request that is outrun again
+        // still ages out rather than starting its wait over.
+        enqueuedAt: waiter.enqueuedAt,
         completer: waiter.completer,
       ),
     );
   }
 
   /// Opens a new batch when the last request was longer than [batchGap] ago.
-  void _touchBatch() {
-    final now = clock.now();
+  void _touchBatch(DateTime now) {
     final last = _lastEnqueue;
     if (last == null || now.difference(last) > batchGap) _batch++;
     _lastEnqueue = now;
@@ -133,8 +149,9 @@ class ArtworkRequestScheduler {
   }
 
   void _admit() {
+    final now = clock.now();
     while (_running < slots) {
-      final next = _next();
+      final next = _next(now);
       if (next == null) return;
       _dequeue(next);
       _running++;
@@ -142,10 +159,14 @@ class ArtworkRequestScheduler {
     }
   }
 
-  _Waiter? _next() {
+  _Waiter? _next(DateTime now) {
     for (final lane in ImageFetchPriority.values) {
       final batches = _lanes[lane]!;
       if (batches.isEmpty) continue;
+      // Batch ids climb with time, so the first key is the oldest request in
+      // this lane and the last the newest.
+      final oldest = batches[batches.firstKey()]!.first;
+      if (now.difference(oldest.enqueuedAt) >= maxWait) return oldest;
       return batches[batches.lastKey()]!.first;
     }
     return null;
@@ -161,6 +182,7 @@ class _Waiter {
     this.priority, {
     required this.batch,
     required this.depthAtEnqueue,
+    required this.enqueuedAt,
     Completer<ArtworkAdmission>? completer,
   }) : completer = completer ?? Completer<ArtworkAdmission>();
 
@@ -168,6 +190,7 @@ class _Waiter {
   final ImageFetchPriority priority;
   final int batch;
   final int depthAtEnqueue;
+  final DateTime enqueuedAt;
   final Completer<ArtworkAdmission> completer;
 
   void admit() =>

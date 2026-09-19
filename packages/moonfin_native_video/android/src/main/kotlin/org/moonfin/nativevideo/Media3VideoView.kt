@@ -109,6 +109,7 @@ import org.moonfin.nativevideo.subtitle.TimeOffsetMediaSource
 import org.moonfin.nativevideo.subtitle.clampManualDelayMs
 import org.moonfin.nativevideo.subtitle.effectiveOffsetUs
 import org.moonfin.nativevideo.subtitle.externalFormatIdMatches
+import org.moonfin.nativevideo.subtitle.joinStackedCues
 import org.moonfin.nativevideo.subtitle.shouldRetime
 import org.moonfin.nativevideo.subtitle.sourceTreeFor
 import org.moonfin.nativevideo.subtitle.syncDelaysPayload
@@ -983,11 +984,11 @@ class Media3VideoView(
     private val listener = object : Player.Listener {
         @Suppress("DEPRECATION")
         override fun onCues(cues: List<Cue>) {
-            subtitleView.setCues(cues)
+            subtitleView.setCues(joinStackedCues(cues))
         }
 
         override fun onCues(cueGroup: CueGroup) {
-            subtitleView.setCues(cueGroup.cues)
+            subtitleView.setCues(joinStackedCues(cueGroup.cues))
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {

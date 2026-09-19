@@ -175,6 +175,7 @@ class _AppleTvPlayerHostScreenState extends State<AppleTvPlayerHostScreen> {
         isGlass: AppColorScheme.isGlass,
         accentARGB: AppColorScheme.accent.toARGB32(),
         surfaceARGB: AppColorScheme.surface.toARGB32(),
+        surfaceVariantARGB: AppColorScheme.surfaceVariant.toARGB32(),
         onSurfaceARGB: AppColorScheme.onSurface.toARGB32(),
         rangeProgressARGB: AppColorScheme.rangeProgress.toARGB32(),
         rangeTrackARGB: AppColorScheme.rangeTrack.toARGB32(),

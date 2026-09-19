@@ -152,6 +152,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
   final _overlayFocus = FocusNode();
   final _tvPlayPauseFocus = FocusNode(debugLabel: 'LiveTvPlayPause');
   final _tvChannelsFocus = FocusNode(debugLabel: 'LiveTvChannels');
+  final _tvGuideFocus = FocusNode(debugLabel: 'LiveTvGuide');
   final _tvAudioFocus = FocusNode(debugLabel: 'LiveTvAudio');
   final _tvSubtitleFocus = FocusNode(debugLabel: 'LiveTvSubtitle');
   final _tvBitrateFocus = FocusNode(debugLabel: 'LiveTvBitrate');
@@ -181,6 +182,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     FocusManager.instance.addListener(_onGlobalFocusChanged);
     _tvPlayPauseFocus.addListener(_onControlFocusChanged);
     _tvChannelsFocus.addListener(_onControlFocusChanged);
+    _tvGuideFocus.addListener(_onControlFocusChanged);
     _tvAudioFocus.addListener(_onControlFocusChanged);
     _tvSubtitleFocus.addListener(_onControlFocusChanged);
     _tvBitrateFocus.addListener(_onControlFocusChanged);
@@ -242,6 +244,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     }
     _tvPlayPauseFocus.removeListener(_onControlFocusChanged);
     _tvChannelsFocus.removeListener(_onControlFocusChanged);
+    _tvGuideFocus.removeListener(_onControlFocusChanged);
     _tvAudioFocus.removeListener(_onControlFocusChanged);
     _tvSubtitleFocus.removeListener(_onControlFocusChanged);
     _tvBitrateFocus.removeListener(_onControlFocusChanged);
@@ -249,6 +252,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
     _overlayFocus.dispose();
     _tvPlayPauseFocus.dispose();
     _tvChannelsFocus.dispose();
+    _tvGuideFocus.dispose();
     _tvAudioFocus.dispose();
     _tvSubtitleFocus.dispose();
     _tvBitrateFocus.dispose();
@@ -846,6 +850,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
   List<FocusNode> get _osdFocusOrder => [
     _tvPlayPauseFocus,
     _tvChannelsFocus,
+    _tvGuideFocus,
     if (_streamsOfType('Audio').length > 1) _tvAudioFocus,
     if (_hasSubtitleChoices) _tvSubtitleFocus,
     _tvBitrateFocus,
@@ -1472,7 +1477,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
       if (PlatformDetection.isTV) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_infoVisible) return;
-          _tvChannelsFocus.requestFocus();
+          _tvGuideFocus.requestFocus();
         });
       }
     }
@@ -1606,10 +1611,16 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
           return KeyEventResult.handled;
         }
 
-        if (PlatformDetection.isTV &&
-            FocusManager.instance.primaryFocus == _tvChannelsFocus) {
-          unawaited(_showChannelPicker());
-          return KeyEventResult.handled;
+        if (PlatformDetection.isTV) {
+          final focused = FocusManager.instance.primaryFocus;
+          if (focused == _tvChannelsFocus) {
+            _showChannelCarousel();
+            return KeyEventResult.handled;
+          }
+          if (focused == _tvGuideFocus) {
+            unawaited(_showChannelPicker());
+            return KeyEventResult.handled;
+          }
         }
 
         _togglePlayback();
@@ -2016,11 +2027,20 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
               );
             },
           ),
+          if (PlatformDetection.isTV) ...[
+            const SizedBox(width: AppSpacing.spaceSm),
+            _buildOverlayControlButton(
+              focusNode: _tvChannelsFocus,
+              icon: Icons.list_rounded,
+              tooltip: l10n.channels,
+              onPressed: _showChannelCarousel,
+            ),
+          ],
           const SizedBox(width: AppSpacing.spaceSm),
           _buildOverlayControlButton(
-            focusNode: PlatformDetection.isTV ? _tvChannelsFocus : null,
-            icon: Icons.list_rounded,
-            tooltip: l10n.channels,
+            focusNode: PlatformDetection.isTV ? _tvGuideFocus : null,
+            icon: Icons.grid_view_rounded,
+            tooltip: l10n.guide,
             onPressed: () => unawaited(_showChannelPicker()),
           ),
           if (PlatformDetection.isMobile) ...[

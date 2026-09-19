@@ -1913,6 +1913,13 @@ class UserPreferences extends ChangeNotifier {
     values: ZoomMode.values,
   );
 
+  /// Off by default: it costs picture width, and only video wide enough to
+  /// reach the housing gains anything.
+  static final keepVideoClearOfDynamicIsland = Preference(
+    key: 'pref_video_clear_of_dynamic_island',
+    defaultValue: false,
+  );
+
   /// One-shot encoded-letterbox crop. libmpv on Linux/Windows; Media3
   /// (and libmpv if selected) on Android phone and TV. Hidden on iOS,
   /// macOS, web, and tvOS.

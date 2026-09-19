@@ -22768,6 +22768,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'How far focus moves for each swipe on the Siri Remote touchpad'**
   String get siriRemoteSwipeSensitivityDescription;
+
+  /// iPhone playback setting that holds the picture back from the camera housing in landscape
+  ///
+  /// In en, this message translates to:
+  /// **'Keep video clear of the Dynamic Island'**
+  String get keepVideoClearOfDynamicIsland;
+
+  /// Description for the iPhone setting that keeps video clear of the Dynamic Island
+  ///
+  /// In en, this message translates to:
+  /// **'In landscape the camera housing covers one edge of the screen. This holds the picture back from it, which only changes anything for video wide enough to reach that far.'**
+  String get keepVideoClearOfDynamicIslandDescription;
 }
 
 class _AppLocalizationsDelegate

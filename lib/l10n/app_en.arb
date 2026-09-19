@@ -12087,5 +12087,13 @@
   "siriRemoteSwipeSensitivityDescription": "How far focus moves for each swipe on the Siri Remote touchpad",
   "@siriRemoteSwipeSensitivityDescription": {
     "description": "Apple TV settings subtitle for the Siri Remote touchpad swipe sensitivity option"
+  },
+  "keepVideoClearOfDynamicIsland": "Keep video clear of the Dynamic Island",
+  "@keepVideoClearOfDynamicIsland": {
+    "description": "iPhone playback setting that holds the picture back from the camera housing in landscape"
+  },
+  "keepVideoClearOfDynamicIslandDescription": "In landscape the camera housing covers one edge of the screen. This holds the picture back from it, which only changes anything for video wide enough to reach that far.",
+  "@keepVideoClearOfDynamicIslandDescription": {
+    "description": "Description for the iPhone setting that keeps video clear of the Dynamic Island"
   }
 }

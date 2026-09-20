@@ -18,6 +18,7 @@ import '../../../preference/preference_constants.dart';
 import '../../../preference/user_preferences.dart';
 import '../../../util/platform_detection.dart';
 import '../../widgets/top_toolbar.dart';
+import 'nouveau/shared/nouveau_spacing.dart';
 
 const double _kCompactBreakpoint = 600.0;
 
@@ -120,3 +121,76 @@ double nouveauHeroMinHeight(Size size) {
 double nouveauHorizontalInset(Size size) => PlatformDetection.isTV
     ? 56.0
     : (size.width * 0.046).clamp(56.0, 96.0);
+
+/// The Minimalist episode rail.
+///
+/// The rail owns the bottom of the screen, so its card is a share of the room
+/// it has rather than a fixed size. The peek is deliberate: half a card at the
+/// edge is what says the row runs on past it.
+const minimalistEpisodeRail = NouveauRailMetrics(
+  gap: 20,
+  preferredWidth: 266,
+  minWidth: 170,
+  maxWidth: 340,
+  peek: 0.35,
+);
+
+/// The same rail on a phone or a portrait tablet.
+const minimalistEpisodeRailCompact = NouveauRailMetrics(
+  gap: 14,
+  preferredWidth: 150,
+  minWidth: 120,
+  maxWidth: 200,
+  peek: 0.30,
+);
+
+/// The narrowest a still is worth drawing at, when a height budget is tight
+/// enough to push the card below the rail's own minimum.
+const double _kFloorCardWidth = 120;
+
+NouveauRailMetrics _scaledRail(NouveauRailMetrics metrics, double scale) =>
+    scale == 1.0
+    ? metrics
+    : NouveauRailMetrics(
+        gap: metrics.gap,
+        preferredWidth: metrics.preferredWidth * scale,
+        minWidth: metrics.minWidth * scale,
+        maxWidth: metrics.maxWidth * scale,
+        peek: metrics.peek,
+        minVisibleItems: metrics.minVisibleItems,
+      );
+
+double minimalistEpisodeRailGap({required bool landscape}) =>
+    landscape ? minimalistEpisodeRail.gap : minimalistEpisodeRailCompact.gap;
+
+/// The width of one card in the Minimalist episode rail, given the width the
+/// rail has to fill and, where the room below is fixed, the height its still
+/// may take.
+///
+/// The user's scale goes into the card sizes rather than the answer, so the
+/// step that works out how many cards fit still sees the size a card is meant
+/// to be. The result is whole points because the focus row steps the rail by a
+/// width the caller promises, and a card painting a fraction wider than it
+/// declared walks the row out of step with its own arithmetic.
+double minimalistEpisodeCardWidth(
+  double availableWidth, {
+  required bool landscape,
+  double? maxStillHeight,
+  UserPreferences? prefs,
+}) {
+  final metrics = _scaledRail(
+    landscape ? minimalistEpisodeRail : minimalistEpisodeRailCompact,
+    detailDesktopScale(prefs: prefs),
+  );
+  final wanted = metrics.itemWidth(availableWidth);
+  if (maxStillHeight == null || !maxStillHeight.isFinite) {
+    return wanted.roundToDouble();
+  }
+  // The floor stays put rather than rising with the user's scale, or it would
+  // push the card back up through the height it was just brought down to fit.
+  final fromBudget = math.max(maxStillHeight * 16 / 9, _kFloorCardWidth);
+  return math
+      .min(wanted, fromBudget)
+      .clamp(_kFloorCardWidth, metrics.maxWidth)
+      .roundToDouble();
+}

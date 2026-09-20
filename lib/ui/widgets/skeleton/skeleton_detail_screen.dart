@@ -417,8 +417,14 @@ class DetailScreenSkeleton extends StatelessWidget {
   Widget _buildMinimalist(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isLandscape = size.width >= size.height;
-    final cardWidth = isLandscape ? 266.0 : 150.0;
     final inset = isLandscape ? 56.0 : 20.0;
+    // The same helper the real rail uses, so the placeholder keeps landing
+    // where the content lands.
+    final cardWidth = minimalistEpisodeCardWidth(
+      size.width - inset * 2,
+      landscape: isLandscape,
+    );
+    final cardGap = minimalistEpisodeRailGap(landscape: isLandscape);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(inset, 40, inset, isLandscape ? 44 : 28),
@@ -463,7 +469,7 @@ class DetailScreenSkeleton extends StatelessWidget {
                   height: cardWidth * 9 / 16,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(width: 20),
+                SizedBox(width: cardGap),
               ],
             ],
           ),

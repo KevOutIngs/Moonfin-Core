@@ -8,12 +8,17 @@ import '../../../../../data/models/aggregated_item.dart';
 import '../../../../../data/viewmodels/item_detail_view_model.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../../preference/user_preferences.dart';
+import '../../../../../util/artwork_request_size.dart';
 import '../../../../navigation/destinations.dart';
 import '../../../../widgets/focus/context_menu_sheet.dart';
 import '../../../../widgets/focus/locked_focus_row.dart';
 import '../../../../widgets/sliding_pill_tabs.dart';
 import '../../detail_episode_images.dart';
+import '../../detail_layout_metrics.dart';
 import 'minimalist_episode_card.dart';
+
+/// The gap between the season tabs and the rail under them.
+const double _kTabsToRail = 18;
 
 /// Season tabs over a rail of episodes, and nothing else.
 ///
@@ -21,7 +26,15 @@ import 'minimalist_episode_card.dart';
 class MinimalistEpisodesSection extends StatefulWidget {
   final ItemDetailViewModel viewModel;
   final UserPreferences prefs;
-  final double cardWidth;
+
+  /// Which shape of rail to draw. The layout around it has already decided,
+  /// so the section takes the answer rather than asking again.
+  final bool landscape;
+
+  /// The most the whole section may take, when whatever holds it has a fixed
+  /// amount to give. The still is what shrinks, since the title and the
+  /// buttons above it aren't negotiable.
+  final double? maxHeight;
 
   /// Whatever sits at the top of this section, which is the season tabs when
   /// there are seasons to choose between and the episode rail when there are
@@ -36,7 +49,8 @@ class MinimalistEpisodesSection extends StatefulWidget {
     super.key,
     required this.viewModel,
     required this.prefs,
-    required this.cardWidth,
+    required this.landscape,
+    this.maxHeight,
     this.episodesFocusNode,
     this.onVerticalNavigation,
   });
@@ -124,6 +138,34 @@ class _MinimalistEpisodesSectionState extends State<MinimalistEpisodesSection> {
     );
   }
 
+  /// The room under the still. Measured rather than guessed, or a larger user
+  /// scale clips the second line of the title.
+  double _titleBlockHeight(BuildContext context, double cardWidth) {
+    final line =
+        MediaQuery.textScalerOf(context)
+            .scale(MinimalistEpisodeCard.titleFontSize(cardWidth)) *
+        MinimalistEpisodeCard.titleLineHeight;
+    return MinimalistEpisodeCard.titleGap +
+        line * MinimalistEpisodeCard.titleMaxLines;
+  }
+
+  double _railHeight(BuildContext context, double cardWidth) =>
+      cardWidth * 9 / 16 + _titleBlockHeight(context, cardWidth);
+
+  /// How tall the still may be, once the tabs and the title have taken their
+  /// share of whatever the layout allowed.
+  ///
+  /// The title is reserved at the larger of the two faces, since the width it
+  /// will be drawn at is the thing this is working out. Reserving the smaller
+  /// one would leave the second line nowhere to go on any card wide enough to
+  /// step up.
+  double? _stillBudget(BuildContext context, bool showTabs) {
+    final budget = widget.maxHeight;
+    if (budget == null || !budget.isFinite) return null;
+    final chrome = showTabs ? SlidingPillTabs.height + _kTabsToRail : 0.0;
+    return budget - chrome - _titleBlockHeight(context, double.infinity);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -144,76 +186,91 @@ class _MinimalistEpisodesSectionState extends State<MinimalistEpisodesSection> {
         ? all
         : all.where((e) => e.parentIndexNumber == selected).toList();
 
-    final cardWidth = widget.cardWidth;
-    final railHeight = cardWidth * 9 / 16 + 62;
     // One season is no choice at all, so the strip only earns its space when
     // there's somewhere else to go, and the rail takes over as the way in.
     final showTabs = seasons.length > 1;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (showTabs) ...[
-          SlidingPillTabs(
-            key: const ValueKey('minimalist-season-tabs'),
-            labels: [for (final n in seasons) _seasonLabel(l10n, n)],
-            selectedIndex: selected == null ? 0 : seasons.indexOf(selected),
-            onChanged: (index) => _selectSeason(seasons[index]),
-            focusNode: widget.episodesFocusNode,
-            onVerticalNavigation: (isUp) {
-              if (!isUp) {
-                _railKey.currentState?.requestFocusAt(0);
-                return true;
-              }
-              return widget.onVerticalNavigation?.call(true) ?? false;
-            },
-          ),
-          const SizedBox(height: 18),
-        ],
-        SizedBox(
-          key: const ValueKey('minimalist-episode-rail'),
-          height: railHeight,
-          child: LockedFocusRow<AggregatedItem>(
-            key: _railKey,
-            items: episodes,
-            itemKey: (item, _) => '${item.serverId}|${item.id}',
-            hubKey: 'minimalist-episodes-${_vm.item?.id ?? ''}-$selected',
-            itemExtent: cardWidth,
-            itemSpacing: 20,
-            height: railHeight,
-            controller: _railController,
-            focusNode: showTabs ? null : widget.episodesFocusNode,
-            clipBehavior: Clip.none,
-            // The row handles the remote's select and hold. The card below
-            // handles the pointer, so both have to agree.
-            onTap: (_, episode) => _openEpisode(context, episode),
-            onLongPress: (_, episode) => _showEpisodeMenu(context, episode),
-            onVerticalNavigation: (isUp) {
-              if (isUp && showTabs) {
-                widget.episodesFocusNode?.requestFocus();
-                return true;
-              }
-              return widget.onVerticalNavigation?.call(isUp) ?? false;
-            },
-            itemBuilder: (context, episode, index, isFocused) {
-              return MinimalistEpisodeCard(
-                episode: episode,
-                width: cardWidth,
-                isFocused: isFocused,
-                imageUrl: minimalistEpisodeImageUrl(
-                  episode,
-                  _vm,
-                  prefs: widget.prefs,
-                  cardWidth: cardWidth,
+    // Sized from the width the rail actually has, after whatever insets the
+    // layout put either side of it, rather than the width of the screen.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = minimalistEpisodeCardWidth(
+          constraints.maxWidth,
+          landscape: widget.landscape,
+          maxStillHeight: _stillBudget(context, showTabs),
+          prefs: widget.prefs,
+        );
+        final railHeight = _railHeight(context, cardWidth);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showTabs) ...[
+              SlidingPillTabs(
+                key: const ValueKey('minimalist-season-tabs'),
+                labels: [for (final n in seasons) _seasonLabel(l10n, n)],
+                selectedIndex: selected == null ? 0 : seasons.indexOf(selected),
+                onChanged: (index) => _selectSeason(seasons[index]),
+                focusNode: widget.episodesFocusNode,
+                onVerticalNavigation: (isUp) {
+                  if (!isUp) {
+                    _railKey.currentState?.requestFocusAt(0);
+                    return true;
+                  }
+                  return widget.onVerticalNavigation?.call(true) ?? false;
+                },
+              ),
+              const SizedBox(height: _kTabsToRail),
+            ],
+            SizedBox(
+              key: const ValueKey('minimalist-episode-rail'),
+              height: railHeight,
+              child: LockedFocusRow<AggregatedItem>(
+                key: _railKey,
+                items: episodes,
+                itemKey: (item, _) => '${item.serverId}|${item.id}',
+                hubKey: 'minimalist-episodes-${_vm.item?.id ?? ''}-$selected',
+                itemExtent: cardWidth,
+                itemSpacing: minimalistEpisodeRailGap(
+                  landscape: widget.landscape,
                 ),
-                onTap: () => _openEpisode(context, episode),
-                onLongPress: () => _showEpisodeMenu(context, episode),
-              );
-            },
-          ),
-        ),
-      ],
+                height: railHeight,
+                controller: _railController,
+                focusNode: showTabs ? null : widget.episodesFocusNode,
+                clipBehavior: Clip.none,
+                // The row handles the remote's select and hold. The card below
+                // handles the pointer, so both have to agree.
+                onTap: (_, episode) => _openEpisode(context, episode),
+                onLongPress: (_, episode) => _showEpisodeMenu(context, episode),
+                onVerticalNavigation: (isUp) {
+                  if (isUp && showTabs) {
+                    widget.episodesFocusNode?.requestFocus();
+                    return true;
+                  }
+                  return widget.onVerticalNavigation?.call(isUp) ?? false;
+                },
+                itemBuilder: (context, episode, index, isFocused) {
+                  return MinimalistEpisodeCard(
+                    episode: episode,
+                    width: cardWidth,
+                    isFocused: isFocused,
+                    imageUrl: minimalistEpisodeImageUrl(
+                      episode,
+                      _vm,
+                      prefs: widget.prefs,
+                      cardWidth: cardWidth,
+                      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                    ),
+                    onTap: () => _openEpisode(context, episode),
+                    onLongPress: () => _showEpisodeMenu(context, episode),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -227,9 +284,17 @@ String? minimalistEpisodeImageUrl(
   ItemDetailViewModel viewModel, {
   required UserPreferences prefs,
   required double cardWidth,
+  required double devicePixelRatio,
 }) {
   final imageApi = viewModel.imageApi;
-  final maxWidth = (cardWidth * 2).round();
+  // Stepped rather than doubled. The card width is a share of the screen, so
+  // a bare multiple would mint a fresh server encode and cache file for every
+  // window size the rail is ever drawn at.
+  final maxWidth = artworkRequestWidth(
+    cardWidth,
+    devicePixelRatio,
+    ArtworkShape.landscape,
+  );
 
   if (prefs.effectiveDetailUseSeriesThumbnails) {
     final series = resolveSeriesLandscapeThumbnailUrl(

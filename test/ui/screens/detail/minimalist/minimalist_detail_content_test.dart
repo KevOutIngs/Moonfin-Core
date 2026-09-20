@@ -13,6 +13,8 @@ import 'package:moonfin/data/viewmodels/item_detail_view_model.dart';
 import 'package:moonfin/auth/repositories/user_repository.dart';
 import 'package:moonfin/l10n/app_localizations.dart';
 import 'package:moonfin/preference/seerr_preferences.dart';
+import 'package:moonfin/preference/preference_constants.dart'
+    show DesktopUiScale;
 import 'package:moonfin/preference/user_preferences.dart';
 import 'package:moonfin/auth/repositories/session_repository.dart';
 import 'package:moonfin/ui/screens/detail/minimalist/minimalist_detail_content.dart';
@@ -165,6 +167,14 @@ void main() {
     ItemDetailViewModel vm, {
     Size size = const Size(1200, 2200),
   }) async {
+    // The surface as well as the MediaQuery. A faked MediaQuery alone steers
+    // which layout the screen picks but leaves it laying out against the
+    // default view, so anything sized from its own constraints gets measured
+    // at a size no test asked for.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = size;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     await vm.load();
@@ -361,5 +371,76 @@ void main() {
     await pumpContent(tester, viewModel('Movie', data: data), size: landscape);
 
     expect(find.byKey(const ValueKey('minimalist-episode-still')), findsNothing);
+  });
+
+  /// The canvas every TV normalizes to, and the raw one an Android TV reports
+  /// on its own. The screen has to hold together on both.
+  const tvCanvases = {
+    'the normalized TV canvas': Size(1324, 745),
+    'a raw 1080p Android TV canvas': Size(960, 540),
+  };
+
+  for (final entry in tvCanvases.entries) {
+    testWidgets('the rail leaves the title and buttons alone on ${entry.key}', (
+      tester,
+    ) async {
+      for (final scale in DesktopUiScale.values) {
+        await prefs.set(UserPreferences.desktopUiScale, scale);
+        await pumpContent(tester, seriesWithSeasons(3), size: entry.value);
+        await tester.pump(const Duration(milliseconds: 500));
+
+        // An overflow throws in a widget test, and an overflow here means
+        // the rail has grown into the room the buttons above it are using.
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: '${entry.key} at ${scale.name}',
+        );
+
+        final rail = tester.widget<LockedFocusRow<AggregatedItem>>(
+          find.byType(LockedFocusRow<AggregatedItem>),
+        );
+        final tabs = tester.getRect(find.byType(SlidingPillTabs));
+        final actions = tester.getRect(
+          find.byKey(const ValueKey('minimalist-actions')),
+        );
+        expect(
+          actions.bottom,
+          lessThanOrEqualTo(tabs.top + 0.01),
+          reason:
+              'the buttons sat on the season tabs on '
+              '${entry.key} at ${scale.name}',
+        );
+
+        // Everything the rail draws has to fit inside the height it declared,
+        // or the row scrolls out of step with its own arithmetic.
+        final railBox = tester.getSize(
+          find.byKey(const ValueKey('minimalist-episode-rail')),
+        );
+        expect(
+          railBox.height,
+          closeTo(rail.height, 0.01),
+          reason: '${entry.key} at ${scale.name}',
+        );
+      }
+    });
+  }
+
+  testWidgets('a small canvas gets more than three cards', (tester) async {
+    // A 1080p Android TV hands Flutter 960 points. A card sized for a wider
+    // canvas takes better than a quarter of that, which fits three.
+    await pumpContent(tester, seriesWithSeasons(3), size: const Size(960, 540));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final rail = tester.widget<LockedFocusRow<AggregatedItem>>(
+      find.byType(LockedFocusRow<AggregatedItem>),
+    );
+    final railWidth = tester
+        .getSize(find.byKey(const ValueKey('minimalist-episode-rail')))
+        .width;
+    final visible = railWidth / (rail.itemExtent + rail.itemSpacing);
+
+    expect(rail.itemExtent, lessThan(266));
+    expect(visible, greaterThan(4.0));
   });
 }

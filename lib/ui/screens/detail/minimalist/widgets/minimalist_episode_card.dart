@@ -10,6 +10,15 @@ import '../../../../widgets/offline_aware_image.dart';
 /// The number sits on the artwork rather than in front of the title, so a
 /// child who can't read the title still has something to count along.
 class MinimalistEpisodeCard extends StatefulWidget {
+  // The rail reserves the room the title needs before the card is built, so
+  // both sides read these rather than each writing the numbers out.
+  static const double titleGap = 8;
+  static const double titleLineHeight = 1.25;
+  static const int titleMaxLines = 2;
+
+  /// The face steps down on a card too narrow to carry the larger one.
+  static double titleFontSize(double width) => width >= 240 ? 18 : 15;
+
   final AggregatedItem episode;
   final String? imageUrl;
   final double width;
@@ -94,16 +103,16 @@ class _MinimalistEpisodeCardState extends State<MinimalistEpisodeCard> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: MinimalistEpisodeCard.titleGap),
               Text(
                 widget.episode.name,
-                maxLines: 2,
+                maxLines: MinimalistEpisodeCard.titleMaxLines,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColorScheme.onSurface,
                   fontWeight: FontWeight.w700,
-                  fontSize: widget.width >= 240 ? 18 : 15,
-                  height: 1.25,
+                  fontSize: MinimalistEpisodeCard.titleFontSize(widget.width),
+                  height: MinimalistEpisodeCard.titleLineHeight,
                   // The rail sits straight on the artwork, with no scrim under
                   // it, so the title carries its own separation.
                   shadows: const [

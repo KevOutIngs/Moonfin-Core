@@ -695,6 +695,7 @@ class Media3VideoView(
     private var displayModeSwitchAtMs = 0L
     private var wasPlayingBeforeDisplayModeSwitch = false
     private var displayModeSwitchRetriesForCurrentSource = 0
+    private var decoderReclaimRetriesForCurrentSource = 0
 
     private fun newVideoView(): View =
         if (useSurfaceView) {
@@ -1049,7 +1050,8 @@ class Media3VideoView(
         override fun onPlayerError(error: PlaybackException) {
             // Recovery order matters: an error while a display mode switch is
             // in flight is most likely the dropped surface, so that retry gets
-            // the first look. An init failure under tunneling is retried
+            // the first look. A reclaimed decoder is next, since nothing else
+            // answers that code. An init failure under tunneling is retried
             // untunneled before any downmix so a tunnel failure can't stick
             // the whole session to stereo. A failure on an IEC-packed track is
             // retried with IEC disabled (raw/decode return) before anything
@@ -1057,6 +1059,7 @@ class Media3VideoView(
             // handles 7.1 PCM that the device can't open as an 8-channel
             // AudioTrack.
             val nativeRetryTriggered = retryPlaybackOnDisplayModeSwitchErrorIfNeeded(error) ||
+                retryPlaybackOnReclaimedDecoderIfNeeded(error) ||
                 retryAudioWithoutOffloadIfNeeded(error) ||
                 retryAudioWithoutTunnelingIfNeeded(error) ||
                 retryAudioWithoutIecIfNeeded(error) ||
@@ -2346,6 +2349,7 @@ class Media3VideoView(
         val startPositionMs = (args["startPositionMs"] as? Number)?.toLong() ?: 0L
         val autoPlay = args["autoPlay"] as? Boolean ?: false
         displayModeSwitchRetriesForCurrentSource = 0
+        decoderReclaimRetriesForCurrentSource = 0
 
         restorePreferredDisplayMode()
         detectedFrameRate = null
@@ -4220,6 +4224,23 @@ class Media3VideoView(
         val playWhenReady = wasPlayingBeforeDisplayModeSwitch || player.playWhenReady
 
         prepareCurrentSource(retryPositionMs, playWhenReady)
+        return true
+    }
+
+    /**
+     * Passing playWhenReady through rather than forcing play means a viewer who
+     * paused before the decoder went comes back paused.
+     */
+    private fun retryPlaybackOnReclaimedDecoderIfNeeded(error: PlaybackException): Boolean {
+        val shouldRetry = DecoderReclaimPolicy.shouldRetry(
+            errorCode = error.errorCode,
+            retriesSoFar = decoderReclaimRetriesForCurrentSource,
+            playerLive = isPlayerLive(),
+        )
+        if (!shouldRetry) return false
+        if (currentUrl == null) return false
+        decoderReclaimRetriesForCurrentSource++
+        prepareCurrentSource(player.currentPosition.coerceAtLeast(0L), player.playWhenReady)
         return true
     }
 

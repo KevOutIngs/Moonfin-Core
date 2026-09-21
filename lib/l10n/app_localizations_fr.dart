@@ -2762,7 +2762,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String savedMediaOfLimit(String used, String limit) {
-    return '$used of $limit';
+    return '$used sur $limit';
   }
 
   @override

@@ -287,18 +287,22 @@ class _ChannelCarouselOverlayState extends State<ChannelCarouselOverlay>
   static const double _overviewGap = 4;
   static const int _overviewLines = 2;
 
+  /// The header is the one place a viewer reads more than a label, so its
+  /// three lines are sized for reading at ten feet. A panel paints the canvas
+  /// at about 1.45 pixels to the point, which lands the description near 26
+  /// and the metadata just past 20, and the title keeps a step on both.
   static const TextStyle _titleStyle = TextStyle(
     color: Colors.white,
-    fontSize: 18,
+    fontSize: AppTypography.fontSizeXl,
     fontWeight: FontWeight.w700,
   );
   static const TextStyle _metaStyle = TextStyle(
     color: Colors.white70,
-    fontSize: 13,
+    fontSize: AppTypography.fontSizeSm,
   );
   static const TextStyle _overviewStyle = TextStyle(
     color: Colors.white60,
-    fontSize: AppTypography.fontSizeMd,
+    fontSize: AppTypography.fontSizeLg,
     height: 1.25,
   );
   late final LiveTvGuideViewModel _vm;

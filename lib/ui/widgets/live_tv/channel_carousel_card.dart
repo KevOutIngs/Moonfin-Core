@@ -58,7 +58,12 @@ class ChannelCarouselCard extends StatelessWidget {
   /// paints at about 1.45 pixels to the point. A size written in a panel's
   /// own units lands a third short of what it was drawn for once that
   /// multiplication is done.
-  static const double cardWidth = 280;
+  ///
+  /// The value is the width the canvas gives when four pitches fit across it,
+  /// which is the arrangement the strip reads best in. The centred card keeps
+  /// a whole neighbour either side and a half card bleeds off each edge, so
+  /// there is always something further along to scroll to.
+  static const double cardWidth = 320;
   static const double cardHeight = 151;
   static const double cardSpacing = 10;
 
@@ -92,6 +97,11 @@ class ChannelCarouselCard extends StatelessWidget {
 
   static const double _headerGap = 8;
   static const double _statusGap = 3;
+
+  /// Icons set in a line of text take this share of that line's face, so they
+  /// keep their weight beside it at any interface size. The header's marks are
+  /// sized from the channel number, the largest face in that band.
+  static const double _inlineIconShare = 0.8;
 
   const ChannelCarouselCard({
     super.key,
@@ -183,6 +193,10 @@ class ChannelCarouselCard extends StatelessWidget {
       color: AppColorScheme.onSurface,
     );
 
+    final inlineIconSize =
+        scaler.scale(numberStyle.fontSize ?? AppTypography.fontSizeLg) *
+        _inlineIconShare;
+
     // The content box is known from the given width, so the fit decisions that
     // used to run inside a LayoutBuilder are made here instead: a relayout
     // boundary per card cost more than the arithmetic it guarded.
@@ -238,7 +252,7 @@ class ChannelCarouselCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _headerRow(nameStyle, numberStyle),
+                  _headerRow(nameStyle, numberStyle, inlineIconSize),
                   const SizedBox(height: _headerGap),
                   if (programTitle != null)
                     Text(
@@ -309,10 +323,14 @@ class ChannelCarouselCard extends StatelessWidget {
 
   /// Logo leads, the heart sits with the channel number it belongs to, and
   /// the recording dot trails so nothing crowds the identity.
-  Widget _headerRow(TextStyle nameStyle, TextStyle numberStyle) => Row(
+  Widget _headerRow(
+    TextStyle nameStyle,
+    TextStyle numberStyle,
+    double inlineIconSize,
+  ) => Row(
     children: [
       if (isFavorite) ...[
-        const Icon(Icons.favorite, size: 13, color: AppColors.red500),
+        Icon(Icons.favorite, size: inlineIconSize, color: AppColors.red500),
         const SizedBox(width: 4),
       ],
       if (channelNumber != null) ...[
@@ -334,10 +352,10 @@ class ChannelCarouselCard extends StatelessWidget {
       ),
       if (hasTimer) ...[
         const SizedBox(width: _statusGap),
-        const Icon(
+        Icon(
           Icons.fiber_manual_record,
-          size: 10,
-          color: Color(0xFFE0685C),
+          size: inlineIconSize,
+          color: const Color(0xFFE0685C),
         ),
       ],
       if (logoUrl != null && logoUrl!.isNotEmpty) ...[

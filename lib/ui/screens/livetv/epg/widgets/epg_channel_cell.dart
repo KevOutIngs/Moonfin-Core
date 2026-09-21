@@ -32,6 +32,10 @@ class EpgChannelCell extends StatelessWidget {
 
   static double _nameSize(double width) => width >= _tenFootRailWidth ? 18 : 12;
 
+  /// Icons set in a line of text take this share of that line's face, so they
+  /// keep their weight beside it at any interface size.
+  static const double _inlineIconShare = 0.8;
+
   /// The share of the cell the logo takes, and the bounds it keeps whatever
   /// the rail is given. A share rather than a fixed width because the rail is
   /// itself a share of the canvas, and a logo sized for the roomy one leaves
@@ -55,6 +59,7 @@ class EpgChannelCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final scaler = MediaQuery.textScalerOf(context);
     final accent = AppColorScheme.accent;
     final radius = apple ? 14.0 : 10.0;
     final Color bg;
@@ -98,9 +103,11 @@ class EpgChannelCell extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       if (isFavorite) ...[
-                        const Icon(
+                        Icon(
                           Icons.favorite,
-                          size: 11,
+                          size:
+                              scaler.scale(_numberSize(width)) *
+                              _inlineIconShare,
                           color: AppColors.red500,
                         ),
                         const SizedBox(width: 4),

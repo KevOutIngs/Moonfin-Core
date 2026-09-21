@@ -126,6 +126,7 @@ void main() {
   Future<AppLocalizations> pumpGuide(
     WidgetTester tester, {
     Size surface = const Size(900, 700),
+    double textScale = 1.0,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -135,6 +136,14 @@ void main() {
       MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        // The interface size setting reaches the guide the way the app hands
+        // it down, as a scaler over everything below it.
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: const LiveTvGuideScreen(),
       ),
     );
@@ -303,6 +312,27 @@ void main() {
     }
     return whole;
   }
+
+  testWidgets('a larger interface size trades guide rows for room to read', (
+    tester,
+  ) async {
+    const canvas = Size(1324, 745);
+    await pumpGuide(tester, surface: canvas);
+    final regular = wholeRows(tester);
+
+    await pumpGuide(tester, surface: canvas, textScale: 1.3);
+    final scaled = wholeRows(tester);
+
+    // A row that held still while its text grew clipped it top and bottom,
+    // which an overflow reports here.
+    expect(tester.takeException(), isNull);
+    expect(scaled, lessThan(regular), reason: 'taller rows mean fewer of them');
+    expect(
+      scaled,
+      greaterThanOrEqualTo(5),
+      reason: 'the guide still has to be worth scrolling',
+    );
+  });
 
   for (final entry in tvCanvases.entries) {
     testWidgets('the guide fits its chrome on ${entry.key}', (tester) async {

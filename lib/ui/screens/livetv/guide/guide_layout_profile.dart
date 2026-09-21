@@ -52,6 +52,8 @@ class GuideLayoutProfile {
   /// other panel.
   static const double _targetPixelsPerMinute = 6.2;
 
+  /// One channel row, with the interface text size already in it. A row
+  /// carries a title over a metadata line and has to grow with them.
   final double rowHeight;
   final double channelColumnWidth;
   final double pixelsPerMinute;
@@ -76,8 +78,8 @@ class GuideLayoutProfile {
   }) {
     final width = math.max(1.0, availableWidth);
     final scale = math.max(1.0, textScaleFactor);
-    final densityHeight = math.max(1.0, availableHeight) / scale;
-    final heightProgress = ((densityHeight - 320) / 480).clamp(0.0, 1.0);
+    final height = math.max(1.0, availableHeight);
+    final heightProgress = ((height - 320) / 480).clamp(0.0, 1.0);
     // The rail is content-sized rather than taking a fifth of every display.
     // A bounded text-scale allowance preserves room for accessibility text
     // without allowing the rail to consume a wide browser or television.
@@ -98,11 +100,16 @@ class GuideLayoutProfile {
         .clamp(minSlots, maxSlots);
     final guideWindow = Duration(minutes: targetSlots * _slotMinutes);
 
+    // Both of the text-bearing dimensions take the interface size in full,
+    // where the rail above is bounded. A rail that grows takes its width out
+    // of the guide beside it, so it has somewhere to stop. A row that grows
+    // only costs another row, and capping it would clip the very text the
+    // larger size was set to read.
     return GuideLayoutProfile(
-      rowHeight: 50 + (12 * heightProgress),
+      rowHeight: (50 + (12 * heightProgress)) * scale,
       channelColumnWidth: channelColumnWidth,
       pixelsPerMinute: guideWidth / guideWindow.inMinutes,
-      timeHeaderHeight: 22 + (2 * heightProgress),
+      timeHeaderHeight: (22 + (2 * heightProgress)) * scale,
       targetSlots: targetSlots,
       guideWindow: guideWindow,
     );

@@ -108,6 +108,26 @@ void main() {
     expect(30 * profile.pixelsPerMinute, greaterThan(170));
   });
 
+  test('gives a row more height as the interface text size grows', () {
+    const area = (width: 1276.0, height: 721.0);
+    final regular = GuideLayoutProfile.fromAvailableArea(
+      availableWidth: area.width,
+      availableHeight: area.height,
+    );
+    final scaled = GuideLayoutProfile.fromAvailableArea(
+      availableWidth: area.width,
+      availableHeight: area.height,
+      textScaleFactor: 1.3,
+    );
+
+    expect(scaled.rowHeight, closeTo(regular.rowHeight * 1.3, 0.01));
+    expect(
+      area.height ~/ scaled.rowHeight,
+      lessThan(area.height ~/ regular.rowHeight),
+      reason: 'a taller row means fewer of them fit',
+    );
+  });
+
   test('allows bounded channel-rail growth for accessibility text', () {
     final regular = GuideLayoutProfile.fromAvailableArea(
       availableWidth: 1200,

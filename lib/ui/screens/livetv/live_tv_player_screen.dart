@@ -2032,7 +2032,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
             const SizedBox(width: AppSpacing.spaceSm),
             _buildOverlayControlButton(
               focusNode: _tvChannelsFocus,
-              icon: Icons.list_rounded,
+              icon: Icons.grid_view_rounded,
               tooltip: l10n.channels,
               onPressed: _showChannelCarousel,
             ),
@@ -2040,7 +2040,7 @@ class _LiveTvPlayerScreenState extends State<LiveTvPlayerScreen>
           const SizedBox(width: AppSpacing.spaceSm),
           _buildOverlayControlButton(
             focusNode: PlatformDetection.isTV ? _tvGuideFocus : null,
-            icon: Icons.grid_view_rounded,
+            icon: Icons.list_rounded,
             tooltip: l10n.guide,
             onPressed: () => unawaited(_showChannelPicker()),
           ),

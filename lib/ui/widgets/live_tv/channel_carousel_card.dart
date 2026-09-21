@@ -53,23 +53,28 @@ class ChannelCarouselCard extends StatelessWidget {
   final double width;
 
   /// Preferred card width, and the target [layoutFor] aims at.
-  static const double cardWidth = 200;
-  static const double cardHeight = 108;
+  ///
+  /// Written against the canvas a television lays out on, which the panel
+  /// paints at about 1.45 pixels to the point. A size written in a panel's
+  /// own units lands a third short of what it was drawn for once that
+  /// multiplication is done.
+  static const double cardWidth = 280;
+  static const double cardHeight = 151;
   static const double cardSpacing = 10;
 
   /// The logo owns the header's right edge. It grows to the header band's
   /// height so it never reaches the program text below it.
-  static const double _logoHeight = 30;
-  static const double _logoMaxWidth = 44;
+  static const double _logoHeight = 42;
+  static const double _logoMaxWidth = 62;
   static const double cardPitch = cardWidth + cardSpacing;
 
   /// Band a derived card width has to land in before it is considered.
-  static const double minCardWidth = 150;
-  static const double maxCardWidth = 280;
+  static const double minCardWidth = 207;
+  static const double maxCardWidth = 386;
 
   /// Absolute floor: below this the program block has nothing to say, so a
   /// narrower strip takes fewer cards instead.
-  static const double _minLegibleWidth = 96;
+  static const double _minLegibleWidth = 166;
 
   /// Upper bound on the whole-card count, so a very wide window can't turn
   /// the strip into a row of slivers.
@@ -80,12 +85,12 @@ class ChannelCarouselCard extends StatelessWidget {
   /// Full-bleed genre bar down the leading edge.
   static const double _genreBarWidth = 4;
 
-  static const EdgeInsets _contentPadding = EdgeInsets.fromLTRB(12, 8, 8, 8);
-  double get _contentWidth => width - 12 - 8; // _contentPadding horizontal
+  static const EdgeInsets _contentPadding = EdgeInsets.fromLTRB(16, 11, 11, 11);
+  double get _contentWidth => width - _contentPadding.horizontal;
   static const double _contentHeight =
-      cardHeight - 8 - 8; // _contentPadding vertical
+      cardHeight - 11 - 11; // _contentPadding vertical
 
-  static const double _headerGap = 6;
+  static const double _headerGap = 8;
   static const double _statusGap = 3;
 
   const ChannelCarouselCard({

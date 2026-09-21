@@ -120,13 +120,16 @@ class EpgProgramCell extends StatelessWidget {
       );
     }
 
-    // TV guide titles meet the 10-foot UI body-text floor while retaining a
-    // regular weight for the existing focus and on-now treatments.
+    // Titles clear the ten foot body-text floor, which is about 24 painted
+    // pixels on a 1080p panel, while keeping a regular weight for the existing
+    // focus and on-now treatments. The floor is a painted size, so it has to
+    // be read against the canvas a television lays out on rather than against
+    // whatever size a given panel reports.
     final titleStyle =
         (textTheme.bodyMedium ??
-                const TextStyle(fontSize: AppTypography.fontSizeSm))
+                const TextStyle(fontSize: AppTypography.fontSizeLg))
             .copyWith(
-              fontSize: AppTypography.fontSizeSm,
+              fontSize: AppTypography.fontSizeLg,
               fontWeight: FontWeight.w400,
               color: placeholderLabel != null
                   ? muted
@@ -135,8 +138,8 @@ class EpgProgramCell extends StatelessWidget {
 
     final metaStyle =
         (textTheme.labelMedium ??
-                const TextStyle(fontSize: AppTypography.fontSizeXs))
-            .copyWith(fontSize: AppTypography.fontSizeXs, color: muted);
+                const TextStyle(fontSize: AppTypography.fontSizeSm))
+            .copyWith(fontSize: AppTypography.fontSizeSm, color: muted);
 
     final markerStyle = titleStyle.copyWith(
       fontWeight: FontWeight.w700,

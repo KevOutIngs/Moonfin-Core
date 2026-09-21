@@ -258,9 +258,15 @@ void main() {
     );
     final now = tester.getRect(find.text(l10n.now));
     final channelCells = find.byType(EpgChannelCell);
+    final area = guideAvailableArea(
+      maxWidth: surface.width,
+      maxHeight: surface.height,
+      landscape: true,
+      miniPlayerMode: false,
+    );
     final profile = GuideLayoutProfile.fromAvailableArea(
-      availableWidth: surface.width - 24 - 24,
-      availableHeight: surface.height - 8 - 16,
+      availableWidth: area.width,
+      availableHeight: area.height,
     );
 
     expect(hero.height, closeTo(EpgHeroPreview.compactHeight, 0.1));
@@ -273,6 +279,45 @@ void main() {
     expect(fifth.height, closeTo(profile.rowHeight - 1, 0.1));
     expect(fifth.bottom, lessThanOrEqualTo(surface.height - 16));
   });
+
+  /// The canvas every television lays out on, and a panel small enough that
+  /// the guide has to give something up. It has to hold together on both, and
+  /// the canvas is where the row height was derived, so it carries the floor
+  /// the derivation was aiming at.
+  const tvCanvases = {
+    'the television canvas': (surface: Size(1324, 745), rows: 8),
+    'a surface below it': (surface: Size(960, 540), rows: 5),
+  };
+
+  /// Rows sitting whole inside the screen, which is what a viewer can read
+  /// without scrolling.
+  int wholeRows(WidgetTester tester) {
+    final screen = tester.getRect(find.byType(LiveTvGuideScreen));
+    final cells = find.byType(EpgChannelCell);
+    var whole = 0;
+    for (var i = 0; i < cells.evaluate().length; i++) {
+      final row = tester.getRect(cells.at(i));
+      if (row.top >= screen.top - 0.5 && row.bottom <= screen.bottom + 0.5) {
+        whole++;
+      }
+    }
+    return whole;
+  }
+
+  for (final entry in tvCanvases.entries) {
+    testWidgets('the guide fits its chrome on ${entry.key}', (tester) async {
+      await pumpGuide(tester, surface: entry.value.surface);
+
+      // An overflow throws in a widget test, so this catches a row or a cell
+      // that has outgrown the room the chrome left it.
+      expect(tester.takeException(), isNull, reason: entry.key);
+      expect(
+        wholeRows(tester),
+        greaterThanOrEqualTo(entry.value.rows),
+        reason: entry.key,
+      );
+    });
+  }
 
   testWidgets('DOWN from the genre rail descends through the controls row', (
     tester,

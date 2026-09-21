@@ -106,6 +106,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     with WidgetsBindingObserver, WindowListener, ImmersiveSystemUi {
   static final _camelCaseSpaceRe = RegExp(r'(?<=[a-z])(?=[A-Z])');
   static const _streamLoadingLabel = 'Loading Stream...';
+
+  /// How long away counts as having moved on rather than stepped out.
+  static const _staleSuspendExit = Duration(minutes: 30);
   static const _tvTemporarySpeed = 2.0;
   static const _tvTemporarySpeedHoldDelay = Duration(milliseconds: 420);
   static const _seekPromptSuppressionDuration = Duration(milliseconds: 1200);
@@ -272,6 +275,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   bool _didRequestIosPiPForBackground = false;
   bool _isStartingIosPiPForBackground = false;
   bool _didHandleBackgroundSuspend = false;
+  StreamSubscription? _userLeftAppSub;
+  bool _userLeftApp = false;
+  DateTime? _userLeftAppAt;
   bool _videoNeedsReattachAfterScreenOff = false;
   Timer? _tvBackgroundExitTimer;
   Timer? _tvTemporarySpeedHoldTimer;
@@ -979,6 +985,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
 
     if (PlatformDetection.isAndroid) {
       _screenLockSub = _pipService.onScreenLock.listen(_onScreenLock);
+      if (PlatformDetection.isTV) {
+        _userLeftAppSub = _pipService.onUserLeftApp.listen((_) {
+          _userLeftApp = true;
+        });
+      }
     }
 
     if (PlatformDetection.useDesktopUi) {
@@ -1059,6 +1070,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     _backendSub?.cancel();
     _bringupSub?.cancel();
     _pipChangedSub?.cancel();
+    _userLeftAppSub?.cancel();
     _pipActionSub?.cancel();
     _playingSub?.cancel();
     _bufferingSub?.cancel();
@@ -1284,6 +1296,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     });
   }
 
+  /// Leaves the player when the viewer has been away long enough that coming
+  /// back to a held frame is less use to them than the item they left.
+  ///
+  /// Returns true when it took over, since the rest of the resume is restoring
+  /// a player that is on its way out.
+  bool _consumeStaleSuspend() {
+    final leftAt = _userLeftAppAt;
+    _userLeftAppAt = null;
+    if (leftAt == null || _isStopping) return false;
+    if (DateTime.now().difference(leftAt) < _staleSuspendExit) return false;
+    unawaited(_exitPlayback());
+    return true;
+  }
+
   void _cancelTvBackgroundExit() {
     _tvBackgroundExitTimer?.cancel();
     _tvBackgroundExitTimer = null;
@@ -1361,6 +1387,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           if (_isTvLifecycleExitSuppressed()) return;
           if (_didHandleBackgroundSuspend) return;
           _didHandleBackgroundSuspend = true;
+          // Only a leave the viewer chose starts the clock. The screensaver
+          // suspends us the same way and should still come back to the player.
+          if (_userLeftApp) {
+            _userLeftApp = false;
+            _userLeftAppAt = DateTime.now();
+          }
           if (_state.isPlaying && _activeMedia3Backend == null) {
             _scheduleTvBackgroundExit();
           }
@@ -1379,6 +1411,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       case AppLifecycleState.resumed:
         _didHandleBackgroundSuspend = false;
         _cancelTvBackgroundExit();
+        if (_consumeStaleSuspend()) return;
         _didRequestIosPiPForBackground = false;
         if (PlatformDetection.isIOS && _isInPiP) {
           _pipService.enableAutoPiP(false);

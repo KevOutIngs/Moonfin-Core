@@ -9,6 +9,9 @@
 /// So the app doesn't lay out on the panel's canvas at all. It lays out on
 /// this one and scales the result to fill the screen, which makes every TV
 /// agree whatever density it reports.
+///
+/// Platform views can't follow a Dart side canvas, so each one undoes this for
+/// itself through UnscaledPlatformView rather than being sized from here.
 library;
 
 import 'package:flutter/material.dart';

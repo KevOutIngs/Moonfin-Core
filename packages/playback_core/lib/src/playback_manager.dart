@@ -411,6 +411,7 @@ class PlaybackManager implements AudioOwnable {
     String? hybridAudioUrl,
     bool isLive = false,
     bool autoPlay = true,
+    List<ExternalSubtitle> externalSubtitles = const [],
   }) {
     final resolvedMediaType = mediaType?.trim().toLowerCase();
 
@@ -482,6 +483,11 @@ class PlaybackManager implements AudioOwnable {
             mediaStreams: mediaStreams,
           );
 
+    final declaredSubtitles = _declarableSubtitles(
+      mediaStreams,
+      externalSubtitles,
+    );
+
     return <String, dynamic>{
       'url': url,
       'autoPlay': autoPlay,
@@ -521,8 +527,48 @@ class PlaybackManager implements AudioOwnable {
       'normalizationGainDb':
           normalizationGainDb ??
           MediaStreamResolver.extractNormalizationGainDb(mediaStreams),
+      if (declaredSubtitles.isNotEmpty) 'externalSubtitles': declaredSubtitles,
     };
   }
+
+  /// Sidecars a backend can register while it opens the source, in the order
+  /// [TrackOrdinalMapper] counts them, so an ordinal derived from that list
+  /// still lands on the same track.
+  ///
+  /// Only text formats go out. A bitmap sidecar has no text equivalent, so a
+  /// player asked to read one as text fails the decode instead of falling back.
+  List<Map<String, dynamic>> _declarableSubtitles(
+    List<Map<String, dynamic>> mediaStreams,
+    List<ExternalSubtitle> externalSubtitles,
+  ) {
+    if (externalSubtitles.isEmpty) return const [];
+    final effective = TrackOrdinalMapper.effectiveExternalSubtitles(
+      mediaStreams: mediaStreams,
+      externalSubtitles: externalSubtitles,
+      embeddedStripped: _embeddedSubtitlesUnavailable,
+    );
+    return [
+      for (final sub in effective)
+        if (_isDeclarableSubtitleCodec(sub.codec))
+          {
+            'url': _ensureSubtitleApiKey(sub.deliveryUrl),
+            if (sub.title != null) 'title': sub.title,
+            if (sub.language != null) 'language': sub.language,
+            'codec': sub.codec,
+            'isDefault': sub.isDefault,
+            'isForced': sub.isForced,
+          },
+    ];
+  }
+
+  static bool _isDeclarableSubtitleCodec(String codec) => const {
+    'srt',
+    'subrip',
+    'ass',
+    'ssa',
+    'vtt',
+    'webvtt',
+  }.contains(codec.trim().toLowerCase());
 
   String _traceItemId(dynamic item) {
     try {
@@ -1767,6 +1813,7 @@ class PlaybackManager implements AudioOwnable {
         hybridAudioUrl: resolution.hybridAudioUrl,
         isLive: resolution.liveStreamId != null,
         autoPlay: autoPlay,
+        externalSubtitles: resolution.externalSubtitles,
       );
       await _arbiter?.acquire(AudioProducer.mainPlayback);
       if (sessionToken != _playbackSessionToken) {

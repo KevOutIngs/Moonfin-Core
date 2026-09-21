@@ -1582,7 +1582,7 @@ class UserPreferences extends ChangeNotifier {
 
   static final showLiveTvButton = Preference(
     key: 'pref_show_live_tv_button',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static final showDownloadsButton = Preference(

@@ -792,6 +792,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get extraLarge => 'كبير جدا';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'اتجاه التمرير';
 
   @override

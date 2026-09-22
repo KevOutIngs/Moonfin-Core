@@ -775,6 +775,9 @@ class AppLocalizationsYue extends AppLocalizations {
   String get extraLarge => '特大號';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Scroll Direction';
 
   @override

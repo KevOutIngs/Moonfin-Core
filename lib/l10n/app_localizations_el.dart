@@ -800,6 +800,9 @@ class AppLocalizationsEl extends AppLocalizations {
   String get extraLarge => 'Πολύ μεγάλο';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Scroll Direction';
 
   @override

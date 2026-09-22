@@ -797,6 +797,9 @@ class AppLocalizationsCy extends AppLocalizations {
   String get extraLarge => 'Mawr Ychwanegol';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Scroll Direction';
 
   @override

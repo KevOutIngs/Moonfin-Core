@@ -796,6 +796,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get extraLarge => 'Хэт том';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Scroll Direction';
 
   @override

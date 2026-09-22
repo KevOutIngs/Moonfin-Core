@@ -796,6 +796,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get extraLarge => 'கூடுதல் பெரியது';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Scroll Direction';
 
   @override

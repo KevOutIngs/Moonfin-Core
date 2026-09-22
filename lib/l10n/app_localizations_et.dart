@@ -797,6 +797,9 @@ class AppLocalizationsEt extends AppLocalizations {
   String get extraLarge => 'Eriti suur';
 
   @override
+  String get uiScaleGrandfather => 'Grandfather';
+
+  @override
   String get scrollDirection => 'Kerimise Suund';
 
   @override

@@ -12523,6 +12523,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playlistTypeVideo => 'Video';
 
   @override
+  String get playlistTypeMusicVideo => 'Music Video';
+
+  @override
   String get playlistTypeAudio => 'Audio- und Musik';
 
   @override
@@ -12539,6 +12542,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get videoPlaylistsSection => 'Videowiedergabelisten';
+
+  @override
+  String get musicVideoPlaylistsSection => 'Music Video Playlists';
 
   @override
   String get audioPlaylistsSection => 'Audio- und Musikwiedergabelisten';

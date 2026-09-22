@@ -11896,6 +11896,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get playlistTypeVideo => '视频';
 
   @override
+  String get playlistTypeMusicVideo => 'Music Video';
+
+  @override
   String get playlistTypeAudio => '音频（音乐）';
 
   @override
@@ -11912,6 +11915,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get videoPlaylistsSection => '视频播放列表';
+
+  @override
+  String get musicVideoPlaylistsSection => 'Music Video Playlists';
 
   @override
   String get audioPlaylistsSection => '音频播放列表';

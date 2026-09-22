@@ -12445,6 +12445,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get playlistTypeVideo => 'Video';
 
   @override
+  String get playlistTypeMusicVideo => 'Music Video';
+
+  @override
   String get playlistTypeAudio => 'Audio (Musica)';
 
   @override
@@ -12461,6 +12464,9 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get videoPlaylistsSection => 'Playlist Video';
+
+  @override
+  String get musicVideoPlaylistsSection => 'Music Video Playlists';
 
   @override
   String get audioPlaylistsSection => 'Playlist Audio';

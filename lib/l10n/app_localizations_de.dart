@@ -3404,7 +3404,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Customize how many action buttons appear before folding into the More Actions menu.';
 
   @override
-  String get actionButtonsOnScreenAuto => 'Auto (Theme Default)';
+  String get actionButtonsOnScreenAuto => 'Auto (Standard-Design)';
 
   @override
   String get actionButtonsOnScreenPlayOnly => '1 (Play only)';
@@ -3679,7 +3679,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsAudioDtsHdPassthrough => 'DTS-HD MA Passthrough';
 
   @override
-  String get settingsAudioPassthroughMode => 'Durchreichen';
+  String get settingsAudioPassthroughMode => 'Passthrough';
 
   @override
   String get settingsAudioPassthroughModeDescription =>

@@ -15921,7 +15921,6 @@ class FilmographyRow extends StatelessWidget {
             playedPercentage: item.playedPercentage,
             watchedBehavior: watchedBehavior,
             itemType: item.type,
-            autofocus: index == 0 && firstFocusNode != null,
             focusNode: index == 0 ? firstFocusNode : null,
             onKeyEvent: onItemKeyEvent == null
                 ? null
@@ -16006,7 +16005,6 @@ class SeerrAppearancesRow extends StatelessWidget {
             suppressFocusGlow: suppressFocusGlow,
             seerrMediaType: item.mediaType,
             seerrStatus: item.mediaInfo?.status,
-            autofocus: index == 0 && firstFocusNode != null,
             focusNode: index == 0 ? firstFocusNode : null,
             onKeyEvent: onItemKeyEvent == null
                 ? null
@@ -16090,7 +16088,6 @@ class SeerrCrewCreditsRow extends StatelessWidget {
             suppressFocusGlow: suppressFocusGlow,
             seerrMediaType: item.mediaType,
             seerrStatus: item.mediaInfo?.status,
-            autofocus: index == 0 && firstFocusNode != null,
             focusNode: index == 0 ? firstFocusNode : null,
             onKeyEvent: onItemKeyEvent == null
                 ? null

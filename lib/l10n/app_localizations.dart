@@ -5692,6 +5692,18 @@ abstract class AppLocalizations {
   /// **'Dim video and show overview text while paused'**
   String get dimVideoShowOverview;
 
+  /// Setting label for drawing a mark per chapter on the player seek bar
+  ///
+  /// In en, this message translates to:
+  /// **'Chapter Marks'**
+  String get showChapterMarkers;
+
+  /// Description for the chapter marks setting
+  ///
+  /// In en, this message translates to:
+  /// **'Mark where each chapter starts on the seek bar'**
+  String get showChapterMarkersDescription;
+
   /// Setting for OSD lock button
   ///
   /// In en, this message translates to:

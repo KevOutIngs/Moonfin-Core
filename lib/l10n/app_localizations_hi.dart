@@ -3257,6 +3257,13 @@ class AppLocalizationsHi extends AppLocalizations {
       'वीडियो को मंद करें और रुके रहने पर अवलोकन टेक्स्ट दिखाएं';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'ओएसडी लॉक बटन';
 
   @override

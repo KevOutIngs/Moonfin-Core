@@ -3257,6 +3257,13 @@ class AppLocalizationsBn extends AppLocalizations {
       'পজ করার সময় ভিডিও ম্লান করুন এবং ওভারভিউ টেক্সট দেখান';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'ওএসডি লক বোতাম';
 
   @override

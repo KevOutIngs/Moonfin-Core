@@ -3270,6 +3270,13 @@ class AppLocalizationsVi extends AppLocalizations {
       'Làm mờ video và hiển thị văn bản tổng quan khi bị tạm dừng';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Nút khóa OSD';
 
   @override

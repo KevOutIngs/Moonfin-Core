@@ -3289,6 +3289,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Затемнять видео и показывать обзорный текст во время паузы';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Кнопка блокировки экранного меню';
 
   @override

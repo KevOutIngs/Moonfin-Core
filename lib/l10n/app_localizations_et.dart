@@ -3273,6 +3273,13 @@ class AppLocalizationsEt extends AppLocalizations {
       'Hämardage video ja kuvage ülevaateteksti peatamise ajal';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD lukustusnupp';
 
   @override

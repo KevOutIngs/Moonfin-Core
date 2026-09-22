@@ -3203,6 +3203,13 @@ class AppLocalizationsYue extends AppLocalizations {
   String get dimVideoShowOverview => '暫停時調暗影片並顯示概述文本';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD 鎖定按鈕';
 
   @override

@@ -3282,6 +3282,13 @@ class AppLocalizationsSw extends AppLocalizations {
       'Fifisha video na uonyeshe maandishi ya muhtasari huku umesitishwa';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Kitufe cha Kufunga OSD';
 
   @override

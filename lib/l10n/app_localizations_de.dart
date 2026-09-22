@@ -3354,6 +3354,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Video abdunkeln und Übersichtstext bei Pause anzeigen';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD-Sperrtaste';
 
   @override

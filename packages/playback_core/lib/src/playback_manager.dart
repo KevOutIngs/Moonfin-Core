@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'chapter_steps.dart';
 import 'media_stream_resolver.dart';
 import 'playback_arbiter.dart';
 import 'player_backend.dart';
@@ -115,6 +116,18 @@ class PlaybackManager implements AudioOwnable {
   String? _clientTranscodeReason;
   Duration Function(dynamic item, Duration startPosition)?
   _startPositionAdjuster;
+
+  /// Chapter starts, and the item they were set for, so previous and next
+  /// step through chapters before they step through the queue.
+  ///
+  /// Keyed to the item rather than cleared when a stream starts, because the
+  /// same item restarts for a track switch, a transcode retry or a resume,
+  /// and clearing would drop its chapters for the rest of its playback.
+  /// Compared by identity, since the queue holds bare paths offline and
+  /// asking those for an id throws.
+  List<Duration> _chapterStarts = const [];
+  Object? _chapterStartsItem;
+
   Future<PlaybackStartupRecoveryDecision> Function(
     PlaybackStartupFailureContext context,
   )?
@@ -736,6 +749,21 @@ class PlaybackManager implements AudioOwnable {
   ) {
     _startPositionAdjuster = adjuster;
   }
+
+  /// Set per item by whoever loaded its chapters, after playback of that
+  /// item has started.
+  void setChapterStarts(List<Duration> starts) {
+    _chapterStarts = starts;
+    _chapterStartsItem = queueService.currentItem;
+  }
+
+  /// Empty unless the starts belong to the item playing now. This manager is
+  /// one instance shared with the audio screens, which never set chapters, so
+  /// a song must not inherit a film's.
+  List<Duration> get _currentChapterStarts =>
+      identical(queueService.currentItem, _chapterStartsItem)
+      ? _chapterStarts
+      : const [];
 
   void setStartupRecoveryDecider(
     Future<PlaybackStartupRecoveryDecision> Function(
@@ -2253,6 +2281,30 @@ class PlaybackManager implements AudioOwnable {
 
   Future<void> next() async {
     if (await _maybeIntercept(TransportAction.next)) return;
+    final chapter = nextChapterStart(_currentChapterStarts, state.position);
+    if (chapter != null) {
+      await seekTo(chapter);
+      return;
+    }
+    await _advanceQueue();
+  }
+
+  /// Straight to the next item, without stepping chapters first. What Play
+  /// Next and the media session's next action want, since both mean the next
+  /// item however far into this one the position is.
+  Future<void> nextInQueue() async {
+    if (await _maybeIntercept(TransportAction.next)) return;
+    await _advanceQueue();
+  }
+
+  Future<void> _advanceQueue() async {
+    // Nothing queued after this, so run it to the end and let the ordinary
+    // finish handle watched state and whatever follows, rather than stopping
+    // on a dead player.
+    if (!queueService.hasNext && state.duration > Duration.zero) {
+      await seekTo(state.duration);
+      return;
+    }
     if (_isManualNexting || _isAutoNexting) return;
     _isManualNexting = true;
     _mediaSourceId = null;
@@ -2270,6 +2322,12 @@ class PlaybackManager implements AudioOwnable {
 
   Future<void> previous() async {
     if (await _maybeIntercept(TransportAction.previous)) return;
+    final chapter =
+        previousChapterStart(_currentChapterStarts, state.position);
+    if (chapter != null) {
+      await seekTo(chapter);
+      return;
+    }
     // A press this far in restarts the item, and so does one with nothing to
     // step back to.
     if (state.position.inSeconds > 3 || !queueService.hasPrevious) {

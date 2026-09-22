@@ -3283,6 +3283,13 @@ class AppLocalizationsRo extends AppLocalizations {
       'Întunecă videoclipul și arată textul de prezentare generală când este întrerupt';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Buton de blocare OSD';
 
   @override

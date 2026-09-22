@@ -3263,6 +3263,13 @@ class AppLocalizationsSi extends AppLocalizations {
       'විරාමය ඇති අතරතුර වීඩියෝව අඳුරු කර දළ විශ්ලේෂණය පෙළ පෙන්වන්න';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD අගුළු බොත්තම';
 
   @override

@@ -3282,6 +3282,13 @@ class AppLocalizationsLv extends AppLocalizations {
       'Aptumšot video un rādīt kopsavilkuma tekstu, kamēr tas ir apturēts';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD bloķēšanas poga';
 
   @override

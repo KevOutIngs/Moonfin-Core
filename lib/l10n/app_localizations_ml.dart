@@ -3279,6 +3279,13 @@ class AppLocalizationsMl extends AppLocalizations {
       'താൽക്കാലികമായി നിർത്തിയിരിക്കുമ്പോൾ വീഡിയോ ഡിം ചെയ്‌ത് അവലോകന ടെക്‌സ്‌റ്റ് കാണിക്കുക';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD ലോക്ക് ബട്ടൺ';
 
   @override

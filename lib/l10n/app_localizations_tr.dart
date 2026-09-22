@@ -3263,6 +3263,13 @@ class AppLocalizationsTr extends AppLocalizations {
       'Duraklatıldığında videoyu karart ve özet metnini göster';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Ekran Kilidi Butonu';
 
   @override

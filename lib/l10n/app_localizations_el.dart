@@ -3295,6 +3295,13 @@ class AppLocalizationsEl extends AppLocalizations {
       'Χαμηλώστε το βίντεο και εμφανίστε κείμενο επισκόπησης κατά την παύση';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Κουμπί κλειδώματος OSD';
 
   @override

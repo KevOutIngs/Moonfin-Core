@@ -3440,6 +3440,13 @@ class AppLocalizationsPl extends AppLocalizations {
       'Przyciemnij wideo i pokazuj opis podczas pauzy';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Przycisk blokady OSD';
 
   @override

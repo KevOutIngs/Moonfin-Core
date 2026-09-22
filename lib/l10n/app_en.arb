@@ -4406,6 +4406,14 @@
   "@dimVideoShowOverview": {
     "description": "Description for show description on pause"
   },
+  "showChapterMarkers": "Chapter Marks",
+  "@showChapterMarkers": {
+    "description": "Setting label for drawing a mark per chapter on the player seek bar"
+  },
+  "showChapterMarkersDescription": "Mark where each chapter starts on the seek bar",
+  "@showChapterMarkersDescription": {
+    "description": "Description for the chapter marks setting"
+  },
   "osdLockButton": "OSD Lock Button",
   "@osdLockButton": {
     "description": "Setting for OSD lock button"

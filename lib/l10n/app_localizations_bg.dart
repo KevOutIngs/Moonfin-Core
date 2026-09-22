@@ -3276,6 +3276,13 @@ class AppLocalizationsBg extends AppLocalizations {
       'Затъмняване на видеото и показване на общ текст, докато е на пауза';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Бутон за заключване на OSD';
 
   @override

@@ -3248,6 +3248,13 @@ class AppLocalizationsHe extends AppLocalizations {
       'עמעום את הסרטון והצג טקסט סקירה בזמן השהייה';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'לחצן נעילה של OSD';
 
   @override

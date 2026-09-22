@@ -3217,6 +3217,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get dimVideoShowOverview => '一時停止中にビデオを暗くして概要テキストを表示する';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSDロックボタン';
 
   @override

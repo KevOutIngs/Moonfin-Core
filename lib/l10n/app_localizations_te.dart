@@ -3278,6 +3278,13 @@ class AppLocalizationsTe extends AppLocalizations {
       'వీడియోను మసకబారండి మరియు పాజ్ చేయబడినప్పుడు స్థూలదృష్టి వచనాన్ని చూపండి';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD లాక్ బటన్';
 
   @override

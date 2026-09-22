@@ -3281,6 +3281,13 @@ class AppLocalizationsCs extends AppLocalizations {
       'Ztlumit video a zobrazit text přehledu při pozastavení';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Tlačítko zámku OSD';
 
   @override

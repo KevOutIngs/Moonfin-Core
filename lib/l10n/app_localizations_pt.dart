@@ -3276,6 +3276,13 @@ class AppLocalizationsPt extends AppLocalizations {
       'Escurecer vídeo e mostrar descrição enquanto pausado';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Botão de Bloqueio do OSD';
 
   @override

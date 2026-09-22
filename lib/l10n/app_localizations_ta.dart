@@ -3282,6 +3282,13 @@ class AppLocalizationsTa extends AppLocalizations {
       'வீடியோவை மங்கலாக்கி, இடைநிறுத்தப்பட்டிருக்கும் போது மேலோட்ட உரையைக் காட்டு';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD பூட்டு பொத்தான்';
 
   @override

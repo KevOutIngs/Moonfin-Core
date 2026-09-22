@@ -3247,6 +3247,13 @@ class AppLocalizationsTh extends AppLocalizations {
       'หรี่แสงวิดีโอและแสดงข้อความภาพรวมขณะหยุดชั่วคราว';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'ปุ่มล็อค OSD';
 
   @override

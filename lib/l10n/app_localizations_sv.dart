@@ -3272,6 +3272,13 @@ class AppLocalizationsSv extends AppLocalizations {
       'Dimma videon och visa översiktstext medan den är pausad';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD-låsknapp';
 
   @override

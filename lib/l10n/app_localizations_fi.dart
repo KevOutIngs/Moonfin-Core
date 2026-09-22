@@ -3281,6 +3281,13 @@ class AppLocalizationsFi extends AppLocalizations {
       'Himmennä video ja näytä yleiskatsausteksti tauon aikana';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD-lukituspainike';
 
   @override

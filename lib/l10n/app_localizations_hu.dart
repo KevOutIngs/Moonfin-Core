@@ -3280,6 +3280,13 @@ class AppLocalizationsHu extends AppLocalizations {
       'A videó halványítása és az áttekintő szöveg megjelenítése szüneteltetés közben';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD-zárgomb';
 
   @override

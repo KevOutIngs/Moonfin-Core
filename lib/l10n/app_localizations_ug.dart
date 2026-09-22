@@ -3269,6 +3269,13 @@ class AppLocalizationsUg extends AppLocalizations {
       'توختاپ قالغاندا سىننى كۆرسىتىش ۋە ئومۇمىي تېكىستنى كۆرسىتىش';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD قۇلۇپلاش كۇنۇپكىسى';
 
   @override

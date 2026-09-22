@@ -3284,6 +3284,13 @@ class AppLocalizationsTl extends AppLocalizations {
       'I-dim ang video at ipakita ang pangkalahatang-ideya ng teksto habang naka-pause';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD Lock Button';
 
   @override

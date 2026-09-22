@@ -3214,6 +3214,13 @@ class AppLocalizationsKo extends AppLocalizations {
   String get dimVideoShowOverview => '일시중지된 동안 비디오를 어둡게 하고 개요 텍스트를 표시합니다.';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD 잠금 버튼';
 
   @override

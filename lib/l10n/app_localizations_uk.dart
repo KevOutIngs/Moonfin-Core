@@ -3287,6 +3287,13 @@ class AppLocalizationsUk extends AppLocalizations {
       'Зменшити відео та показати оглядовий текст під час паузи';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Кнопка блокування OSD';
 
   @override

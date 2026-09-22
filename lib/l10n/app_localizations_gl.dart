@@ -3294,6 +3294,13 @@ class AppLocalizationsGl extends AppLocalizations {
       'Atenua o vídeo e mostra o texto xeral mentres está en pausa';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Botón de bloqueo OSD';
 
   @override

@@ -3301,6 +3301,13 @@ class AppLocalizationsFr extends AppLocalizations {
       'Assombrir la vidéo et afficher le résumé pendant la pause';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Bouton de verrouillage OSD';
 
   @override

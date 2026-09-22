@@ -3382,6 +3382,13 @@ class AppLocalizationsHr extends AppLocalizations {
       'Zatamnite video i prikažite tekst pregleda dok je pauziran';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Gumb za zaključavanje OSD-a';
 
   @override

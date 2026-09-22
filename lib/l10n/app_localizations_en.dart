@@ -3254,6 +3254,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Dim video and show overview text while paused';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD Lock Button';
 
   @override

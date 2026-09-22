@@ -3281,6 +3281,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get dimVideoShowOverview => 'Atenuar vídeo y mostrar sinopsis';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Botón de bloqueo del OSD';
 
   @override

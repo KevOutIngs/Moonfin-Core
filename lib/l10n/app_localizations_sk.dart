@@ -3287,6 +3287,13 @@ class AppLocalizationsSk extends AppLocalizations {
       'Stlmiť video a počas pozastavenia zobraziť text prehľadu';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Tlačidlo uzamknutia OSD';
 
   @override

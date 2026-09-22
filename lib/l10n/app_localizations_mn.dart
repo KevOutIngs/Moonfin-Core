@@ -3267,6 +3267,13 @@ class AppLocalizationsMn extends AppLocalizations {
       'Түр зогсоох үед видеог бүдгэрүүлж, тойм текстийг харуул';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD түгжээний товчлуур';
 
   @override

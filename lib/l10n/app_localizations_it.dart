@@ -3277,6 +3277,13 @@ class AppLocalizationsIt extends AppLocalizations {
       'Oscura il video e mostra il testo della panoramica in pausa';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Pulsante Blocco OSD';
 
   @override

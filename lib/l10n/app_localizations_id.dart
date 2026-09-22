@@ -3268,6 +3268,13 @@ class AppLocalizationsId extends AppLocalizations {
       'Redupkan video dan tampilkan teks ikhtisar saat dijeda';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Tombol Kunci OSD';
 
   @override

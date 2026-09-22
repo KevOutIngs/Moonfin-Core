@@ -3280,6 +3280,13 @@ class AppLocalizationsBe extends AppLocalizations {
       'Прыглушыць відэа і паказаць аглядны тэкст падчас паўзы';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Кнопка блакіроўкі экраннага меню';
 
   @override

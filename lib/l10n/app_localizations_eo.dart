@@ -3264,6 +3264,13 @@ class AppLocalizationsEo extends AppLocalizations {
       'Malklarigu videon kaj montru superrigardan tekston dum paŭzo';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD Ŝlosa Butono';
 
   @override

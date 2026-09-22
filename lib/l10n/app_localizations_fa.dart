@@ -3252,6 +3252,13 @@ class AppLocalizationsFa extends AppLocalizations {
       'ویدیو را کم نور کنید و متن نمای کلی را در حالت توقف نمایش دهید';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'دکمه قفل OSD';
 
   @override

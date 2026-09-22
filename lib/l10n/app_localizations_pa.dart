@@ -3261,6 +3261,13 @@ class AppLocalizationsPa extends AppLocalizations {
       'ਵਿਡਿਓ ਨੂੰ ਮੱਧਮ ਕਰੋ ਅਤੇ ਵਿਰਾਮ ਦੇ ਦੌਰਾਨ ਓਵਰਵਿਊ ਟੈਕਸਟ ਦਿਖਾਓ';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD ਲਾਕ ਬਟਨ';
 
   @override

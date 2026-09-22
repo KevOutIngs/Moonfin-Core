@@ -384,6 +384,7 @@ class UserPreferences extends ChangeNotifier {
     'pref_studios_row_sort_by',
     'pref_studios_row_sort_order',
     'pref_syncplay_enabled',
+    'showChapterMarkers',
     'showDescriptionOnPause',
     'since_you_watched_1_enabled',
     'since_you_watched_2_enabled',
@@ -2328,6 +2329,10 @@ class UserPreferences extends ChangeNotifier {
   );
   static final osdLockEnabled = Preference(
     key: 'osdLockEnabled',
+    defaultValue: false,
+  );
+  static final showChapterMarkers = Preference(
+    key: 'showChapterMarkers',
     defaultValue: false,
   );
   static final playerSwipeGestures = Preference(

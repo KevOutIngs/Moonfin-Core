@@ -3191,6 +3191,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get dimVideoShowOverview => '暂停时调暗视频并显示简介文本';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'OSD 锁定按钮';
 
   @override

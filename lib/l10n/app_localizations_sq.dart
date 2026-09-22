@@ -3283,6 +3283,13 @@ class AppLocalizationsSq extends AppLocalizations {
       'Zbehni videon dhe shfaqni tekstin e përmbledhjes ndërsa është në pauzë';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Butoni i kyçjes së OSD';
 
   @override

@@ -3280,6 +3280,13 @@ class AppLocalizationsMk extends AppLocalizations {
       'Затемнете го видеото и прикажете го текстот за преглед додека е паузиран';
 
   @override
+  String get showChapterMarkers => 'Chapter Marks';
+
+  @override
+  String get showChapterMarkersDescription =>
+      'Mark where each chapter starts on the seek bar';
+
+  @override
   String get osdLockButton => 'Копче за заклучување на OSD';
 
   @override

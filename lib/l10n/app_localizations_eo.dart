@@ -5140,6 +5140,9 @@ class AppLocalizationsEo extends AppLocalizations {
   String get playInMoonfin => 'Ludu en Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Petite de $name';
   }

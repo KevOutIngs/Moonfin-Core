@@ -5211,6 +5211,9 @@ class AppLocalizationsCa extends AppLocalizations {
   String get playInMoonfin => 'Reprodueix a Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Sol·licitat per $name';
   }

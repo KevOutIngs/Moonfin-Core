@@ -5178,6 +5178,9 @@ class AppLocalizationsTa extends AppLocalizations {
   String get playInMoonfin => 'Moonfin இல் விளையாடு';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '$name கோரியுள்ளார்';
   }

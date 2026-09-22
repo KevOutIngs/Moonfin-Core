@@ -5166,6 +5166,9 @@ class AppLocalizationsLt extends AppLocalizations {
   String get playInMoonfin => 'Žaisk „Moonfin“.';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Užklausą pateikė $name';
   }

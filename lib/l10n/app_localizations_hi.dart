@@ -5133,6 +5133,9 @@ class AppLocalizationsHi extends AppLocalizations {
   String get playInMoonfin => 'Moonfin में खेलें';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '$name द्वारा अनुरोधित';
   }

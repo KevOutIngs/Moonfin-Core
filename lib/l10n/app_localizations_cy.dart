@@ -5169,6 +5169,9 @@ class AppLocalizationsCy extends AppLocalizations {
   String get playInMoonfin => 'Chwarae yn Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Cais gan $name';
   }

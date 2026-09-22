@@ -4978,6 +4978,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get playInMoonfin => '在 Moonfin 中播放';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '由 $name 请求';
   }

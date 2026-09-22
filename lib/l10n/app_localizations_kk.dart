@@ -5161,6 +5161,9 @@ class AppLocalizationsKk extends AppLocalizations {
   String get playInMoonfin => 'Moonfin ойынында ойнаңыз';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Сұраған: $name';
   }

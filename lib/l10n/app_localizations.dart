@@ -9100,6 +9100,12 @@ abstract class AppLocalizations {
   /// **'Play in Moonfin'**
   String get playInMoonfin;
 
+  /// Label above the name of whoever requested media, where the name sits on its own line
+  ///
+  /// In en, this message translates to:
+  /// **'Requested by'**
+  String get requestedByLabel;
+
   /// Label showing who requested media
   ///
   /// In en, this message translates to:

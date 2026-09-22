@@ -5146,6 +5146,9 @@ class AppLocalizationsVi extends AppLocalizations {
   String get playInMoonfin => 'Chơi ở Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Được yêu cầu bởi $name';
   }

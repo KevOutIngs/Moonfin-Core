@@ -5175,6 +5175,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get playInMoonfin => 'Lejátszás a Moonfinben';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Igényelte: $name';
   }

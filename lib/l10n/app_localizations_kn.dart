@@ -5167,6 +5167,9 @@ class AppLocalizationsKn extends AppLocalizations {
   String get playInMoonfin => 'Moonfin ನಲ್ಲಿ ಪ್ಲೇ ಮಾಡಿ';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '$name ವಿನಂತಿಸಿದ್ದಾರೆ';
   }

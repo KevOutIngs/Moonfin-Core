@@ -5177,6 +5177,9 @@ class AppLocalizationsSq extends AppLocalizations {
   String get playInMoonfin => 'Luaj në Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Kërkuar nga $name';
   }

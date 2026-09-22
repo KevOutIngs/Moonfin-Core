@@ -5122,6 +5122,9 @@ class AppLocalizationsFa extends AppLocalizations {
   String get playInMoonfin => 'بازی در Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'درخواست شده توسط $name';
   }

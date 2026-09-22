@@ -5173,6 +5173,9 @@ class AppLocalizationsSw extends AppLocalizations {
   String get playInMoonfin => 'Cheza katika Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Imeombwa na $name';
   }

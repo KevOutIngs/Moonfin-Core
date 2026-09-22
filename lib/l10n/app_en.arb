@@ -6772,6 +6772,10 @@
   "@playInMoonfin": {
     "description": "Button to play available media in Moonfin"
   },
+  "requestedByLabel": "Requested by",
+  "@requestedByLabel": {
+    "description": "Label above the name of whoever requested media, where the name sits on its own line"
+  },
   "requestedByName": "Requested by {name}",
   "@requestedByName": {
     "description": "Label showing who requested media",

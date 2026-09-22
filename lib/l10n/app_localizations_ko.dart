@@ -5025,6 +5025,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get playInMoonfin => 'Moonfin에 플레이';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '$name 요청';
   }

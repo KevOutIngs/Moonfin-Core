@@ -5130,6 +5130,9 @@ class AppLocalizationsPa extends AppLocalizations {
   String get playInMoonfin => 'Moonfin ਵਿੱਚ ਚਲਾਓ';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '$name ਦੁਆਰਾ ਬੇਨਤੀ ਕੀਤੀ';
   }

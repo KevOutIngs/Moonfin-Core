@@ -5137,6 +5137,9 @@ class AppLocalizationsNb extends AppLocalizations {
   String get playInMoonfin => 'Spill i Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Forespurt av $name';
   }

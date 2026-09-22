@@ -5253,6 +5253,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get playInMoonfin => 'In Moonfin abspielen';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Angefordert von $name';
   }

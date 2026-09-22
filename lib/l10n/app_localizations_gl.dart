@@ -5190,6 +5190,9 @@ class AppLocalizationsGl extends AppLocalizations {
   String get playInMoonfin => 'Xoga en Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return 'Solicitado por $name';
   }

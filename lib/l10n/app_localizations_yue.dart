@@ -5009,6 +5009,9 @@ class AppLocalizationsYue extends AppLocalizations {
   String get playInMoonfin => '玩 Moonfin';
 
   @override
+  String get requestedByLabel => 'Requested by';
+
+  @override
   String requestedByName(String name) {
     return '由 $name 請求';
   }

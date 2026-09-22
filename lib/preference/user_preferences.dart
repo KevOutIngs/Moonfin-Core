@@ -1523,6 +1523,10 @@ class UserPreferences extends ChangeNotifier {
   bool get effectiveDetailUseSeriesThumbnails =>
       get(kidsModeEnabled) ? false : get(detailUseSeriesThumbnails);
 
+  /// Kids Mode lands on the Minimalist screen, where a score means little
+  /// to a child and the row carries outside branding.
+  bool get effectiveShowDetailRatings => !get(kidsModeEnabled);
+
   /// Kids Mode shows the two as one row whatever the account chose for itself.
   /// Apart they read as two separate places to carry on from, which is a
   /// distinction that means nothing to a child.

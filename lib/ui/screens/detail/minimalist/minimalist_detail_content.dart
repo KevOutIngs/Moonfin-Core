@@ -10,6 +10,7 @@ import '../../../../preference/user_preferences.dart';
 import '../../../widgets/fullscreen_backdrop_switcher.dart';
 import '../../../widgets/logo_view.dart';
 import '../../../widgets/offline_aware_image.dart';
+import '../../../widgets/rating_display.dart';
 import '../detail_layout_metrics.dart';
 import '../item_detail_screen.dart';
 import '../spotlight/spotlight_detail_content.dart';
@@ -95,6 +96,11 @@ class _MinimalistDetailContentState extends State<MinimalistDetailContent> {
     final landscape = detailUsesLandscapeLayout(context);
     final branding = _buildBranding(context, item, landscape);
     final actions = _buildActions(landscape);
+    final ratings = RatingsRow.forDetailScreen(
+      item: item,
+      extraRatings: _vm.ratings,
+      prefs: widget.prefs,
+    );
 
     return Stack(
       fit: StackFit.expand,
@@ -104,6 +110,7 @@ class _MinimalistDetailContentState extends State<MinimalistDetailContent> {
           MinimalistLandscapeLayout(
             branding: branding,
             actions: actions,
+            ratings: ratings,
             episodes: _hasEpisodes(item)
                 ? (maxHeight) =>
                       _buildEpisodes(item, landscape, maxHeight: maxHeight)!
@@ -114,6 +121,7 @@ class _MinimalistDetailContentState extends State<MinimalistDetailContent> {
           MinimalistPortraitLayout(
             branding: branding,
             actions: actions,
+            ratings: ratings,
             episodes: _buildEpisodes(item, landscape),
             compact: detailIsCompact(context),
           ),

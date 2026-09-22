@@ -911,7 +911,8 @@ class _SpotlightDetailContentState extends State<SpotlightDetailContent> {
         !isPerson &&
         (_vm.ratings.isNotEmpty ||
             item.communityRating != null ||
-            item.criticRating != null);
+            item.criticRating != null ||
+            item.personalRating != null);
     final showOverview =
         overview.isNotEmpty &&
         !hidesMediaDescription(

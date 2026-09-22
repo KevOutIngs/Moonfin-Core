@@ -272,6 +272,16 @@ flutter:
     - assets/licenses/cores/
 
   fonts:
+    # The web engine fetches Roboto from fonts.gstatic.com unless it finds a
+    # family of that name here. Material typography asks for Roboto, so this
+    # is the font nearly all of the UI renders in.
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
     - family: NeonPulseDisplay
       fonts:
         - asset: assets/fonts/Orbitron-Regular.ttf

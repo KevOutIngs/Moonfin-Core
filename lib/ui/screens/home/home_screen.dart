@@ -5828,18 +5828,6 @@ class _ContentRowsState extends State<_ContentRows>
         if (episodePrimary != null) {
           return episodePrimary;
         }
-      } else if (item.type == 'Series') {
-        final latestEpId = item.rawData['LatestEpisodeId']?.toString();
-        final latestEpTag =
-            item.rawData['LatestEpisodePrimaryImageTag'] as String?;
-        if (latestEpId != null) {
-          return imageApi.getPrimaryImageUrl(
-            latestEpId,
-            maxHeight: maxH,
-            maxWidth: maxW,
-            tag: latestEpTag,
-          );
-        }
       }
     }
     final itemThumbTag = _tagForType(item, 'Thumb');
@@ -6295,18 +6283,6 @@ class _ContentRowsState extends State<_ContentRows>
           );
           if (videoPrimary != null) {
             return videoPrimary;
-          }
-        } else if (item.type == 'Series') {
-          final latestEpId = item.rawData['LatestEpisodeId']?.toString();
-          final latestEpTag =
-              item.rawData['LatestEpisodePrimaryImageTag'] as String?;
-          if (latestEpId != null) {
-            return imageApi.getPrimaryImageUrl(
-              latestEpId,
-              maxHeight: maxH,
-              maxWidth: maxW,
-              tag: latestEpTag,
-            );
           }
         }
       }

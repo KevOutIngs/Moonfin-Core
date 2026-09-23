@@ -9327,7 +9327,7 @@
     "@trickplaySettingsPreviewHint": {
         "description": "Hint shown below the live trickplay settings preview"
     },
-    "osdButtonsDescription": "Lege fest, welche Schaltflächen im Player angezeigt werden",
+    "osdButtonsDescription": "Wähle aus, welche Schalttflächen der Player anzeigt",
     "@osdButtonsDescription": {
         "description": "Subtitle for the player buttons settings tile"
     },
@@ -9370,7 +9370,7 @@
     "@detailButtons": {
         "description": "Settings screen for choosing which buttons the details screen shows"
     },
-    "detailButtonsDescription": "Legen Sie fest, welche Aktionen auf der Detailseite verfügbar sind.",
+    "detailButtonsDescription": "Wähle aus, welche Schalttflächen die Detailansicht anzeigt",
     "@detailButtonsDescription": {
         "description": "Subtitle for the details action buttons settings tile"
     },

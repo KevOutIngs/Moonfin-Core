@@ -1,11 +1,11 @@
 name: moonfin
 description: "Moonfin - Jellyfin & Emby media client for mobile, tablet, and desktop"
 publish_to: 'none'
-version: 2.5.1+30000149
+version: 2.6.0+30000153
 
 moonfin:
-  android_tv_version: 2.5.1
-  android_tv_build_number: 2000016
+  android_tv_version: 2.6.0
+  android_tv_build_number: 2000019
   beta: false
   beta_number: 1
 
@@ -303,7 +303,7 @@ msix_config:
   display_name: Moonfin
   publisher_display_name: Moonfin
   identity_name: com.moonfin.app
-  msix_version: 2.5.1.0
+  msix_version: 2.6.0.0
   logo_path: assets/icons/app_icon.png
   capabilities: internetClient, internetClientServer
   languages: en-us

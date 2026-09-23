@@ -425,8 +425,13 @@ class PlaybackManager implements AudioOwnable {
     bool isLive = false,
     bool autoPlay = true,
     List<ExternalSubtitle> externalSubtitles = const [],
+    bool audioLike = false,
   }) {
-    final resolvedMediaType = mediaType?.trim().toLowerCase();
+    // Music and audiobooks are audio whatever their streams say. Media3 only
+    // plays audio with no view when the payload says audio, so a stray video
+    // stream must not change that.
+    final resolvedMediaType =
+        audioLike ? 'audio' : mediaType?.trim().toLowerCase();
 
     final Map<String, dynamic>? audioStream;
     if (audioStreamIndex != null) {
@@ -713,25 +718,29 @@ class PlaybackManager implements AudioOwnable {
   @override
   AudioProducer get audioProducerId => AudioProducer.mainPlayback;
 
+  /// Whether [item] is music or an audiobook, from a library item, an offline
+  /// url's downloaded metadata, or a raw item map.
+  bool _isAudioLikeItem(dynamic item) {
+    final Map<dynamic, dynamic>? meta = switch (item) {
+      String url => _offlineMetadataByUrl[url],
+      Map map => map,
+      _ => null,
+    };
+    if (meta == null) {
+      try {
+        return item?.isAudioLike == true;
+      } catch (_) {
+        return false;
+      }
+    }
+    final type = meta['Type'];
+    return type == 'Audio' || type == 'AudioBook' || meta['MediaType'] == 'Audio';
+  }
+
   @override
   Future<void> onAudioRevoked(RevokeReason reason) async {
     if (reason == RevokeReason.background) {
-      final item = queueService.currentItem;
-      bool isAudio = false;
-      try {
-        isAudio = item?.isAudioLike == true;
-      } catch (_) {}
-      if (!isAudio && item is String) {
-        try {
-          final meta = currentOfflineMetadata;
-          if (meta != null) {
-            final type = meta['Type']?.toString();
-            final mediaType = meta['MediaType']?.toString();
-            isAudio = type == 'Audio' || type == 'AudioBook' || mediaType == 'Audio';
-          }
-        } catch (_) {}
-      }
-      if (isAudio) return;
+      if (_isAudioLikeItem(queueService.currentItem)) return;
       await pause();
     } else {
       await stop(userInitiated: false);
@@ -1842,6 +1851,7 @@ class PlaybackManager implements AudioOwnable {
         isLive: resolution.liveStreamId != null,
         autoPlay: autoPlay,
         externalSubtitles: resolution.externalSubtitles,
+        audioLike: _isAudioLikeItem(item),
       );
       await _arbiter?.acquire(AudioProducer.mainPlayback);
       if (sessionToken != _playbackSessionToken) {
@@ -3153,6 +3163,7 @@ class PlaybackManager implements AudioOwnable {
           mediaStreams: offlineStreams,
           audioStreamIndex: _audioStreamIndex,
           subtitleStreamIndex: _subtitleStreamIndex,
+          audioLike: _isAudioLikeItem(url),
         ),
         startPosition: startPosition,
       );

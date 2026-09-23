@@ -560,6 +560,9 @@ class Media3VideoView(
     // "preview" for the media bar and home row inline trailers, "main" for the
     // real players. A preview must never steal the slot from a live main view.
     val role: String = "main",
+    // The bridge's audio player, built on the application context and never
+    // attached to a window.
+    val isHeadlessHost: Boolean = false,
 ) : PlatformView, MethodChannel.MethodCallHandler {
     companion object {
         private const val TS_SEARCH_BYTES_LOW_RAM = TsExtractor.TS_PACKET_SIZE * 1800
@@ -740,7 +743,12 @@ class Media3VideoView(
 
         container.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
-                if (!isDisposedByFlutter && currentMediaType != "audio") {
+                // A view that lost the slot stays released, so only the slot
+                // owner ever holds a player.
+                if (!isDisposedByFlutter &&
+                    currentMediaType != "audio" &&
+                    Media3Bridge.isActive(this@Media3VideoView)
+                ) {
                     resumeFromBackground()
                 }
             }
@@ -870,7 +878,9 @@ class Media3VideoView(
     private var currentContainer: String? = null
     private var currentIsLive = false
     private var currentIsPreview = false
-    private var currentMediaType: String = "video"
+    // The host only ever plays audio, and starting there saves a decoder
+    // rebuild on its first source.
+    private var currentMediaType: String = if (isHeadlessHost) "audio" else "video"
     private var currentAudioSessionId = C.AUDIO_SESSION_ID_UNSET
     private var openedAudioEffectSessionId = C.AUDIO_SESSION_ID_UNSET
     private var originalPreferredDisplayModeId: Int? = null
@@ -1008,7 +1018,9 @@ class Media3VideoView(
                 }
             }
             emitState()
-            if (playbackState == Player.STATE_ENDED) {
+            if (playbackState == Player.STATE_ENDED &&
+                Media3Bridge.isActive(this@Media3VideoView)
+            ) {
                 Media3Bridge.emitEvent(
                     mapOf(
                         "event" to "completed",
@@ -1016,6 +1028,7 @@ class Media3VideoView(
                     ),
                 )
             }
+            syncTicker()
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1045,6 +1058,7 @@ class Media3VideoView(
                 systemPausedAtMs = 0L
             }
             emitState()
+            syncTicker()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -1382,9 +1396,12 @@ class Media3VideoView(
 
         refreshSubtitleRendererMode()
 
-        startTicker()
-        Media3Bridge.registerView(platformViewId, this)
-        Media3Bridge.attachView(this)
+        // The bridge puts the host in the slot itself.
+        if (!isHeadlessHost) {
+            startTicker()
+            Media3Bridge.registerView(platformViewId, this)
+            Media3Bridge.attachView(this)
+        }
 
         // Route changes invalidate the sticky stereo-downmix conclusion.
         // Registration fires the callback once immediately with the current
@@ -1489,18 +1506,10 @@ class Media3VideoView(
 
     override fun dispose() {
         isDisposedByFlutter = true
-        if (Media3LogRelay.spuriousAudioPositionListener === audioClockListener) {
-            Media3LogRelay.spuriousAudioPositionListener = null
-        }
         // Unregister before the audio early return so a disposed view can
         // never be re-activated.
         Media3Bridge.unregisterView(platformViewId, this)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-            audioDeviceCallback != null
-        ) {
-            context.getSystemService<AudioManager>()
-                ?.unregisterAudioDeviceCallback(audioDeviceCallback)
-        }
+        unregisterSystemCallbacks()
         if (currentMediaType == "audio") {
             player.clearVideoSurface()
             return
@@ -1508,6 +1517,24 @@ class Media3VideoView(
         forceReleasePlayer()
         containerView.removeAllViews()
         Media3Bridge.detachView(this)
+    }
+
+    fun destroyHeadless() {
+        unregisterSystemCallbacks()
+        forceReleasePlayer()
+        containerView.removeAllViews()
+    }
+
+    private fun unregisterSystemCallbacks() {
+        if (Media3LogRelay.spuriousAudioPositionListener === audioClockListener) {
+            Media3LogRelay.spuriousAudioPositionListener = null
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            audioDeviceCallback != null
+        ) {
+            context.getSystemService<AudioManager>()
+                ?.unregisterAudioDeviceCallback(audioDeviceCallback)
+        }
     }
 
     // The default load control stops buffering at a byte budget that a
@@ -1745,6 +1772,7 @@ class Media3VideoView(
 
     private fun createPlayer(): ExoPlayer {
         Media3LogRelay.install()
+        audioAttributeState.reset()
         playerGeneration++
         cancelPendingRetime()
         playerCreatedAtMs = SystemClock.elapsedRealtime()
@@ -2849,7 +2877,9 @@ class Media3VideoView(
 
         tunnelingActive = shouldEnableTunneling
 
-        val offloadMode = if (isAudioContent && !audioOffloadDisabled) {
+        // Offloaded audio bypasses the PCM processors, so skip silence would
+        // quietly do nothing there.
+        val offloadMode = if (isAudioContent && !audioOffloadDisabled && !skipSilenceEnabled) {
             TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
         } else {
             TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED
@@ -2860,6 +2890,9 @@ class Media3VideoView(
                 TrackSelectionParameters.AudioOffloadPreferences.DEFAULT
                     .buildUpon()
                     .setAudioOffloadMode(offloadMode)
+                    // Offloaded speed goes through the AudioTrack, which some
+                    // devices can't change, and audiobooks rely on speed.
+                    .setIsSpeedChangeSupportRequired(true)
                     .build(),
             )
             .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
@@ -3064,6 +3097,7 @@ class Media3VideoView(
         }
         skipSilenceEnabled = nextEnabled
         player.skipSilenceEnabled = nextEnabled
+        applyTrackSelectorForCurrentSource()
         emitState()
     }
 
@@ -4894,6 +4928,9 @@ class Media3VideoView(
 
     private fun emitState() {
         if (suppressStateEmissionsForRekick) return
+        // One global event stream feeds Dart, so a view that doesn't hold the
+        // slot would overwrite the real player's state with its own.
+        if (!Media3Bridge.isActive(this)) return
         Media3Bridge.emitEvent(stateMap() + ("event" to "state"))
     }
 
@@ -4905,6 +4942,7 @@ class Media3VideoView(
     }
 
     private fun startTicker() {
+        if (ticker != null) return
         val runnable = object : Runnable {
             override fun run() {
                 emitState()
@@ -4918,6 +4956,18 @@ class Media3VideoView(
     private fun stopTicker() {
         ticker?.let { mainHandler.removeCallbacks(it) }
         ticker = null
+    }
+
+    // Platform views keep their ticker. The host's follows its playback.
+    fun syncTicker() {
+        if (!isHeadlessHost) return
+        if (!isPlayerReleased &&
+            Media3SlotPolicy.shouldTick(player.playWhenReady, player.playbackState)
+        ) {
+            startTicker()
+        } else {
+            stopTicker()
+        }
     }
 
     private fun codecToMimeType(codec: String?): String? {

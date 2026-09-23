@@ -797,7 +797,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get extraLarge => 'Extra nagy';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

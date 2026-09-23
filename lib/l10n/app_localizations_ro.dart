@@ -795,7 +795,7 @@ class AppLocalizationsRo extends AppLocalizations {
   String get extraLarge => 'Foarte mare';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Direcția derulării';

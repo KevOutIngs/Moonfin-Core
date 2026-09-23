@@ -792,7 +792,7 @@ class AppLocalizationsFa extends AppLocalizations {
   String get extraLarge => 'فوق العاده بزرگ';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

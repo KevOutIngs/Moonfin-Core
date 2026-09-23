@@ -799,7 +799,7 @@ class AppLocalizationsFi extends AppLocalizations {
   String get extraLarge => 'Erittäin suuri';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Vierityssuunta';

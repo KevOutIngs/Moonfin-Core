@@ -809,7 +809,7 @@ class AppLocalizationsHr extends AppLocalizations {
   String get extraLarge => 'Iznimno velik';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

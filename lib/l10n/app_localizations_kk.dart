@@ -796,7 +796,7 @@ class AppLocalizationsKk extends AppLocalizations {
   String get extraLarge => 'Өте үлкен';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

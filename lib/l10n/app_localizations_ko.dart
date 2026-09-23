@@ -783,7 +783,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get extraLarge => '특대';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => '스크롤 방향';

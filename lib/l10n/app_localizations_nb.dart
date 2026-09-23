@@ -795,7 +795,7 @@ class AppLocalizationsNb extends AppLocalizations {
   String get extraLarge => 'Ekstra stor';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Rulleretning';

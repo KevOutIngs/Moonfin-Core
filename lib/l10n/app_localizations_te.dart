@@ -796,7 +796,7 @@ class AppLocalizationsTe extends AppLocalizations {
   String get extraLarge => 'అదనపు పెద్దది';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

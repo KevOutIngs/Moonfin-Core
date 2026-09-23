@@ -943,8 +943,8 @@
   "@extraLarge": {
     "description": "Size option: extra large"
   },
-  "uiScaleGrandfather": "Grandfather",
-  "@uiScaleGrandfather": {
+  "uiScaleGrandparents": "Grandparents",
+  "@uiScaleGrandparents": {
     "description": "UI scaling option above extra large"
   },
   "scrollDirection": "Scroll Direction",

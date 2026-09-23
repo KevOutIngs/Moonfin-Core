@@ -795,7 +795,7 @@ class AppLocalizationsEo extends AppLocalizations {
   String get extraLarge => 'Ekstra Granda';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

@@ -800,7 +800,7 @@ class AppLocalizationsSw extends AppLocalizations {
   String get extraLarge => 'Kubwa Zaidi';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

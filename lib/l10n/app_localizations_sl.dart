@@ -799,7 +799,7 @@ class AppLocalizationsSl extends AppLocalizations {
   String get extraLarge => 'Zelo velik';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

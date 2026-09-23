@@ -836,7 +836,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get extraLarge => 'Bardzo duży';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Kierunek przewijania';

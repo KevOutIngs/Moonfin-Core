@@ -797,7 +797,7 @@ class AppLocalizationsTl extends AppLocalizations {
   String get extraLarge => 'Napakalaki';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Scroll Direction';

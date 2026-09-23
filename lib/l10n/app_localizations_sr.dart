@@ -819,7 +819,7 @@ class AppLocalizationsSr extends AppLocalizations {
   String get extraLarge => 'Ектра Ларге';
 
   @override
-  String get uiScaleGrandfather => 'Grandfather';
+  String get uiScaleGrandparents => 'Grandparents';
 
   @override
   String get scrollDirection => 'Смер скроловања';

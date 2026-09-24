@@ -2633,7 +2633,7 @@
     "@signInAndSecurity": {
         "description": "Account section description"
     },
-    "administration": "Ylläpito",
+    "administration": "Hallinta",
     "@administration": {
         "description": "Administration section title"
     },
@@ -3360,7 +3360,7 @@
     "@changeDownloadLocationDescription": {
         "description": "Description for changing download location"
     },
-    "confirm": "Vahvistaa",
+    "confirm": "Vahvista",
     "@confirm": {
         "description": "Button to confirm an action"
     },
@@ -4314,7 +4314,7 @@
     "@declineAction": {
         "description": "Tooltip/button to decline a request"
     },
-    "similar": "Samanlainen",
+    "similar": "Samantyylinen",
     "@similar": {
         "description": "Section title for similar media"
     },
@@ -4587,7 +4587,7 @@
     "adminDrawerPlugins": "Laajennukset",
     "adminDrawerRepositories": "Pakettivarastot",
     "adminDrawerLiveTv": "Live-TV",
-    "adminExitTooltip": "Poistu järjestelmänvalvojasta",
+    "adminExitTooltip": "Poistu",
     "adminDashboardLoadFailed": "Koontinäyttöä ei voitu ladata",
     "adminMediaOverview": "Median yleiskatsaus",
     "adminMediaTotalsError": "Palvelimen mediakokonaisuuksia ei voitu ladata.",
@@ -4904,7 +4904,7 @@
     "adminBackToUsers": "Takaisin Käyttäjiin",
     "adminSaveProfile": "Tallenna profiili",
     "adminDeleteUser": "Poista käyttäjä",
-    "admin": "Järjestelmänvalvoja",
+    "admin": "Hallinta",
     "adminFullAccessWarning": "Järjestelmänvalvojilla on täydellinen pääsy palvelimeen. Myönnä varoen.",
     "administrator": "Järjestelmänvalvoja",
     "adminHiddenUser": "Piilotettu käyttäjä",
@@ -12509,5 +12509,9 @@
     "musicVideoPlaylistsSection": "Musiikkivideoiden soittolistat",
     "@musicVideoPlaylistsSection": {
         "description": "Section header above music video playlists when Group by Type is enabled"
+    },
+    "uiScaleGrandparents": "Isovanhemmat",
+    "@uiScaleGrandparents": {
+        "description": "UI scaling option above extra large"
     }
 }

@@ -11618,6 +11618,14 @@
   "@setupTourQuestion": {
     "description": "Heading of the final setup wizard screen"
   },
+  "setupPlaybackLanguages": "Playback languages",
+  "@setupPlaybackLanguages": {
+    "description": "Heading of the optional audio and subtitle language section on the last setup wizard screen"
+  },
+  "setupOptional": "Optional",
+  "@setupOptional": {
+    "description": "Tag beside an optional section in the setup wizard"
+  },
   "setupStyleClassic": "Classic",
   "@setupStyleClassic": {
     "description": "Name of the original layout, offered in the setup wizard"

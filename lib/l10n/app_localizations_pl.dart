@@ -12963,6 +12963,12 @@ class AppLocalizationsPl extends AppLocalizations {
       'Gotowe. Zobacz, co jeszcze znajdziesz w Moonfin.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Klasyczny';
 
   @override

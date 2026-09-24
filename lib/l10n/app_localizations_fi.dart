@@ -12685,6 +12685,12 @@ class AppLocalizationsFi extends AppLocalizations {
   String get setupTourQuestion => 'Valmis. Tässä on muutkin sisällön osat.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Klassikko';
 
   @override

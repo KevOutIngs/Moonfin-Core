@@ -12164,6 +12164,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get setupTourQuestion => '设置完成。这里还有更多功能。';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => '经典';
 
   @override

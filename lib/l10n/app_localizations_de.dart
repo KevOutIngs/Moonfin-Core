@@ -12816,6 +12816,12 @@ class AppLocalizationsDe extends AppLocalizations {
       'Alles eingerichtet – prima, jetzt kann’s losgehen!';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Klassisches Darstellung';
 
   @override

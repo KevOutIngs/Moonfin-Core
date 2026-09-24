@@ -12650,6 +12650,12 @@ class AppLocalizationsTr extends AppLocalizations {
       'Hazırsınız. İşte burada yer alan diğer şeyler.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Klasik';
 
   @override

@@ -22237,6 +22237,18 @@ abstract class AppLocalizations {
   /// **'You\'re set. Here\'s what else is in here.'**
   String get setupTourQuestion;
 
+  /// Heading of the optional audio and subtitle language section on the last setup wizard screen
+  ///
+  /// In en, this message translates to:
+  /// **'Playback languages'**
+  String get setupPlaybackLanguages;
+
+  /// Tag beside an optional section in the setup wizard
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get setupOptional;
+
   /// Name of the original layout, offered in the setup wizard
   ///
   /// In en, this message translates to:

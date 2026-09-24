@@ -12729,6 +12729,12 @@ class AppLocalizationsIt extends AppLocalizations {
       'Tutto pronto. Ecco cos\'altro c\'è qui dentro.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Classico';
 
   @override

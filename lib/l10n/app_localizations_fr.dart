@@ -12785,6 +12785,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'C\'est prêt. Voici ce que vous pouvez encore découvrir.';
 
   @override
+  String get setupPlaybackLanguages => 'Langues de lecture';
+
+  @override
+  String get setupOptional => 'Facultatif';
+
+  @override
   String get setupStyleClassic => 'Classique';
 
   @override

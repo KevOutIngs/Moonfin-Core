@@ -12607,6 +12607,12 @@ class AppLocalizationsHi extends AppLocalizations {
   String get setupTourQuestion => 'You\'re set. Here\'s what else is in here.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Classic';
 
   @override

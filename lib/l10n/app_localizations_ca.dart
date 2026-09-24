@@ -12825,6 +12825,12 @@ class AppLocalizationsCa extends AppLocalizations {
       'Ja està tot a punt. Aquí tens què més hi ha.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => 'Clàssic';
 
   @override

@@ -12284,6 +12284,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String get setupTourQuestion => '설정이 완료되었습니다. 그 밖의 기능을 살펴보세요.';
 
   @override
+  String get setupPlaybackLanguages => 'Playback languages';
+
+  @override
+  String get setupOptional => 'Optional';
+
+  @override
   String get setupStyleClassic => '클래식';
 
   @override

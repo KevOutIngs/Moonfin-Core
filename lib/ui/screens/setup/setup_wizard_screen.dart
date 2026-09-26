@@ -146,11 +146,19 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       if (detailStyle != null) {
         await _prefs.set(UserPreferences.detailScreenStyle, detailStyle);
       }
-      // Mode goes before the language: turning subtitles off clears the
-      // subtitle language, and a language picked here must survive that.
+      // Mode goes first because changing it can rewrite the subtitle language.
+      // With subtitles off the language stays cleared.
       final subtitleMode = _subtitleMode;
       if (subtitleMode != null) {
         await _prefs.set(UserPreferences.subtitleMode, subtitleMode);
+      }
+      final subtitleLanguage = _subtitleLanguage;
+      if (subtitleLanguage != null &&
+          _prefs.get(UserPreferences.subtitleMode) != SubtitleMode.none) {
+        await _prefs.set(
+          UserPreferences.defaultSubtitleLanguage,
+          subtitleLanguage,
+        );
       }
       final audioLanguage = _audioLanguage;
       if (audioLanguage != null) {
@@ -161,13 +169,6 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
         await _prefs.set(
           UserPreferences.preferDefaultAudioTrack,
           preferDefaultAudioTrack,
-        );
-      }
-      final subtitleLanguage = _subtitleLanguage;
-      if (subtitleLanguage != null) {
-        await _prefs.set(
-          UserPreferences.defaultSubtitleLanguage,
-          subtitleLanguage,
         );
       }
     });
@@ -619,6 +620,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
     // it shows as its code, the way the settings show it.
     final audioLabel = audioOptions[audio] ?? audio;
     final subtitleLabel = subtitleOptions[subtitle] ?? subtitle;
+    final subtitlesOn = mode != SubtitleMode.none;
     // The same names the subtitle settings use.
     String modeLabel(SubtitleMode mode) => switch (mode) {
       SubtitleMode.flagged => l10n.subtitleModeFlagged,
@@ -634,7 +636,11 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
       icon: Icons.translate_rounded,
       title: l10n.setupPlaybackLanguages,
       badge: l10n.setupOptional,
-      summary: [audioLabel, subtitleLabel, modeLabel(mode)].join(' · '),
+      summary: [
+        audioLabel,
+        if (subtitlesOn) subtitleLabel,
+        modeLabel(mode),
+      ].join(' · '),
       onToggle: () => setState(() => _playbackExpanded = !_playbackExpanded),
       children: [
         _SettingRow(
@@ -664,20 +670,10 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             () => _preferDefaultAudioTrack = !preferDefaultAudioTrack,
           ),
         ),
+        // Mode stays above the language so hiding the language doesn't move
+        // the focused row.
         _SettingRow(
           order: 13,
-          label: l10n.defaultSubtitleLanguage,
-          trailing: _ChosenValue(subtitleLabel),
-          onPressed: () => _pick(
-            title: l10n.defaultSubtitleLanguage,
-            values: subtitleOptions.keys.toList(),
-            current: subtitle,
-            labelOf: (code) => subtitleOptions[code]!,
-            onPicked: (code) => _subtitleLanguage = code,
-          ),
-        ),
-        _SettingRow(
-          order: 14,
           label: l10n.subtitleMode,
           trailing: _ChosenValue(modeLabel(mode)),
           onPressed: () => _pick(
@@ -695,6 +691,19 @@ class _SetupWizardScreenState extends State<SetupWizardScreen> {
             onPicked: (mode) => _subtitleMode = mode,
           ),
         ),
+        if (subtitlesOn)
+          _SettingRow(
+            order: 14,
+            label: l10n.defaultSubtitleLanguage,
+            trailing: _ChosenValue(subtitleLabel),
+            onPressed: () => _pick(
+              title: l10n.defaultSubtitleLanguage,
+              values: subtitleOptions.keys.toList(),
+              current: subtitle,
+              labelOf: (code) => subtitleOptions[code]!,
+              onPicked: (code) => _subtitleLanguage = code,
+            ),
+          ),
       ],
     );
   }

@@ -1,5 +1,4 @@
 import '../l10n/app_localizations.dart';
-import 'language_matching.dart';
 import 'locale_names.dart';
 
 /// ISO 639-2 language codes sourced from the Jellyfin/Emby server localization
@@ -420,7 +419,7 @@ final Map<String, String> supportedLanguageOptions = Map.unmodifiable(() {
   };
   final supportedIso3Codes = {
     for (final locale in AppLocalizations.supportedLocales)
-      toIso3Language(locale.languageCode),
+      kIso6391To6392[locale.languageCode] ?? locale.languageCode,
   };
   return {
     for (final entry in kIso6392Languages.entries)

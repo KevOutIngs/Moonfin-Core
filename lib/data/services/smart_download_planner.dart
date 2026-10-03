@@ -2,25 +2,26 @@ import '../../util/season_queue_context.dart';
 import '../models/aggregated_item.dart';
 import 'auto_download_planner.dart';
 
-/// Decides what smart downloads should swap in one series: every downloaded
-/// episode watched since it was downloaded is deleted, and the episodes
-/// after it are queued in its place.
+/// Decides what smart downloads should do in one series: keep the episodes
+/// after the furthest one watched downloaded, and delete downloaded episodes
+/// once they are watched.
 ///
 /// Pure, like [planAutoDownload]: the caller snapshots the server's
 /// episodes, the downloads database and the queue.
 ///
+/// - [finishedRecently] says an episode of the series, streamed or
+///   downloaded, was finished since the last check. That is what starts a
+///   top-up; nothing is queued for a series nobody is watching.
 /// - [downloadedAt] maps each completed download of the series to when it
-///   finished. Only an episode the server says was played after that is
-///   swapped, so a download of something already watched, kept to rewatch,
-///   stays.
+///   finished. A download is swapped out once the server says it was played
+///   after that and after [since] (when smart downloads was turned on), so a
+///   download of something already watched, kept to rewatch, stays.
 /// - The series' final episode is never deleted, and the one in
 ///   [playingItemId] waits for the next check: servers flip Played near the
 ///   end of playback, while the file is open. Specials are left alone.
-/// - Each swapped episode is replaced one for one by the next unwatched
-///   episodes after the furthest one watched, and the series is topped up
-///   to [keepReady] unwatched episodes downloaded or in flight after it.
-/// - Nothing is planned until a downloaded episode has been watched, so
-///   downloading a series by hand never starts a swap on its own.
+/// - The series is topped up to [keepReady] unwatched episodes downloaded or
+///   in flight after the furthest episode watched, and each swapped download
+///   is replaced at least one for one.
 AutoDownloadPlan planSmartDownload({
   required List<AggregatedItem> episodes,
   required Map<String, DateTime?> downloadedAt,
@@ -28,6 +29,8 @@ AutoDownloadPlan planSmartDownload({
   required int keepReady,
   required int? storageBudgetBytes,
   required int Function(AggregatedItem episode) sizeOf,
+  required DateTime since,
+  bool finishedRecently = false,
   String? playingItemId,
 }) {
   final ordered = [
@@ -42,15 +45,17 @@ AutoDownloadPlan planSmartDownload({
       if (downloadedAt.containsKey(episode.id) &&
           episode.id != playingItemId &&
           episode.id != finale?.id &&
-          watchedSinceDownload(episode, downloadedAt[episode.id]))
+          watchedSinceDownload(episode, downloadedAt[episode.id], since))
         episode,
   ];
-  if (watched.isEmpty) return const AutoDownloadPlan();
+  final furthest = ordered.lastIndexWhere((e) => e.isPlayed);
+  if (furthest < 0 || (watched.isEmpty && !finishedRecently)) {
+    return AutoDownloadPlan(toDelete: watched);
+  }
 
-  final after = ordered.sublist(ordered.indexOf(watched.last) + 1);
   var held = 0;
   final queueable = <AggregatedItem>[];
-  for (final episode in after) {
+  for (final episode in ordered.skip(furthest + 1)) {
     if (episode.isPlayed) continue;
     if (downloadedAt.containsKey(episode.id) ||
         inFlightIds.contains(episode.id)) {
@@ -81,12 +86,18 @@ AutoDownloadPlan planSmartDownload({
   );
 }
 
-/// Played, and last played after the download finished. Without either
-/// date there is no telling a fresh watch from a rewatch, so it stays.
-bool watchedSinceDownload(AggregatedItem episode, DateTime? downloadedAt) {
+/// Played, and last played after the download finished and after [since].
+/// Without either date there is no telling a fresh watch from a rewatch, so
+/// it stays.
+bool watchedSinceDownload(
+  AggregatedItem episode,
+  DateTime? downloadedAt,
+  DateTime since,
+) {
   final playedAt = episode.lastPlayedDate;
   return episode.isPlayed &&
       playedAt != null &&
       downloadedAt != null &&
-      playedAt.isAfter(downloadedAt);
+      playedAt.isAfter(downloadedAt) &&
+      playedAt.isAfter(since);
 }

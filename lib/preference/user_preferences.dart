@@ -3255,19 +3255,34 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: true,
   );
 
-  /// Smart downloads: once a downloaded episode is watched it is deleted
-  /// and the next one downloaded in its place, for every series with
-  /// downloads, followed or not.
+  /// Smart downloads: finishing an episode of a series, streamed or
+  /// downloaded, downloads the next ones, and a downloaded episode is
+  /// deleted once watched.
   static final smartDownloadsEnabled = Preference(
     key: 'smart_downloads_enabled',
     defaultValue: false,
   );
 
-  /// How many unwatched episodes smart downloads tops a series up to after
-  /// one of its downloads is watched.
+  /// How many unwatched episodes smart downloads keeps downloaded after the
+  /// furthest one watched.
   static final smartDownloadsKeepReady = Preference(
     key: 'smart_downloads_keep_ready',
     defaultValue: 1,
+  );
+
+  /// ISO time smart downloads was turned on; only watches after it count,
+  /// so turning it on doesn't act on the whole watch history. Empty while
+  /// off. Written by AutoDownloadService.
+  static final smartDownloadsEnabledAt = Preference(
+    key: 'smart_downloads_enabled_at',
+    defaultValue: '',
+  );
+
+  /// ISO time of the latest finished episode a check has acted on, so each
+  /// one tops its series up once. Written by AutoDownloadService.
+  static final smartDownloadsPlayedSince = Preference(
+    key: 'smart_downloads_played_since',
+    defaultValue: '',
   );
 
   /// How many unwatched episodes a subscription keeps downloaded or in

@@ -799,7 +799,13 @@ class _NextEpisodesSettings extends StatelessWidget {
           title: Text(l10n.nextEpisodesEnable),
           subtitle: Text(l10n.nextEpisodesEnableSubtitle),
           value: enabled,
-          onChanged: (v) => prefs.set(UserPreferences.smartDownloadsEnabled, v),
+          onChanged: (v) async {
+            // Only what is watched from now on counts.
+            final now = v ? DateTime.now().toUtc().toIso8601String() : '';
+            await prefs.set(UserPreferences.smartDownloadsEnabledAt, now);
+            await prefs.set(UserPreferences.smartDownloadsPlayedSince, now);
+            await prefs.set(UserPreferences.smartDownloadsEnabled, v);
+          },
         ),
         if (enabled)
           DpadListTile(

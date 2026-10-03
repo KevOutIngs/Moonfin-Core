@@ -2972,6 +2972,20 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     ];
   }
 
+  @override
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async {
+    final data = await _client.itemsApi.getItems(
+      includeItemTypes: const ['Episode'],
+      filters: const ['IsPlayed'],
+      recursive: true,
+      sortBy: 'DatePlayed',
+      sortOrder: 'Descending',
+      limit: 100,
+      fields: 'UserData,SeriesId',
+    );
+    return _toItems(data['Items'] as List?);
+  }
+
   List<AggregatedItem> _toItems(List? rawItems) {
     if (rawItems == null) return const [];
     final serverId = _client.baseUrl;

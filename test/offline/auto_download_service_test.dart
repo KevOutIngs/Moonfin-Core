@@ -595,6 +595,9 @@ void main() {
 
     setUp(() async {
       await prefs.set(UserPreferences.smartDownloadsEnabled, true);
+      final enabledAt = DateTime.utc(2026, 9, 1).toIso8601String();
+      await prefs.set(UserPreferences.smartDownloadsEnabledAt, enabledAt);
+      await prefs.set(UserPreferences.smartDownloadsPlayedSince, enabledAt);
     });
 
     test('swaps a watched download without any subscription', () async {
@@ -696,6 +699,73 @@ void main() {
       );
       expect(downloader.userDataRequests, isEmpty);
       expect(downloader.deleted, isEmpty);
+    });
+
+    test('a streamed episode downloads the next ones', () async {
+      await prefs.set(UserPreferences.smartDownloadsKeepReady, 2);
+      await prefs.set(UserPreferences.defaultDownloadQuality, 'medium720p');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+        episode('e4', number: 4),
+      ];
+
+      final summary = await service.runCheck(
+        trigger: AutoDownloadTrigger.playbackStopped,
+      );
+      expect(downloader.deleted, isEmpty);
+      expect(downloader.queuedIds, ['e2', 'e3']);
+      expect(downloader.batches.single.quality, DownloadQuality.medium720p);
+      expect(summary.smartSeries, 1);
+      expect(
+        DateTime.parse(prefs.get(UserPreferences.smartDownloadsPlayedSince)),
+        downloadedAt.add(const Duration(days: 1)),
+      );
+    });
+
+    test('a finished episode tops its series up only once', () async {
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+      ];
+      await service.runCheck(trigger: AutoDownloadTrigger.playbackStopped);
+      expect(downloader.queuedIds, ['e2']);
+
+      // The user deletes e2 by hand; nothing new was watched.
+      downloader.inFlight.clear();
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e2']);
+    });
+
+    test('watches from before it was turned on are ignored', () async {
+      final later = DateTime.utc(2026, 9, 7).toIso8601String();
+      await prefs.set(UserPreferences.smartDownloadsEnabledAt, later);
+      await prefs.set(UserPreferences.smartDownloadsPlayedSince, later);
+      await addEpisode('e1');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.deleted, isEmpty);
+      expect(downloader.batches, isEmpty);
+    });
+
+    test('a finished episode waiting for Wi-Fi is acted on later', () async {
+      downloader.wifiAllowed = false;
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+      await service.runCheck(trigger: AutoDownloadTrigger.playbackStopped);
+      expect(downloader.batches, isEmpty);
+
+      downloader.wifiAllowed = true;
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e2']);
     });
   });
 }

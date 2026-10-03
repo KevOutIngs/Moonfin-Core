@@ -26,6 +26,10 @@ abstract class AutoDownloadDownloader {
   /// know are left out.
   Future<List<AggregatedItem>> fetchUserData(List<String> ids);
 
+  /// The episodes this user played most recently, newest first, with their
+  /// series and user data.
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes();
+
   Future<DownloadBatch> queueDownloads(
     List<AggregatedItem> items, {
     DownloadQuality quality,

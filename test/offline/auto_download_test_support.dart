@@ -67,6 +67,7 @@ class FakeDownloader implements AutoDownloadDownloader {
   final List<String> deleted = [];
   final List<String> fetched = [];
   final List<List<String>> userDataRequests = [];
+  int recentlyPlayedRequests = 0;
   bool wifiAllowed = true;
   int? headroomBytes;
   final Set<String> failSeries = {};
@@ -102,6 +103,16 @@ class FakeDownloader implements AutoDownloadDownloader {
         for (final item in list) item.id: item,
     };
     return [for (final id in ids) ?byId[id]];
+  }
+
+  @override
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async {
+    recentlyPlayedRequests++;
+    return [
+      for (final list in episodesBySeries.values)
+        for (final item in list)
+          if (item.isPlayed && item.lastPlayedDate != null) item,
+    ]..sort((a, b) => b.lastPlayedDate!.compareTo(a.lastPlayedDate!));
   }
 
   @override

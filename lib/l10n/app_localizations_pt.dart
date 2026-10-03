@@ -13414,7 +13414,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get nextEpisodesEnableSubtitle =>
-      'When you finish a downloaded episode of a series, it\'s deleted and the next episode is downloaded. The last episode of a series is kept.';
+      'When you finish an episode of a series, streamed or downloaded, the next episodes are downloaded. Downloaded episodes are deleted once watched, except the last episode of a series.';
 
   @override
   String get nextEpisodesKeepReady => 'Episodes to keep ready';

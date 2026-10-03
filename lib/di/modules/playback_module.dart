@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:playback_core/playback_core.dart';
@@ -36,6 +38,7 @@ import '../../playback/playback_profile_diagnostics.dart';
 import '../../playback/sleep_timer_controller.dart';
 import '../../platform/pip_service.dart';
 import '../../preference/preference_constants.dart';
+import '../../data/services/auto_download_service.dart';
 import '../../preference/user_preferences.dart';
 import '../../syncplay/syncplay_manager.dart';
 import '../../util/platform_detection.dart';
@@ -783,6 +786,7 @@ void setActiveStreamResolver(MediaServerClient client) {
     canReachServer: () =>
         !_getIt.isRegistered<ConnectivityService>() ||
         _getIt<ConnectivityService>().canReachServer,
+    onStopped: _checkNextEpisodes,
   );
 
   _getIt.registerSingleton<MediaStreamResolver>(resolver);
@@ -793,6 +797,20 @@ void setActiveStreamResolver(MediaServerClient client) {
   manager.setPlayerService(service);
 
   _currentActiveResolverClient = client;
+}
+
+/// Download next episodes reacts as soon as an episode stops, rather than
+/// waiting for the server's debounced user data event.
+void _checkNextEpisodes() {
+  if (!_getIt.isRegistered<AutoDownloadService>() ||
+      !_getIt<UserPreferences>().get(UserPreferences.smartDownloadsEnabled)) {
+    return;
+  }
+  unawaited(
+    _getIt<AutoDownloadService>().runCheck(
+      trigger: AutoDownloadTrigger.playbackStopped,
+    ),
+  );
 }
 
 Future<void> _ensureResolverForItem(dynamic item) async {

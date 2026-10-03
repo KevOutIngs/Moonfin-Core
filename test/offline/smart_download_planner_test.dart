@@ -32,6 +32,8 @@ AutoDownloadPlan _plan(
   int? budget,
   String? playing,
   DateTime? downloadedAt,
+  bool finished = false,
+  DateTime? since,
 }) => planSmartDownload(
   episodes: episodes,
   downloadedAt: {
@@ -42,7 +44,12 @@ AutoDownloadPlan _plan(
   storageBudgetBytes: budget,
   sizeOf: sizeOf,
   playingItemId: playing,
+  finishedRecently: finished,
+  since: since ?? _enabledAt,
 );
+
+/// When smart downloads was turned on in these tests.
+final _enabledAt = DateTime.utc(2026, 9, 1);
 
 List<String> _ids(List<AggregatedItem> items) => [for (final i in items) i.id];
 
@@ -177,5 +184,46 @@ void main() {
     expect(_ids(tight.toQueue), ['e2']);
     expect(_ids(tight.blocked), ['e3', 'e4']);
     expect(tight.storageFull, isTrue);
+  });
+
+  test('finishing a streamed episode downloads the next ones', () {
+    final result = _plan(
+      _season(watched: {1, 2}),
+      downloaded: const {},
+      finished: true,
+      keepReady: 2,
+    );
+    expect(result.toDelete, isEmpty);
+    expect(_ids(result.toQueue), ['e3', 'e4']);
+  });
+
+  test('a finished episode tops up around what is already downloaded', () {
+    final result = _plan(
+      _season(watched: {1}),
+      downloaded: {'e2'},
+      finished: true,
+      keepReady: 3,
+    );
+    expect(_ids(result.toQueue), ['e3', 'e4']);
+  });
+
+  test('nothing is queued after the finale', () {
+    final result = _plan(
+      _season(count: 3, watched: {1, 2, 3}),
+      downloaded: const {},
+      finished: true,
+      keepReady: 2,
+    );
+    expect(result.toQueue, isEmpty);
+  });
+
+  test('watches from before it was turned on do not swap', () {
+    final result = _plan(
+      _season(watched: {1}),
+      downloaded: {'e1'},
+      since: _downloadedAt.add(const Duration(days: 3)),
+    );
+    expect(result.toDelete, isEmpty);
+    expect(result.toQueue, isEmpty);
   });
 }

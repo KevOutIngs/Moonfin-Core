@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
@@ -9,6 +10,7 @@ import 'package:server_core/server_core.dart';
 import '../../preference/user_preferences.dart';
 import '../../util/download_utils.dart';
 import '../../util/platform_detection.dart';
+import '../../util/server_url.dart';
 import '../database/offline_database.dart';
 import '../models/aggregated_item.dart';
 import '../models/download_quality.dart';
@@ -62,6 +64,10 @@ class AutoDownloadRunSummary {
   final bool partial;
   final String? error;
 
+  /// Whether the check had anything to act on or report.
+  bool get hasNews =>
+      subscriptions > 0 || smartSeries > 0 || waitingForWifi || error != null;
+
   Map<String, dynamic> toJson() => {
     'at': at.toIso8601String(),
     'trigger': trigger.name,
@@ -111,15 +117,24 @@ typedef _SeriesOutcome = ({
   List<BlockedEpisode> blocked,
 });
 
-/// What the smart downloads pass contributed to a check: [series] counts
-/// the series that had a watched download to swap.
-typedef _SmartOutcome = ({
-  int series,
-  int queued,
-  int deleted,
-  List<BlockedEpisode> blocked,
-  bool partial,
-  String? error,
+/// One series a check fetches, with how to plan it once its episodes and
+/// the size of each in [quality] are known.
+typedef _SeriesTarget = ({
+  String seriesId,
+  DownloadQuality quality,
+  AutoDownloadPlan Function(
+    List<AggregatedItem> episodes,
+    int Function(AggregatedItem episode) sizeOf,
+  )
+  plan,
+});
+
+/// What a check runs on: shared by every series it fetches.
+typedef _Run = ({
+  AutoDownloadTrigger trigger,
+  DateTime? endBy,
+  _SharedState state,
+  _Tally tally,
 });
 
 /// Keeps followed series downloaded: on every trigger it fetches each
@@ -142,6 +157,7 @@ class AutoDownloadService extends ChangeNotifier {
     this.onStorageFull,
     DateTime Function()? now,
     this.socketDebounce = const Duration(seconds: 30),
+    this.stopDebounce = const Duration(seconds: 3),
   }) : _repository = repository,
        _prefs = prefs,
        _now = now ?? DateTime.now {
@@ -186,9 +202,13 @@ class AutoDownloadService extends ChangeNotifier {
   final String userId;
   final Duration socketDebounce;
 
+  /// How long after a stop a check runs, so the stop report lands first
+  /// and a quick next episode joins the same check.
+  final Duration stopDebounce;
+
   StreamSubscription<ServerWebSocketMessage>? _socketSub;
-  Timer? _socketTimer;
-  AutoDownloadTrigger? _pendingSocketTrigger;
+  Timer? _triggerTimer;
+  AutoDownloadTrigger? _pendingTrigger;
   Future<AutoDownloadRunSummary>? _inFlight;
   String? _inFlightSeriesId;
   bool _inFlightScoped = false;
@@ -270,26 +290,49 @@ class AutoDownloadService extends ChangeNotifier {
     unawaited(runCheck(trigger: trigger));
   }
 
+  /// An episode just stopped playing, streamed or downloaded. Smart
+  /// downloads checks shortly after, once the stop report has landed.
+  void onEpisodeStopped() {
+    if (!_prefs.get(UserPreferences.smartDownloadsEnabled)) return;
+    _schedule(AutoDownloadTrigger.playbackStopped, stopDebounce);
+  }
+
   void _onSocketEvent(ServerWebSocketMessage message) {
-    final AutoDownloadTrigger trigger;
     switch (message) {
       case LibraryChangedMessage(:final itemsAdded) when itemsAdded.isNotEmpty:
-        trigger = AutoDownloadTrigger.libraryChanged;
+        _schedule(AutoDownloadTrigger.libraryChanged, socketDebounce);
       case UserDataChangedMessage(:final userId) when userId == this.userId:
-        trigger = AutoDownloadTrigger.userDataChanged;
+        _schedule(AutoDownloadTrigger.userDataChanged, socketDebounce);
       default:
-        return;
     }
-    // Servers burst these while a library scans; one check at the end of
-    // the burst sees everything.
-    _pendingSocketTrigger = trigger;
-    _socketTimer?.cancel();
-    _socketTimer = Timer(socketDebounce, () {
-      final pending = _pendingSocketTrigger;
-      _pendingSocketTrigger = null;
+  }
+
+  /// Servers burst events while a library scans; one check at the end of
+  /// the burst sees everything. A pending stop check is a full check due
+  /// sooner, so the user data event the stop itself causes joins it.
+  void _schedule(AutoDownloadTrigger trigger, Duration delay) {
+    if (_pendingTrigger == AutoDownloadTrigger.playbackStopped &&
+        (_triggerTimer?.isActive ?? false)) {
+      return;
+    }
+    _pendingTrigger = trigger;
+    _triggerTimer?.cancel();
+    _triggerTimer = Timer(delay, () {
+      final pending = _pendingTrigger;
+      _pendingTrigger = null;
       if (pending != null && !_disposed) unawaited(runCheck(trigger: pending));
     });
   }
+
+  /// Turns smart downloads on or off. Only what is watched from now on
+  /// counts, so the stamps restart with each switch-on.
+  Future<void> setSmartDownloadsEnabled(bool enabled) =>
+      _prefs.batchNotifications(() async {
+        final now = enabled ? _now().toUtc().toIso8601String() : '';
+        await _prefs.set(UserPreferences.smartDownloadsEnabledAt, now);
+        await _prefs.set(UserPreferences.smartDownloadsPlayedSince, now);
+        await _prefs.set(UserPreferences.smartDownloadsEnabled, enabled);
+      });
 
   // ---------------------------------------------------------------------
   // The check
@@ -371,11 +414,7 @@ class AutoDownloadService extends ChangeNotifier {
       // app, so only checks with something to report are persisted.
       // A service disposed mid-check (sign-out) must not leave its summary
       // for the next account.
-      if (!_disposed &&
-          (summary.subscriptions > 0 ||
-              summary.smartSeries > 0 ||
-              summary.waitingForWifi ||
-              summary.error != null)) {
+      if (!_disposed && summary.hasNews) {
         await _prefs.set(
           UserPreferences.autoDownloadLastRun,
           jsonEncode(summary.toJson()),
@@ -432,91 +471,212 @@ class AutoDownloadService extends ChangeNotifier {
     final deleteAfter = deleteAfterHours < 0
         ? null
         : Duration(hours: deleteAfterHours);
+    final tally = _Tally();
+    final run = (trigger: trigger, endBy: endBy, state: state, tally: tally);
 
-    var queued = 0;
-    var deleted = 0;
-    final blocked = <BlockedEpisode>[];
-    var partial = false;
-    String? firstError;
-    var smartSeries = 0;
-
-    // Swaps run first: a followed series' delete-after-watched rule would
-    // otherwise remove the watched episode before its replacement is
-    // queued, and the subscription pass then counts what was swapped in.
-    if (smart) {
-      try {
-        final smart = await _smartPass(
-          trigger: trigger,
-          state: state,
-          playingItemId: playing,
-          endBy: endBy,
-        );
-        smartSeries = smart.series;
-        queued += smart.queued;
-        deleted += smart.deleted;
-        blocked.addAll(smart.blocked);
-        partial = smart.partial;
-        firstError = smart.error;
-      } catch (e) {
-        firstError = e.toString();
-      }
-    }
-
-    for (final subscription in subscriptions) {
-      if (_disposed) break;
-      if (endBy != null && !_now().isBefore(endBy)) {
-        partial = true;
-        break;
-      }
-      final quality = DownloadQuality.fromName(subscription.qualityPreset);
-      // A background run ends with its engine; only transfers the native
-      // engine carries on its own are worth starting.
-      if (trigger == AutoDownloadTrigger.backgroundRefresh &&
-          !await downloader.canTransferInBackground(quality)) {
-        continue;
-      }
-      _SeriesOutcome outcome;
-      String? error;
-      try {
-        outcome = await _checkSeries(
-          subscription.seriesId,
-          newSince: subscription.createdAt,
-          quality: quality,
-          keepUnwatched: keepUnwatched,
-          deleteAfter: deleteAfter,
-          state: state,
-          playingItemId: playing,
-        );
-      } catch (e) {
-        error = e.toString();
-        firstError ??= error;
-        outcome = (queued: 0, deleted: 0, blocked: const []);
-      }
-      queued += outcome.queued;
-      deleted += outcome.deleted;
-      blocked.addAll(outcome.blocked);
-      await _repository.updateSubscriptionCheck(
-        seriesId: subscription.seriesId,
-        serverId: serverId,
-        userId: userId,
-        checkedAt: _now(),
-        queuedCount: outcome.queued,
-        error: error,
+    // Smart downloads run first: a followed series' delete-after-watched
+    // rule would otherwise remove a watched episode before its replacement
+    // is queued, and the subscriptions then count what was swapped in.
+    final smartPlan = smart ? await _smartTargets(state, playing) : null;
+    if (smartPlan != null) {
+      final handled = <String>{};
+      await _runSeries(
+        smartPlan.targets,
+        run,
+        onSeriesDone: (seriesId, _, error) async {
+          if (error == null) handled.add(seriesId);
+        },
       );
+      // Each finished episode tops its series up once. The marker stops
+      // before the oldest one whose series was not acted on (failed, out of
+      // time, or left for the app engine), which is read again next time.
+      DateTime? upTo;
+      for (final play in smartPlan.finished.reversed) {
+        if (!handled.contains(play.seriesId)) break;
+        upTo = play.playedAt;
+      }
+      if (upTo != null && !_disposed) {
+        await _prefs.set(
+          UserPreferences.smartDownloadsPlayedSince,
+          upTo.toUtc().toIso8601String(),
+        );
+      }
     }
 
-    if (onlySeriesId == null && !_disposed) await _reportBlocked(blocked);
+    await _runSeries(
+      [
+        for (final subscription in subscriptions)
+          (
+            seriesId: subscription.seriesId,
+            quality: DownloadQuality.fromName(subscription.qualityPreset),
+            plan: (episodes, sizeOf) => planAutoDownload(
+              episodes: episodes,
+              keepUnwatched: keepUnwatched,
+              deleteAfter: deleteAfter,
+              now: _now(),
+              downloadedIds: state.downloadedIds,
+              inFlightIds: state.inFlightIds,
+              autoOwnedIds: state.autoOwnedIds,
+              storageBudgetBytes: state.budget,
+              sizeOf: sizeOf,
+              newSince: subscription.createdAt,
+              playingItemId: playing,
+            ),
+          ),
+      ],
+      run,
+      onSeriesDone: (seriesId, queued, error) =>
+          _repository.updateSubscriptionCheck(
+            seriesId: seriesId,
+            serverId: serverId,
+            userId: userId,
+            checkedAt: _now(),
+            queuedCount: queued,
+            error: error,
+          ),
+    );
+
+    if (onlySeriesId == null && !_disposed) {
+      await _reportBlocked(tally.blocked);
+    }
 
     return AutoDownloadRunSummary(
       at: startedAt,
       trigger: trigger,
       subscriptions: subscriptions.length,
-      smartSeries: smartSeries,
-      queued: queued,
-      deleted: deleted,
-      storageFull: blocked.isNotEmpty,
-      partial: partial,
-      error: firstError,
+      smartSeries: smartPlan?.targets.length ?? 0,
+      queued: tally.queued,
+      deleted: tally.deleted,
+      storageFull: tally.blocked.isNotEmpty,
+      partial: tally.partial,
+      error: tally.firstError,
+    );
+  }
+
+  /// Fetches each series in [targets], applies its plan and adds the
+  /// outcome to the run's tally. Stops at the run's deadline. A background
+  /// run ends with its engine, so it skips qualities only the app engine
+  /// can transfer.
+  Future<void> _runSeries(
+    List<_SeriesTarget> targets,
+    _Run run, {
+    Future<void> Function(String seriesId, int queued, String? error)?
+    onSeriesDone,
+  }) async {
+    for (final target in targets) {
+      if (_disposed) break;
+      if (run.endBy case final endBy? when !_now().isBefore(endBy)) {
+        run.tally.partial = true;
+        break;
+      }
+      if (run.trigger == AutoDownloadTrigger.backgroundRefresh &&
+          !await downloader.canTransferInBackground(target.quality)) {
+        continue;
+      }
+      _SeriesOutcome outcome;
+      String? error;
+      try {
+        final episodes = await downloader.fetchEpisodes(target.seriesId);
+        int sizeOf(AggregatedItem episode) =>
+            estimateDownloadSizeBytes(episode, target.quality);
+        outcome = await _apply(
+          target.plan(episodes, sizeOf),
+          quality: target.quality,
+          state: run.state,
+          sizeOf: sizeOf,
+        );
+      } catch (e) {
+        error = e.toString();
+        run.tally.firstError ??= error;
+        outcome = (queued: 0, deleted: 0, blocked: const []);
+      }
+      run.tally.add(outcome);
+      await onSeriesDone?.call(target.seriesId, outcome.queued, error);
+    }
+  }
+
+  /// The series smart downloads acts on, newest watch first: those with an
+  /// episode finished since the last check, streamed or downloaded, and
+  /// those with a download watched since it was downloaded that is still
+  /// on the phone. One request for the recently played episodes tells which
+  /// they are. The episode playing right now counts once it stops, so it is
+  /// never topped up for twice.
+  Future<
+    ({
+      List<_SeriesTarget> targets,
+      List<({String seriesId, DateTime playedAt})> finished,
+    })
+  >
+  _smartTargets(_SharedState state, String? playingItemId) async {
+    final since = await _smartSince(UserPreferences.smartDownloadsEnabledAt);
+    final playedSince = await _smartSince(
+      UserPreferences.smartDownloadsPlayedSince,
+    );
+    final downloadsBySeries = <String, List<DownloadedEpisodeRef>>{};
+    final downloadById = <String, DownloadedEpisodeRef>{};
+    for (final row in await _repository.getDownloadedEpisodes()) {
+      // Another server's ids can collide with this one's.
+      if (!isStoredServer(
+        row.serverId,
+        serverId: serverId,
+        baseUrl: downloader.serverBaseUrl,
+      )) {
+        continue;
+      }
+      (downloadsBySeries[row.seriesId] ??= []).add(row);
+      downloadById[row.itemId] = row;
+    }
+
+    final finished = <({String seriesId, DateTime playedAt})>[];
+    final qualityBySeries = <String, DownloadQuality>{};
+    for (final item in await downloader.fetchRecentlyPlayedEpisodes()) {
+      final seriesId = item.seriesId;
+      final playedAt = item.lastPlayedDate;
+      if (seriesId == null || playedAt == null || item.id == playingItemId) {
+        continue;
+      }
+      final download = downloadById[item.id];
+      if (playedAt.isAfter(playedSince)) {
+        finished.add((seriesId: seriesId, playedAt: playedAt));
+      } else if (download == null ||
+          !watchedSinceDownload(item, download.downloadedAt, since)) {
+        continue;
+      }
+      qualityBySeries.putIfAbsent(
+        seriesId,
+        () => download != null
+            ? DownloadQuality.fromName(download.qualityPreset)
+            : _seriesQuality(downloadsBySeries[seriesId] ?? const []),
+      );
+    }
+
+    final finishedSeries = {for (final play in finished) play.seriesId};
+    final keepReady = _prefs.get(UserPreferences.smartDownloadsKeepReady);
+    return (
+      finished: finished,
+      targets: [
+        for (final MapEntry(key: seriesId, value: quality)
+            in qualityBySeries.entries)
+          (
+            seriesId: seriesId,
+            quality: quality,
+            plan: (episodes, sizeOf) => planSmartDownload(
+              episodes: episodes,
+              downloadedAt: {
+                for (final row in downloadsBySeries[seriesId] ?? const [])
+                  row.itemId: row.downloadedAt,
+              },
+              inFlightIds: state.inFlightIds,
+              keepReady: keepReady,
+              storageBudgetBytes: state.budget,
+              sizeOf: sizeOf,
+              since: since,
+              playedSince: playedSince,
+              finishedRecently: finishedSeries.contains(seriesId),
+              playingItemId: playingItemId,
+            ),
+          ),
+      ],
     );
   }
 
@@ -531,196 +691,6 @@ class AutoDownloadService extends ChangeNotifier {
       wantNotice,
     );
     if (wantNotice) onStorageFull?.call(blocked);
-  }
-
-  Future<_SeriesOutcome> _checkSeries(
-    String seriesId, {
-    required DateTime newSince,
-    required DownloadQuality quality,
-    required int? keepUnwatched,
-    required Duration? deleteAfter,
-    required _SharedState state,
-    required String? playingItemId,
-  }) async {
-    final episodes = await downloader.fetchEpisodes(seriesId);
-    int sizeOf(AggregatedItem episode) =>
-        estimateDownloadSizeBytes(episode, quality);
-    final plan = planAutoDownload(
-      episodes: episodes,
-      keepUnwatched: keepUnwatched,
-      deleteAfter: deleteAfter,
-      now: _now(),
-      downloadedIds: state.downloadedIds,
-      inFlightIds: state.inFlightIds,
-      autoOwnedIds: state.autoOwnedIds,
-      storageBudgetBytes: state.budget,
-      sizeOf: sizeOf,
-      newSince: newSince,
-      playingItemId: playingItemId,
-    );
-    return _apply(plan, quality: quality, state: state, sizeOf: sizeOf);
-  }
-
-  /// Smart downloads: tops up every series with an episode finished since
-  /// the last check, streamed or downloaded, and swaps out downloads watched
-  /// since they were downloaded. One request for recently played episodes
-  /// and one for the user data of every download tell which series those
-  /// are; only those are fetched.
-  Future<_SmartOutcome> _smartPass({
-    required AutoDownloadTrigger trigger,
-    required _SharedState state,
-    required String? playingItemId,
-    required DateTime? endBy,
-  }) async {
-    final since = await _smartSince(UserPreferences.smartDownloadsEnabledAt);
-    final playedSince = await _smartSince(
-      UserPreferences.smartDownloadsPlayedSince,
-    );
-    final downloads = [
-      for (final row in await _repository.getDownloadedEpisodes())
-        if (state.downloadedIds.contains(row.itemId)) row,
-    ];
-    final rows = {for (final row in downloads) row.itemId: row};
-
-    // Series with a download watched since it was downloaded, most recent
-    // watch first so its row sets the series' quality.
-    final watched = [
-      if (rows.isNotEmpty)
-        for (final item in await downloader.fetchUserData(rows.keys.toList()))
-          if (item.id != playingItemId &&
-              watchedSinceDownload(item, rows[item.id]!.downloadedAt, since))
-            item,
-    ]..sort((a, b) => b.lastPlayedDate!.compareTo(a.lastPlayedDate!));
-    final qualityBySeries = <String, DownloadQuality>{};
-    for (final item in watched) {
-      final row = rows[item.id]!;
-      qualityBySeries.putIfAbsent(
-        row.seriesId,
-        () => DownloadQuality.fromName(row.qualityPreset),
-      );
-    }
-
-    // Series with an episode finished since the last check.
-    final finished = [
-      for (final item in await downloader.fetchRecentlyPlayedEpisodes())
-        if (item.seriesId != null &&
-            item.lastPlayedDate != null &&
-            item.lastPlayedDate!.isAfter(playedSince))
-          item,
-    ];
-    final finishedSeries = {for (final item in finished) item.seriesId!};
-    for (final seriesId in finishedSeries) {
-      qualityBySeries.putIfAbsent(
-        seriesId,
-        () => _seriesQuality(seriesId, downloads),
-      );
-    }
-
-    final keepReady = _prefs.get(UserPreferences.smartDownloadsKeepReady);
-    var queued = 0;
-    var deleted = 0;
-    final blocked = <BlockedEpisode>[];
-    var partial = false;
-    var skipped = false;
-    String? firstError;
-    for (final MapEntry(key: seriesId, value: quality)
-        in qualityBySeries.entries) {
-      if (_disposed) break;
-      if (endBy != null && !_now().isBefore(endBy)) {
-        partial = true;
-        break;
-      }
-      if (trigger == AutoDownloadTrigger.backgroundRefresh &&
-          !await downloader.canTransferInBackground(quality)) {
-        skipped = true;
-        continue;
-      }
-      try {
-        final episodes = await downloader.fetchEpisodes(seriesId);
-        int sizeOf(AggregatedItem episode) =>
-            estimateDownloadSizeBytes(episode, quality);
-        final plan = planSmartDownload(
-          episodes: episodes,
-          downloadedAt: {
-            for (final row in downloads)
-              if (row.seriesId == seriesId &&
-                  state.downloadedIds.contains(row.itemId))
-                row.itemId: row.downloadedAt,
-          },
-          inFlightIds: state.inFlightIds,
-          keepReady: keepReady,
-          storageBudgetBytes: state.budget,
-          sizeOf: sizeOf,
-          since: since,
-          finishedRecently: finishedSeries.contains(seriesId),
-          playingItemId: playingItemId,
-        );
-        final outcome = await _apply(
-          plan,
-          quality: quality,
-          state: state,
-          sizeOf: sizeOf,
-        );
-        queued += outcome.queued;
-        deleted += outcome.deleted;
-        blocked.addAll(outcome.blocked);
-      } catch (e) {
-        firstError ??= e.toString();
-      }
-    }
-
-    // Each finished episode tops its series up once; one that could not be
-    // acted on is read again next time.
-    if (finished.isNotEmpty &&
-        !partial &&
-        !skipped &&
-        firstError == null &&
-        !_disposed) {
-      await _prefs.set(
-        UserPreferences.smartDownloadsPlayedSince,
-        finished.first.lastPlayedDate!.toUtc().toIso8601String(),
-      );
-    }
-    return (
-      series: qualityBySeries.length,
-      queued: queued,
-      deleted: deleted,
-      blocked: blocked,
-      partial: partial,
-      error: firstError,
-    );
-  }
-
-  /// The time stored in [pref], stamped now when it is still empty: smart
-  /// downloads only acts on what is watched once it is on.
-  Future<DateTime> _smartSince(Preference<String> pref) async {
-    final stored = DateTime.tryParse(_prefs.get(pref));
-    if (stored != null) return stored;
-    final now = _now().toUtc();
-    await _prefs.set(pref, now.toIso8601String());
-    return now;
-  }
-
-  /// The quality of the series' most recent download, or the default
-  /// download quality when nothing of it is downloaded.
-  DownloadQuality _seriesQuality(
-    String seriesId,
-    List<DownloadedEpisodeRef> downloads,
-  ) {
-    DownloadedEpisodeRef? latest;
-    for (final row in downloads) {
-      if (row.seriesId != seriesId) continue;
-      final at = row.downloadedAt;
-      final latestAt = latest?.downloadedAt;
-      if (latest == null ||
-          (at != null && (latestAt == null || at.isAfter(latestAt)))) {
-        latest = row;
-      }
-    }
-    return DownloadQuality.fromName(
-      latest?.qualityPreset ??
-          _prefs.get(UserPreferences.defaultDownloadQuality),
-    );
   }
 
   /// Deletes, then queues, what [plan] decided, keeping [state] current.
@@ -757,10 +727,33 @@ class AutoDownloadService extends ChangeNotifier {
     );
   }
 
+  /// The time stored in [pref], stamped now when it is still empty: smart
+  /// downloads only acts on what is watched once it is on.
+  Future<DateTime> _smartSince(Preference<String> pref) async {
+    final stored = DateTime.tryParse(_prefs.get(pref));
+    if (stored != null) return stored;
+    final now = _now().toUtc();
+    await _prefs.set(pref, now.toIso8601String());
+    return now;
+  }
+
+  /// The quality of the series' most recent download, or the default
+  /// download quality when nothing of it is downloaded.
+  DownloadQuality _seriesQuality(List<DownloadedEpisodeRef> downloads) {
+    final latest = downloads
+        .where((row) => row.downloadedAt != null)
+        .sortedBy((row) => row.downloadedAt!)
+        .lastOrNull;
+    return DownloadQuality.fromName(
+      (latest ?? downloads.firstOrNull)?.qualityPreset ??
+          _prefs.get(UserPreferences.defaultDownloadQuality),
+    );
+  }
+
   @override
   void dispose() {
     _disposed = true;
-    _socketTimer?.cancel();
+    _triggerTimer?.cancel();
     _socketSub?.cancel();
     super.dispose();
   }
@@ -820,5 +813,22 @@ class _SharedState {
     downloadedIds.remove(itemId);
     autoOwnedIds.remove(itemId);
     if (budget != null) budget = budget! + bytes;
+  }
+}
+
+/// What the series of one check added up to.
+class _Tally {
+  var queued = 0;
+  var deleted = 0;
+  final blocked = <BlockedEpisode>[];
+
+  /// The deadline ended the check before every series was fetched.
+  var partial = false;
+  String? firstError;
+
+  void add(_SeriesOutcome outcome) {
+    queued += outcome.queued;
+    deleted += outcome.deleted;
+    blocked.addAll(outcome.blocked);
   }
 }

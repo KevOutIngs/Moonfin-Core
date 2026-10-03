@@ -22,6 +22,7 @@ import '../../preference/user_preferences.dart';
 import '../../util/disk_free_space.dart';
 import '../../util/download_grouping.dart' show downloadNotificationLabel;
 import '../../util/download_utils.dart';
+import '../utils/next_up_enrichment.dart';
 import '../../util/platform_detection.dart';
 import '../database/offline_database.dart';
 import '../models/aggregated_item.dart';
@@ -2958,33 +2959,11 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
   }
 
   @override
-  Future<List<AggregatedItem>> fetchUserData(List<String> ids) async {
-    const chunk = 100;
-    return [
-      for (var i = 0; i < ids.length; i += chunk)
-        ..._toItems(
-          (await _client.itemsApi.getItems(
-                ids: ids.sublist(i, (i + chunk).clamp(0, ids.length)),
-                fields: 'UserData',
-              ))['Items']
-              as List?,
-        ),
-    ];
-  }
+  String get serverBaseUrl => _client.baseUrl;
 
   @override
-  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async {
-    final data = await _client.itemsApi.getItems(
-      includeItemTypes: const ['Episode'],
-      filters: const ['IsPlayed'],
-      recursive: true,
-      sortBy: 'DatePlayed',
-      sortOrder: 'Descending',
-      limit: 100,
-      fields: 'UserData,SeriesId',
-    );
-    return _toItems(data['Items'] as List?);
-  }
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async =>
+      _toItems(await fetchRecentlyPlayedEpisodeItems(_client));
 
   List<AggregatedItem> _toItems(List? rawItems) {
     if (rawItems == null) return const [];

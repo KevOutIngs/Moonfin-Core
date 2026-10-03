@@ -15,6 +15,7 @@ typedef DownloadRef = ({
 /// A completed episode download, with what smart downloads needs to swap it.
 typedef DownloadedEpisodeRef = ({
   String itemId,
+  String serverId,
   String seriesId,
   String qualityPreset,
   DateTime? downloadedAt,
@@ -269,7 +270,13 @@ class OfflineRepository {
   Future<List<DownloadedEpisodeRef>> getDownloadedEpisodes() async {
     final t = _db.downloadedItems;
     final query = _db.selectOnly(t)
-      ..addColumns([t.itemId, t.seriesId, t.qualityPreset, t.downloadedAt])
+      ..addColumns([
+        t.itemId,
+        t.serverId,
+        t.seriesId,
+        t.qualityPreset,
+        t.downloadedAt,
+      ])
       ..where(
         t.downloadStatus.equals(2) &
             t.type.equals('Episode') &
@@ -279,6 +286,7 @@ class OfflineRepository {
       for (final row in await query.get())
         (
           itemId: row.read(t.itemId)!,
+          serverId: row.read(t.serverId)!,
           seriesId: row.read(t.seriesId)!,
           qualityPreset: row.read(t.qualityPreset)!,
           downloadedAt: row.read(t.downloadedAt),

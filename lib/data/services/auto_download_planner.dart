@@ -111,15 +111,14 @@ AutoDownloadPlan planAutoDownload({
   required int? budgetBytes,
   required int Function(AggregatedItem episode) sizeOf,
 }) {
-  final fits = <AggregatedItem>[];
+  if (budgetBytes == null) return (wanted, const []);
   var budget = budgetBytes;
   for (var i = 0; i < wanted.length; i++) {
     final size = sizeOf(wanted[i]);
-    if (budget != null && size > budget) return (fits, wanted.sublist(i));
-    if (budget != null) budget -= size;
-    fits.add(wanted[i]);
+    if (size > budget) return (wanted.sublist(0, i), wanted.sublist(i));
+    budget -= size;
   }
-  return (fits, const []);
+  return (wanted, const []);
 }
 
 /// Specials are never queued; placeholders, unaired episodes and episodes

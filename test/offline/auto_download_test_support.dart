@@ -41,6 +41,31 @@ AggregatedItem episode(
   },
 );
 
+/// When test downloads finished.
+final downloadedAt = DateTime.utc(2026, 9, 5);
+
+/// An episode the user finished a day after [downloadedAt].
+AggregatedItem watched(
+  String id, {
+  String series = 'series-1',
+  int season = 1,
+  int? number,
+}) => episode(
+  id,
+  series: series,
+  season: season,
+  number: number,
+  played: true,
+  extra: {
+    'UserData': {
+      'Played': true,
+      'LastPlayedDate': downloadedAt
+          .add(const Duration(days: 1))
+          .toIso8601String(),
+    },
+  },
+);
+
 int sizeOf(AggregatedItem item) =>
     ((item.rawData['MediaSources'] as List).first['Size'] as int?) ?? 0;
 
@@ -66,8 +91,6 @@ class FakeDownloader implements AutoDownloadDownloader {
   final List<QueuedBatch> batches = [];
   final List<String> deleted = [];
   final List<String> fetched = [];
-  final List<List<String>> userDataRequests = [];
-  int recentlyPlayedRequests = 0;
   bool wifiAllowed = true;
   int? headroomBytes;
   final Set<String> failSeries = {};
@@ -83,6 +106,9 @@ class FakeDownloader implements AutoDownloadDownloader {
   Set<String> get inFlightItemIds => Set.of(inFlight);
 
   @override
+  String get serverBaseUrl => 'https://media.example';
+
+  @override
   Future<List<AggregatedItem>> fetchEpisodes(
     String seriesId, {
     String? seasonId,
@@ -96,18 +122,7 @@ class FakeDownloader implements AutoDownloadDownloader {
   }
 
   @override
-  Future<List<AggregatedItem>> fetchUserData(List<String> ids) async {
-    userDataRequests.add(ids);
-    final byId = {
-      for (final list in episodesBySeries.values)
-        for (final item in list) item.id: item,
-    };
-    return [for (final id in ids) ?byId[id]];
-  }
-
-  @override
   Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async {
-    recentlyPlayedRequests++;
     return [
       for (final list in episodesBySeries.values)
         for (final item in list)

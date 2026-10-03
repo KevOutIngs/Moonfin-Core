@@ -129,7 +129,10 @@ class DownloadSettingsScreen extends ConsumerWidget {
             ),
             if (GetIt.instance.isRegistered<AutoDownloadService>()) ...[
               _Section(title: l10n.nextEpisodesSection),
-              _NextEpisodesSettings(prefs: prefs),
+              _NextEpisodesSettings(
+                prefs: prefs,
+                service: GetIt.instance<AutoDownloadService>(),
+              ),
               _Section(title: l10n.autoDownloadSection),
               _AutoDownloadSettings(
                 prefs: prefs,
@@ -779,9 +782,10 @@ class _Section extends StatelessWidget {
 /// Download next episodes: the switch, and how many episodes it keeps
 /// ready once it is on.
 class _NextEpisodesSettings extends StatelessWidget {
-  const _NextEpisodesSettings({required this.prefs});
+  const _NextEpisodesSettings({required this.prefs, required this.service});
 
   final UserPreferences prefs;
+  final AutoDownloadService service;
 
   static const _keepReadyChoices = [1, 2, 3, 4, 5];
 
@@ -799,13 +803,7 @@ class _NextEpisodesSettings extends StatelessWidget {
           title: Text(l10n.nextEpisodesEnable),
           subtitle: Text(l10n.nextEpisodesEnableSubtitle),
           value: enabled,
-          onChanged: (v) async {
-            // Only what is watched from now on counts.
-            final now = v ? DateTime.now().toUtc().toIso8601String() : '';
-            await prefs.set(UserPreferences.smartDownloadsEnabledAt, now);
-            await prefs.set(UserPreferences.smartDownloadsPlayedSince, now);
-            await prefs.set(UserPreferences.smartDownloadsEnabled, v);
-          },
+          onChanged: service.setSmartDownloadsEnabled,
         ),
         if (enabled)
           DpadListTile(
@@ -814,37 +812,15 @@ class _NextEpisodesSettings extends StatelessWidget {
             title: Text(l10n.nextEpisodesKeepReady),
             subtitle: Text(l10n.nextEpisodesKeepReadySubtitle(keepReady)),
             trailing: Text('$keepReady'),
-            onTap: () => _pickKeepReady(context, keepReady),
+            onTap: () => _pickCount(
+              context,
+              current: keepReady,
+              choices: _keepReadyChoices,
+              onPicked: (n) =>
+                  prefs.set(UserPreferences.smartDownloadsKeepReady, n),
+            ),
           ),
       ],
-    );
-  }
-
-  void _pickKeepReady(BuildContext context, int current) {
-    showFocusRestoringModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: DpadRadioGroup<int>(
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) {
-              prefs.set(UserPreferences.smartDownloadsKeepReady, v);
-            }
-            Navigator.pop(ctx);
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final n in _keepReadyChoices)
-                DpadRadioListTile<int>(
-                  autofocus: n == current,
-                  title: Text('$n'),
-                  value: n,
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1089,30 +1065,46 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
 
   void _pickKeepUnwatched(BuildContext context, int current) {
     final l10n = AppLocalizations.of(context);
-    showFocusRestoringModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: DpadRadioGroup<int>(
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) {
-              widget.prefs.set(UserPreferences.autoDownloadKeepUnwatched, v);
-            }
-            Navigator.pop(ctx);
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final n in _keepChoices)
-                DpadRadioListTile<int>(
-                  autofocus: n == current,
-                  title: Text(n == 0 ? l10n.autoDownloadKeepAll : '$n'),
-                  value: n,
-                ),
-            ],
-          ),
-        ),
-      ),
+    _pickCount(
+      context,
+      current: current,
+      choices: _keepChoices,
+      label: (n) => n == 0 ? l10n.autoDownloadKeepAll : '$n',
+      onPicked: (n) =>
+          widget.prefs.set(UserPreferences.autoDownloadKeepUnwatched, n),
     );
   }
+}
+
+/// A bottom sheet of [choices] with [current] focused.
+void _pickCount(
+  BuildContext context, {
+  required int current,
+  required List<int> choices,
+  required ValueChanged<int> onPicked,
+  String Function(int n)? label,
+}) {
+  showFocusRestoringModalBottomSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: DpadRadioGroup<int>(
+        groupValue: current,
+        onChanged: (v) {
+          if (v != null) onPicked(v);
+          Navigator.pop(ctx);
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final n in choices)
+              DpadRadioListTile<int>(
+                autofocus: n == current,
+                title: Text(label?.call(n) ?? '$n'),
+                value: n,
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

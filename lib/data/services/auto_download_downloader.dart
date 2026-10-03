@@ -16,15 +16,13 @@ class DownloadBatch {
 abstract class AutoDownloadDownloader {
   Set<String> get inFlightItemIds;
 
+  /// The URL of the server this downloader fetches from.
+  String get serverBaseUrl;
+
   Future<List<AggregatedItem>> fetchEpisodes(
     String seriesId, {
     String? seasonId,
   });
-
-  /// The current server's copy of [ids] with their user data, so a check
-  /// can tell which downloads have been watched. Ids the server does not
-  /// know are left out.
-  Future<List<AggregatedItem>> fetchUserData(List<String> ids);
 
   /// The episodes this user played most recently, newest first, with their
   /// series and user data.

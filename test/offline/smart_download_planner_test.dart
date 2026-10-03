@@ -5,25 +5,6 @@ import 'package:moonfin/data/services/smart_download_planner.dart';
 
 import 'auto_download_test_support.dart';
 
-/// When the test downloads finished.
-final _downloadedAt = DateTime.utc(2026, 9, 5);
-
-AggregatedItem _watched(String id, {int season = 1, required int number}) =>
-    episode(
-      id,
-      season: season,
-      number: number,
-      played: true,
-      extra: {
-        'UserData': {
-          'Played': true,
-          'LastPlayedDate': _downloadedAt
-              .add(const Duration(days: 1))
-              .toIso8601String(),
-        },
-      },
-    );
-
 AutoDownloadPlan _plan(
   List<AggregatedItem> episodes, {
   required Set<String> downloaded,
@@ -31,14 +12,13 @@ AutoDownloadPlan _plan(
   int keepReady = 1,
   int? budget,
   String? playing,
-  DateTime? downloadedAt,
+  DateTime? downloadedOn,
   bool finished = false,
   DateTime? since,
+  DateTime? playedSince,
 }) => planSmartDownload(
   episodes: episodes,
-  downloadedAt: {
-    for (final id in downloaded) id: downloadedAt ?? _downloadedAt,
-  },
+  downloadedAt: {for (final id in downloaded) id: downloadedOn ?? downloadedAt},
   inFlightIds: inFlight,
   keepReady: keepReady,
   storageBudgetBytes: budget,
@@ -46,6 +26,7 @@ AutoDownloadPlan _plan(
   playingItemId: playing,
   finishedRecently: finished,
   since: since ?? _enabledAt,
+  playedSince: playedSince,
 );
 
 /// When smart downloads was turned on in these tests.
@@ -53,23 +34,23 @@ final _enabledAt = DateTime.utc(2026, 9, 1);
 
 List<String> _ids(List<AggregatedItem> items) => [for (final i in items) i.id];
 
-List<AggregatedItem> _season({int count = 6, Set<int> watched = const {}}) => [
+List<AggregatedItem> _season({int count = 6, Set<int> finished = const {}}) => [
   for (var n = 1; n <= count; n++)
-    watched.contains(n)
-        ? _watched('e$n', number: n)
+    finished.contains(n)
+        ? watched('e$n', number: n)
         : episode('e$n', number: n),
 ];
 
 void main() {
   test('swaps a watched download for the next episode', () {
-    final result = _plan(_season(watched: {1}), downloaded: {'e1', 'e2'});
+    final result = _plan(_season(finished: {1}), downloaded: {'e1', 'e2'});
     expect(_ids(result.toDelete), ['e1']);
     expect(_ids(result.toQueue), ['e3']);
   });
 
   test('swaps one for one when several downloads were watched', () {
     final result = _plan(
-      _season(watched: {1, 2}),
+      _season(finished: {1, 2}),
       downloaded: {'e1', 'e2', 'e3'},
     );
     expect(_ids(result.toDelete), ['e1', 'e2']);
@@ -78,7 +59,7 @@ void main() {
 
   test('tops the series up to keepReady after a watch', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1', 'e2'},
       keepReady: 3,
     );
@@ -87,7 +68,7 @@ void main() {
 
   test('in-flight episodes count toward keepReady and are not queued', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1'},
       inFlight: {'e2'},
       keepReady: 2,
@@ -103,9 +84,9 @@ void main() {
 
   test('keeps a download that was watched before it was downloaded', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1'},
-      downloadedAt: _downloadedAt.add(const Duration(days: 2)),
+      downloadedOn: downloadedAt.add(const Duration(days: 2)),
     );
     expect(result.toDelete, isEmpty);
     expect(result.toQueue, isEmpty);
@@ -121,14 +102,14 @@ void main() {
   });
 
   test('never deletes the final episode', () {
-    final result = _plan(_season(count: 3, watched: {3}), downloaded: {'e3'});
+    final result = _plan(_season(count: 3, finished: {3}), downloaded: {'e3'});
     expect(result.toDelete, isEmpty);
     expect(result.toQueue, isEmpty);
   });
 
   test('leaves the playing episode for the next check', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1'},
       playing: 'e1',
     );
@@ -139,9 +120,9 @@ void main() {
   test('queues after the furthest watched episode, across seasons', () {
     final result = _plan(
       [
-        _watched('s1e1', number: 1),
+        watched('s1e1', number: 1),
         episode('s1e2', number: 2),
-        _watched('s1e3', number: 3),
+        watched('s1e3', number: 3),
         episode('s2e1', season: 2, number: 1),
         episode('s2e2', season: 2, number: 2),
       ],
@@ -154,7 +135,7 @@ void main() {
   test('skips specials, played and missing episodes', () {
     final result = _plan(
       [
-        _watched('e1', number: 1),
+        watched('e1', number: 1),
         episode('sp', season: 0, number: 1),
         episode('e2', number: 2, played: true),
         episode('e3', number: 3, extra: {'LocationType': 'Virtual'}),
@@ -168,7 +149,7 @@ void main() {
 
   test('counts the freed space and holds back what still does not fit', () {
     final result = _plan(
-      _season(watched: {1, 2}),
+      _season(finished: {1, 2}),
       downloaded: {'e1', 'e2'},
       budget: 50,
     );
@@ -176,7 +157,7 @@ void main() {
     expect(_ids(result.toQueue), ['e3', 'e4']);
 
     final tight = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1'},
       keepReady: 3,
       budget: 50,
@@ -188,7 +169,7 @@ void main() {
 
   test('finishing a streamed episode downloads the next ones', () {
     final result = _plan(
-      _season(watched: {1, 2}),
+      _season(finished: {1, 2}),
       downloaded: const {},
       finished: true,
       keepReady: 2,
@@ -199,7 +180,7 @@ void main() {
 
   test('a finished episode tops up around what is already downloaded', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e2'},
       finished: true,
       keepReady: 3,
@@ -209,7 +190,7 @@ void main() {
 
   test('nothing is queued after the finale', () {
     final result = _plan(
-      _season(count: 3, watched: {1, 2, 3}),
+      _season(count: 3, finished: {1, 2, 3}),
       downloaded: const {},
       finished: true,
       keepReady: 2,
@@ -219,11 +200,34 @@ void main() {
 
   test('watches from before it was turned on do not swap', () {
     final result = _plan(
-      _season(watched: {1}),
+      _season(finished: {1}),
       downloaded: {'e1'},
-      since: _downloadedAt.add(const Duration(days: 3)),
+      since: downloadedAt.add(const Duration(days: 3)),
     );
     expect(result.toDelete, isEmpty);
+    expect(result.toQueue, isEmpty);
+  });
+
+  test('the playing episode counts as unwatched', () {
+    final result = _plan(
+      _season(finished: {1, 2}),
+      downloaded: {'e2'},
+      finished: true,
+      playing: 'e2',
+    );
+    // e2 is still open, so it is the one episode kept ready after e1.
+    expect(result.toDelete, isEmpty);
+    expect(result.toQueue, isEmpty);
+  });
+
+  test('a watch already replaced is only deleted', () {
+    final result = _plan(
+      _season(finished: {1}),
+      downloaded: {'e1'},
+      inFlight: {'e2'},
+      playedSince: downloadedAt.add(const Duration(days: 2)),
+    );
+    expect(_ids(result.toDelete), ['e1']);
     expect(result.toQueue, isEmpty);
   });
 }

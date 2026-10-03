@@ -14,15 +14,15 @@ class LocalAwarePlayerService implements PlayerService {
   final OfflineRepository _offlineRepo;
   final bool Function() _canReachServer;
 
-  /// Told after every stop has been reported, so whatever reacts to a
-  /// finished episode reads the server's played state after the report.
-  final void Function()? _onStopped;
+  /// Told which item stopped once its stop has been reported, so whatever
+  /// reacts to a finished episode reads the server's played state after it.
+  final void Function(dynamic mediaItem)? _onStopped;
 
   LocalAwarePlayerService(
     this._inner,
     this._offlineRepo, {
     required bool Function() canReachServer,
-    void Function()? onStopped,
+    void Function(dynamic mediaItem)? onStopped,
   }) : _canReachServer = canReachServer,
        _onStopped = onStopped;
 
@@ -132,7 +132,7 @@ class LocalAwarePlayerService implements PlayerService {
         ),
       );
     } finally {
-      _onStopped?.call();
+      _onStopped?.call(mediaItem);
     }
   }
 

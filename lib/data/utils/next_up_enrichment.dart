@@ -97,6 +97,23 @@ Future<List<AggregatedItem>> enrichNextUpItemsWithSeriesLastPlayed(
   }
 }
 
+/// The 100 episodes the user played most recently, newest first, as raw
+/// items with their series id and user data.
+Future<List<dynamic>> fetchRecentlyPlayedEpisodeItems(
+  MediaServerClient client,
+) async {
+  final response = await client.itemsApi.getItems(
+    includeItemTypes: const ['Episode'],
+    filters: const ['IsPlayed'],
+    recursive: true,
+    sortBy: 'DatePlayed',
+    sortOrder: 'Descending',
+    limit: 100,
+    fields: 'UserData,SeriesId',
+  );
+  return response['Items'] as List? ?? const [];
+}
+
 /// When each series was last played, read from the 100 most recently played
 /// episodes, or null when the lookup failed. It doesn't need Next Up's answer,
 /// so callers send it right after the Next Up request. Next Up goes first so a
@@ -105,17 +122,7 @@ Future<Map<String, String>?> fetchSeriesLastPlayed(
   MediaServerClient client,
 ) async {
   try {
-    final recentPlayedResponse = await client.itemsApi.getItems(
-      includeItemTypes: const ['Episode'],
-      filters: const ['IsPlayed'],
-      recursive: true,
-      sortBy: 'DatePlayed',
-      sortOrder: 'Descending',
-      limit: 100,
-      fields: 'UserData,SeriesId',
-    );
-
-    final recentItems = recentPlayedResponse['Items'] as List? ?? [];
+    final recentItems = await fetchRecentlyPlayedEpisodeItems(client);
     final seriesLastPlayedMap = <String, String>{};
     for (final item in recentItems) {
       if (item is Map) {

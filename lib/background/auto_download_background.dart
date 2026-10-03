@@ -39,7 +39,9 @@ Future<bool> runAutoDownloadBackgroundRefresh(Duration budget) async {
   }
 
   final service = getIt<AutoDownloadService>();
-  await _pushOfflineProgress(service.serverId);
+  // Capped so a slow push leaves the check most of the budget.
+  await _pushOfflineProgress(service.serverId)
+      .timeout(budget ~/ 3, onTimeout: () {});
   final summary = await service.runCheck(
     trigger: AutoDownloadTrigger.backgroundRefresh,
     deadline: remaining(),

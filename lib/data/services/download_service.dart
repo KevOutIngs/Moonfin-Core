@@ -2957,6 +2957,21 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     return _toItems(data['Items'] as List?);
   }
 
+  @override
+  Future<List<AggregatedItem>> fetchUserData(List<String> ids) async {
+    const chunk = 100;
+    return [
+      for (var i = 0; i < ids.length; i += chunk)
+        ..._toItems(
+          (await _client.itemsApi.getItems(
+                ids: ids.sublist(i, (i + chunk).clamp(0, ids.length)),
+                fields: 'UserData',
+              ))['Items']
+              as List?,
+        ),
+    ];
+  }
+
   List<AggregatedItem> _toItems(List? rawItems) {
     if (rawItems == null) return const [];
     final serverId = _client.baseUrl;

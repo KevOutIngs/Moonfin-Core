@@ -21,6 +21,11 @@ abstract class AutoDownloadDownloader {
     String? seasonId,
   });
 
+  /// The current server's copy of [ids] with their user data, so a check
+  /// can tell which downloads have been watched. Ids the server does not
+  /// know are left out.
+  Future<List<AggregatedItem>> fetchUserData(List<String> ids);
+
   Future<DownloadBatch> queueDownloads(
     List<AggregatedItem> items, {
     DownloadQuality quality,

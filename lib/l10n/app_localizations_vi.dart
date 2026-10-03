@@ -13325,6 +13325,30 @@ class AppLocalizationsVi extends AppLocalizations {
   }
 
   @override
+  String get nextEpisodesSection => 'Next episodes';
+
+  @override
+  String get nextEpisodesEnable => 'Download next episodes';
+
+  @override
+  String get nextEpisodesEnableSubtitle =>
+      'When you finish a downloaded episode of a series, it\'s deleted and the next episode is downloaded. The last episode of a series is kept.';
+
+  @override
+  String get nextEpisodesKeepReady => 'Episodes to keep ready';
+
+  @override
+  String nextEpisodesKeepReadySubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Keeps at least the next $count episodes downloaded',
+      one: 'Keeps at least the next episode downloaded',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get autoDownloadSection => 'Automatic downloads';
 
   @override

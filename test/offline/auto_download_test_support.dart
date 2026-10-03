@@ -66,6 +66,7 @@ class FakeDownloader implements AutoDownloadDownloader {
   final List<QueuedBatch> batches = [];
   final List<String> deleted = [];
   final List<String> fetched = [];
+  final List<List<String>> userDataRequests = [];
   bool wifiAllowed = true;
   int? headroomBytes;
   final Set<String> failSeries = {};
@@ -91,6 +92,16 @@ class FakeDownloader implements AutoDownloadDownloader {
     if (gate != null) await gate.future;
     if (failSeries.contains(seriesId)) throw StateError('offline');
     return episodesBySeries[seriesId] ?? const [];
+  }
+
+  @override
+  Future<List<AggregatedItem>> fetchUserData(List<String> ids) async {
+    userDataRequests.add(ids);
+    final byId = {
+      for (final list in episodesBySeries.values)
+        for (final item in list) item.id: item,
+    };
+    return [for (final id in ids) ?byId[id]];
   }
 
   @override

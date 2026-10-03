@@ -128,6 +128,8 @@ class DownloadSettingsScreen extends ConsumerWidget {
               ],
             ),
             if (GetIt.instance.isRegistered<AutoDownloadService>()) ...[
+              _Section(title: l10n.nextEpisodesSection),
+              _NextEpisodesSettings(prefs: prefs),
               _Section(title: l10n.autoDownloadSection),
               _AutoDownloadSettings(
                 prefs: prefs,
@@ -774,6 +776,73 @@ class _Section extends StatelessWidget {
   }
 }
 
+/// Download next episodes: the switch, and how many episodes it keeps
+/// ready once it is on.
+class _NextEpisodesSettings extends StatelessWidget {
+  const _NextEpisodesSettings({required this.prefs});
+
+  final UserPreferences prefs;
+
+  static const _keepReadyChoices = [1, 2, 3, 4, 5];
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final enabled = prefs.get(UserPreferences.smartDownloadsEnabled);
+    final keepReady = prefs.get(UserPreferences.smartDownloadsKeepReady);
+
+    return adaptiveListSection(
+      children: [
+        DpadSwitchListTile(
+          useSettingsIconShell: true,
+          secondary: const Icon(Icons.skip_next),
+          title: Text(l10n.nextEpisodesEnable),
+          subtitle: Text(l10n.nextEpisodesEnableSubtitle),
+          value: enabled,
+          onChanged: (v) => prefs.set(UserPreferences.smartDownloadsEnabled, v),
+        ),
+        if (enabled)
+          DpadListTile(
+            useSettingsIconShell: true,
+            leading: const Icon(Icons.playlist_play),
+            title: Text(l10n.nextEpisodesKeepReady),
+            subtitle: Text(l10n.nextEpisodesKeepReadySubtitle(keepReady)),
+            trailing: Text('$keepReady'),
+            onTap: () => _pickKeepReady(context, keepReady),
+          ),
+      ],
+    );
+  }
+
+  void _pickKeepReady(BuildContext context, int current) {
+    showFocusRestoringModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: DpadRadioGroup<int>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v != null) {
+              prefs.set(UserPreferences.smartDownloadsKeepReady, v);
+            }
+            Navigator.pop(ctx);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final n in _keepReadyChoices)
+                DpadRadioListTile<int>(
+                  autofocus: n == current,
+                  title: Text('$n'),
+                  value: n,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The auto-download group: global rules, background refresh, a manual check
 /// with the last result, and the followed series.
 class _AutoDownloadSettings extends StatefulWidget {
@@ -883,7 +952,10 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
                       ? l10n.autoDownloadChecking
                       : _lastRunLabel(l10n, service.lastRun),
                 ),
-                enabled: enabled && !service.isRunning,
+                enabled:
+                    (enabled ||
+                        prefs.get(UserPreferences.smartDownloadsEnabled)) &&
+                    !service.isRunning,
                 onTap: () =>
                     service.runCheck(trigger: AutoDownloadTrigger.manual),
               ),

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
 import 'package:moonfin/data/database/offline_database.dart';
+import 'package:moonfin/data/models/aggregated_item.dart';
 import 'package:moonfin/data/models/download_quality.dart';
 import 'package:moonfin/data/models/download_source.dart';
 import 'package:moonfin/data/repositories/offline_repository.dart';
@@ -545,6 +546,156 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(downloader.fetched, isEmpty);
       service = build(); // so tearDown has something to dispose
+    });
+  });
+
+  group('smart downloads', () {
+    final downloadedAt = DateTime.utc(2026, 9, 5);
+
+    AggregatedItem watched(
+      String id, {
+      String series = 'series-1',
+      int? number,
+    }) => episode(
+      id,
+      series: series,
+      number: number,
+      played: true,
+      extra: {
+        'UserData': {
+          'Played': true,
+          'LastPlayedDate': downloadedAt
+              .add(const Duration(days: 1))
+              .toIso8601String(),
+        },
+      },
+    );
+
+    Future<void> addEpisode(
+      String itemId, {
+      String series = 'series-1',
+      DownloadQuality quality = DownloadQuality.original,
+      DownloadSource source = DownloadSource.manual,
+    }) {
+      return repo.upsertItem(
+        DownloadedItemsCompanion(
+          itemId: Value(itemId),
+          serverId: const Value(server),
+          type: const Value('Episode'),
+          name: Value('Episode $itemId'),
+          metadataJson: const Value('{}'),
+          downloadStatus: const Value(2),
+          downloadSource: Value(source.name),
+          downloadedAt: Value(downloadedAt),
+          seriesId: Value(series),
+          qualityPreset: Value(quality.name),
+        ),
+      );
+    }
+
+    setUp(() async {
+      await prefs.set(UserPreferences.smartDownloadsEnabled, true);
+    });
+
+    test('swaps a watched download without any subscription', () async {
+      await addEpisode('e1', quality: DownloadQuality.medium720p);
+      await addEpisode('e2', quality: DownloadQuality.medium720p);
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+        episode('e4', number: 4),
+      ];
+
+      final summary = await service.runCheck(
+        trigger: AutoDownloadTrigger.userDataChanged,
+      );
+      expect(downloader.deleted, ['e1']);
+      expect(downloader.queuedIds, ['e3']);
+      expect(downloader.batches.single.quality, DownloadQuality.medium720p);
+      expect(downloader.batches.single.source, DownloadSource.auto);
+      expect(summary.smartSeries, 1);
+      expect(summary.queued, 1);
+      expect(summary.deleted, 1);
+    });
+
+    test('only fetches series with a watched download', () async {
+      await addEpisode('a1', series: 'series-a');
+      await addEpisode('b1', series: 'series-b');
+      downloader.episodesBySeries['series-a'] = [
+        watched('a1', series: 'series-a', number: 1),
+        episode('a2', series: 'series-a', number: 2),
+      ];
+      downloader.episodesBySeries['series-b'] = [
+        episode('b1', series: 'series-b', number: 1),
+        episode('b2', series: 'series-b', number: 2),
+      ];
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.userDataRequests.single, unorderedEquals(['a1', 'b1']));
+      expect(downloader.fetched, ['series-a']);
+      expect(downloader.queuedIds, ['a2']);
+    });
+
+    test('does nothing while the setting is off', () async {
+      await prefs.set(UserPreferences.smartDownloadsEnabled, false);
+      await addEpisode('e1');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.userDataRequests, isEmpty);
+      expect(downloader.deleted, isEmpty);
+      expect(downloader.batches, isEmpty);
+    });
+
+    test('keeps the watched episode while waiting for Wi-Fi', () async {
+      downloader.wifiAllowed = false;
+      await addEpisode('e1');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+
+      final summary = await service.runCheck(
+        trigger: AutoDownloadTrigger.manual,
+      );
+      expect(summary.waitingForWifi, isTrue);
+      expect(downloader.deleted, isEmpty);
+      expect(downloader.batches, isEmpty);
+    });
+
+    test('runs alongside a subscription without queueing twice', () async {
+      await prefs.set(UserPreferences.autoDownloadDeleteAfterHours, 0);
+      await subscribe('series-1');
+      await addEpisode('e1', source: DownloadSource.auto);
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+      ];
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.deleted, ['e1']);
+      expect(downloader.queuedIds, ['e2', 'e3']);
+      expect(downloader.queuedIds.toSet(), hasLength(2));
+    });
+
+    test('scoped checks after following a series skip the swap', () async {
+      await addEpisode('e1');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+
+      await service.runCheck(
+        trigger: AutoDownloadTrigger.subscribed,
+        onlySeriesId: 'series-1',
+      );
+      expect(downloader.userDataRequests, isEmpty);
+      expect(downloader.deleted, isEmpty);
     });
   });
 }

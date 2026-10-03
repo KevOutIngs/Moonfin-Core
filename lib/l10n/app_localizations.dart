@@ -23389,6 +23389,36 @@ abstract class AppLocalizations {
   /// **'Auto-download stopped for {title}'**
   String autoDownloadStoppedFor(String title);
 
+  /// Settings section header for downloading the next episodes of a series after one is watched
+  ///
+  /// In en, this message translates to:
+  /// **'Next episodes'**
+  String get nextEpisodesSection;
+
+  /// Switch that swaps a watched downloaded episode for the next episodes of the series
+  ///
+  /// In en, this message translates to:
+  /// **'Download next episodes'**
+  String get nextEpisodesEnable;
+
+  /// Explains the download next episodes switch, including that watched episodes are deleted
+  ///
+  /// In en, this message translates to:
+  /// **'When you finish a downloaded episode of a series, it\'s deleted and the next episode is downloaded. The last episode of a series is kept.'**
+  String get nextEpisodesEnableSubtitle;
+
+  /// Setting for how many unwatched episodes of a series stay downloaded after one is watched
+  ///
+  /// In en, this message translates to:
+  /// **'Episodes to keep ready'**
+  String get nextEpisodesKeepReady;
+
+  /// Subtitle under the episodes to keep ready setting
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Keeps at least the next episode downloaded} other{Keeps at least the next {count} episodes downloaded}}'**
+  String nextEpisodesKeepReadySubtitle(int count);
+
   /// Settings section header for auto-download subscriptions
   ///
   /// In en, this message translates to:

@@ -339,6 +339,10 @@ void registerPlaybackModule() {
   } else {
     backend = MediaKitPlayerBackend(prefs);
     _getIt.registerSingleton<MediaKitPlayerBackend>(backend);
+    backend.setDiagnosticLogger(
+      (message) => _getIt<LogService>().log(LogCategory.playback, message),
+      isEnabled: () => _getIt<LogService>().isEnabled,
+    );
     // The constructor subscribes to moonfin/media3_video_events, which only
     // Android implements, so building this anywhere else raises on its own.
     if (PlatformDetection.isAndroid) {

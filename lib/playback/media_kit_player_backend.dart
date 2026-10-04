@@ -18,6 +18,7 @@ import 'hdr_output_controller.dart';
 import 'known_defects.dart';
 import 'letterbox_croppers.dart';
 import 'mpv_letterbox_crop.dart';
+import 'mpv_playback_diagnostics.dart';
 import 'server_transcode_capabilities.dart';
 
 class _ParsedMpvConfCacheEntry {
@@ -185,6 +186,40 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// Owns the decision about native HDR output and the window it needs.
   /// Public so the playback info sheet can report what actually happened.
   final HdrOutputController hdrOutput = HdrOutputController();
+
+  // Desktop only: samples mpv and Flutter frame pacing into the diagnostic
+  // report while diagnostic logging is on. See [setDiagnosticLogger].
+  MpvPlaybackDiagnostics? _diagnostics;
+  bool Function() _diagnosticsEnabled = _never;
+  static bool _never() => false;
+
+  /// Sends playback stats to the diagnostic report, sampled only while
+  /// [isEnabled] says diagnostic logging is on.
+  void setDiagnosticLogger(
+    void Function(String message) log, {
+    required bool Function() isEnabled,
+  }) {
+    if (!PlatformDetection.isDesktop || _useNativeSurface) return;
+    _diagnosticsEnabled = isEnabled;
+    _diagnostics?.stop();
+    _diagnostics = MpvPlaybackDiagnostics(
+      readProperty: (key) => _tryNativeGetProperty(_player.platform!, key),
+      isPlaying: () => !_isStale && _player.state.playing,
+      renderPath: () => hdrOutput.isEngaged ? 'native-hdr' : 'texture',
+      textureSize: () => _videoController?.rect.value?.size,
+      log: log,
+    );
+  }
+
+  void _startDiagnostics() {
+    final diagnostics = _diagnostics;
+    if (diagnostics == null) return;
+    if (_diagnosticsEnabled()) {
+      diagnostics.start();
+    } else {
+      diagnostics.stop();
+    }
+  }
 
   bool _didNotifyNativeHandle = false;
   bool _didConfigureAppleMobileLibassFont = false;
@@ -714,6 +749,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
       _enableNativeSubtitleRendering();
     }
     await _maybeEngageNativeHdr();
+    _startDiagnostics();
     unawaited(() async {
       await _letterboxCropper.setEnabled(
         _prefs.get(UserPreferences.cropBlackBars),
@@ -1875,6 +1911,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
 
   @override
   Future<void> stop() async {
+    _diagnostics?.stop();
     _resetSubtitleState();
     _isStale = true;
     await _player.stop();
@@ -2582,6 +2619,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
   @override
   void dispose() {
     _isDisposed = true;
+    _diagnostics?.stop();
     _letterboxCropper.cancel();
     _prefs.removeListener(_onPreferencesChanged);
     _ccTracksSub?.cancel();

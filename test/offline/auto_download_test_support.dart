@@ -122,7 +122,9 @@ class FakeDownloader implements AutoDownloadDownloader {
   }
 
   @override
-  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async {
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes({
+    DateTime? playedAfter,
+  }) async {
     return [
       for (final list in episodesBySeries.values)
         for (final item in list)

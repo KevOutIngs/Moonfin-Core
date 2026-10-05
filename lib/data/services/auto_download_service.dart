@@ -289,10 +289,18 @@ class AutoDownloadService extends ChangeNotifier {
     unawaited(runCheck(trigger: trigger));
   }
 
-  /// An episode just stopped playing, streamed or downloaded. Smart
-  /// downloads checks shortly after, once the stop report has landed.
-  void onEpisodeStopped() {
+  /// An episode of [itemServerId] just stopped playing, streamed or
+  /// downloaded. Smart downloads checks shortly after, once the stop report
+  /// has landed. A stop on another server leaves this one's check alone.
+  void onEpisodeStopped(String itemServerId) {
     if (!_prefs.get(UserPreferences.smartDownloadsEnabled)) return;
+    if (!isStoredServer(
+      itemServerId,
+      serverId: serverId,
+      baseUrl: downloader.serverBaseUrl,
+    )) {
+      return;
+    }
     _schedule(AutoDownloadTrigger.playbackStopped, stopDebounce);
   }
 
@@ -615,11 +623,11 @@ class AutoDownloadService extends ChangeNotifier {
   /// The series smart downloads acts on, newest watch first: those with an
   /// episode finished since the last check, streamed or downloaded, and
   /// those with a download watched since it was downloaded that is still
-  /// on the phone. One request for the recently played episodes tells which
-  /// they are. The episode playing right now counts once it stops, so it is
-  /// never topped up for twice. After the episodes to keep ready is raised,
-  /// every recently watched series with a download on the phone is topped
-  /// up to the new number too.
+  /// on the phone. The recently played episodes, read back to the last
+  /// finished one acted on, tell which they are. The episode playing right
+  /// now counts once it stops, so it is never topped up for twice. After
+  /// the episodes to keep ready is raised, every recently watched series
+  /// with a download on the phone is topped up to the new number too.
   Future<
     ({
       List<_SeriesTarget> targets,
@@ -656,7 +664,9 @@ class AutoDownloadService extends ChangeNotifier {
     final finished = <({String seriesId, DateTime playedAt})>[];
     final raised = <String>{};
     final seriesIds = <String>{};
-    for (final item in await downloader.fetchRecentlyPlayedEpisodes()) {
+    for (final item in await downloader.fetchRecentlyPlayedEpisodes(
+      playedAfter: playedSince,
+    )) {
       final seriesId = item.seriesId;
       final playedAt = item.lastPlayedDate;
       if (seriesId == null || playedAt == null || item.id == playingItemId) {

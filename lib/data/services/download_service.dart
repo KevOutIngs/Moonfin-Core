@@ -2961,9 +2961,33 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
   @override
   String get serverBaseUrl => _client.baseUrl;
 
+  /// Pages read at most, so a long gap between checks can't turn into an
+  /// unbounded walk through the watch history.
+  static const _recentlyPlayedMaxPages = 10;
+
   @override
-  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes() async =>
-      _toItems(await fetchRecentlyPlayedEpisodeItems(_client));
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes({
+    DateTime? playedAfter,
+  }) async {
+    final items = <AggregatedItem>[];
+    var read = 0;
+    for (var page = 0; page < _recentlyPlayedMaxPages; page++) {
+      final raw = await fetchRecentlyPlayedEpisodeItems(
+        _client,
+        startIndex: read,
+      );
+      read += raw.length;
+      items.addAll(_toItems(raw));
+      final oldest = items.lastOrNull?.lastPlayedDate;
+      if (playedAfter == null ||
+          raw.length < recentlyPlayedPageSize ||
+          oldest == null ||
+          !oldest.isAfter(playedAfter)) {
+        break;
+      }
+    }
+    return items;
+  }
 
   List<AggregatedItem> _toItems(List? rawItems) {
     if (rawItems == null) return const [];

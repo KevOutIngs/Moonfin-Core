@@ -803,7 +803,7 @@ void _onItemStopped(dynamic item) {
   if (item is AggregatedItem &&
       item.type == 'Episode' &&
       _getIt.isRegistered<AutoDownloadService>()) {
-    _getIt<AutoDownloadService>().onEpisodeStopped();
+    _getIt<AutoDownloadService>().onEpisodeStopped(item.serverId);
   }
 }
 

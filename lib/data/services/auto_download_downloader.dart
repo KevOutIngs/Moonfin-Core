@@ -25,8 +25,11 @@ abstract class AutoDownloadDownloader {
   });
 
   /// The episodes this user played most recently, newest first, with their
-  /// series and user data.
-  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes();
+  /// series and user data. With [playedAfter], it reads further back until
+  /// it reaches an episode played at or before it.
+  Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes({
+    DateTime? playedAfter,
+  });
 
   Future<DownloadBatch> queueDownloads(
     List<AggregatedItem> items, {

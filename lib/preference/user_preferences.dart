@@ -284,6 +284,14 @@ class UserPreferences extends ChangeNotifier {
     // the device is too full to keep downloading.
     'auto_download_last_run',
     'auto_download_storage_notice_shown',
+    // Per account but never synced: smart downloads follows that account's
+    // watch history, so its switch, its number and the markers the checks
+    // keep against that history belong to it.
+    'smart_downloads_enabled',
+    'smart_downloads_keep_ready',
+    'smart_downloads_enabled_at',
+    'smart_downloads_played_since',
+    'smart_downloads_applied_keep_ready',
     // Newly synced settings. Anything that goes to the server profile has to be stored
     // per server and user, or one server's value is read back on the next.
     'all_genres_image_type',

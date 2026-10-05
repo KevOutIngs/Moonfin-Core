@@ -97,18 +97,24 @@ Future<List<AggregatedItem>> enrichNextUpItemsWithSeriesLastPlayed(
   }
 }
 
+/// How many recently played episodes one request reads.
+const recentlyPlayedPageSize = 100;
+
 /// The 100 episodes the user played most recently, newest first, as raw
-/// items with their series id and user data.
+/// items with their series id and user data. [startIndex] skips that many
+/// to read further back.
 Future<List<dynamic>> fetchRecentlyPlayedEpisodeItems(
-  MediaServerClient client,
-) async {
+  MediaServerClient client, {
+  int startIndex = 0,
+}) async {
   final response = await client.itemsApi.getItems(
     includeItemTypes: const ['Episode'],
     filters: const ['IsPlayed'],
     recursive: true,
     sortBy: 'DatePlayed',
     sortOrder: 'Descending',
-    limit: 100,
+    startIndex: startIndex > 0 ? startIndex : null,
+    limit: recentlyPlayedPageSize,
     fields: 'UserData,SeriesId',
   );
   return response['Items'] as List? ?? const [];

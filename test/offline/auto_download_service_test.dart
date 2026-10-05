@@ -809,7 +809,7 @@ void main() {
           episode('e2', number: 2),
         ];
 
-        service.onEpisodeStopped();
+        service.onEpisodeStopped(server);
         socket.add(const UserDataChangedMessage(userId: user));
         await Future<void>.delayed(const Duration(milliseconds: 80));
         expect(downloader.queuedIds, ['e2']);
@@ -819,6 +819,28 @@ void main() {
         expect(downloader.fetched, ['series-1']);
       },
     );
+
+    test('a stop on another server checks nothing', () async {
+      service.dispose();
+      service = AutoDownloadService(
+        repository: repo,
+        downloader: downloader,
+        prefs: prefs,
+        serverId: server,
+        userId: user,
+        now: () => now,
+        stopDebounce: const Duration(milliseconds: 20),
+      );
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+      ];
+
+      service.onEpisodeStopped('server-b');
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(service.lastRun, isNull);
+      expect(downloader.queuedIds, isEmpty);
+    });
 
     test('turning it on stamps the start and off clears it', () async {
       await service.setSmartDownloadsEnabled(false);

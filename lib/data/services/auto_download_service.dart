@@ -664,8 +664,11 @@ class AutoDownloadService extends ChangeNotifier {
     final finished = <({String seriesId, DateTime playedAt})>[];
     final raised = <String>{};
     final seriesIds = <String>{};
+    // A raise reaches every series watched since smart downloads was turned
+    // on, not just those finished since the last check, so it reads back
+    // that far.
     for (final item in await downloader.fetchRecentlyPlayedEpisodes(
-      playedAfter: playedSince,
+      playedAfter: isRaise ? since : playedSince,
     )) {
       final seriesId = item.seriesId;
       final playedAt = item.lastPlayedDate;

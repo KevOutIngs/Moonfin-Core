@@ -1,7 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:collection/collection.dart';
-
 import '../../util/season_queue_context.dart';
 import '../models/aggregated_item.dart';
 import 'auto_download_planner.dart';
@@ -20,9 +18,9 @@ import 'auto_download_planner.dart';
 ///   finished. A download is swapped out once the server says it was played
 ///   after that and after [since] (when smart downloads was turned on), so a
 ///   download of something already watched, kept to rewatch, stays.
-/// - The series' final episode is never deleted. The one in [playingItemId]
-///   counts as unwatched until the next check: servers flip Played near the
-///   end of playback, while the file is open. Specials are left alone.
+/// - The episode in [playingItemId] counts as unwatched until the next
+///   check: servers flip Played near the end of playback, while the file is
+///   open. Specials are left alone.
 /// - The series is topped up to [keepReady] unwatched episodes downloaded or
 ///   in flight after the furthest episode watched, and each download watched
 ///   after [playedSince] (the last top-up) is replaced at least one for one;
@@ -43,14 +41,12 @@ AutoDownloadPlan planSmartDownload({
     for (final episode in episodes)
       if (!isSpecialEpisode(episode)) episode,
   ]..sort(airedOrder);
-  final finale = ordered.lastWhereOrNull(isDownloadableEpisode);
   bool played(AggregatedItem e) => e.isPlayed && e.id != playingItemId;
 
   final watched = [
     for (final episode in ordered)
       if (played(episode) &&
           downloadedAt.containsKey(episode.id) &&
-          episode.id != finale?.id &&
           watchedSinceDownload(episode, downloadedAt[episode.id], since))
         episode,
   ];

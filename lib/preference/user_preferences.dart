@@ -3285,6 +3285,14 @@ class UserPreferences extends ChangeNotifier {
     defaultValue: '',
   );
 
+  /// The episodes to keep ready the last check filled series up to, so
+  /// raising it tops up the series being watched without waiting for their
+  /// next watch. 0 while off, read as 1. Written by AutoDownloadService.
+  static final smartDownloadsAppliedKeepReady = Preference(
+    key: 'smart_downloads_applied_keep_ready',
+    defaultValue: 0,
+  );
+
   /// How many unwatched episodes a subscription keeps downloaded or in
   /// flight at once. 0 means no cap.
   static final autoDownloadKeepUnwatched = Preference(

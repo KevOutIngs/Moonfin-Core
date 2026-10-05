@@ -793,58 +793,52 @@ class _SliderPreferenceTileState extends State<SliderPreferenceTile> {
             subtitleTextStyle: _kSettingsSubtitleTextStyle,
             child: ValueListenableBuilder<int>(
               valueListenable: _binding,
-              builder: (context, value, _) => ListTile(
-                leading: widget.icon != null
-                    ? buildSettingsLeadingIconShell(
-                        context,
-                        icon: Icon(widget.icon),
-                        focused: _outerFocused,
-                        iconColor: invert
-                            ? AppColors.black.withValues(alpha: 0.54)
-                            : AppColorScheme.onSurface.withValues(alpha: 0.78),
-                      )
-                    : null,
-                title: Text(widget.title, style: _kSettingsTitleTextStyle),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (widget.description != null)
-                      Text(
-                        widget.description!,
-                        style: TextStyle(
-                          fontSize: _kSettingsSubtitleTextStyle.fontSize,
-                          color: invert
-                              ? AppColors.black.withValues(alpha: 0.54)
-                              : AppColorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    if (widget.labelOf != null)
-                      Text(
-                        widget.labelOf!(value),
-                        style: TextStyle(
-                          fontSize: _kSettingsSubtitleTextStyle.fontSize,
-                          color: invert
-                              ? AppColors.black.withValues(alpha: 0.54)
-                              : AppColorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    AppUiIdiomResolver.isApple
-                        ? CupertinoSlider(
-                            value: value.toDouble().clamp(
-                              widget.min,
-                              widget.max,
-                            ),
-                            min: widget.min,
-                            max: widget.max,
-                            divisions: widget.divisions,
-                            onChanged: widget.enabled
-                                ? (v) => _binding.value = v.round()
-                                : null,
-                            onChangeEnd: widget.enabled
-                                ? (_) => widget.onChangeEnd?.call()
-                                : null,
+              builder: (context, value, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: widget.icon != null
+                        ? buildSettingsLeadingIconShell(
+                            context,
+                            icon: Icon(widget.icon),
+                            focused: _outerFocused,
+                            iconColor: invert
+                                ? AppColors.black.withValues(alpha: 0.54)
+                                : AppColorScheme.onSurface.withValues(
+                                    alpha: 0.78,
+                                  ),
                           )
-                        : Slider(
+                        : null,
+                    title: Text(widget.title, style: _kSettingsTitleTextStyle),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (widget.description != null)
+                          Text(
+                            widget.description!,
+                            style: TextStyle(
+                              fontSize: _kSettingsSubtitleTextStyle.fontSize,
+                              color: invert
+                                  ? AppColors.black.withValues(alpha: 0.54)
+                                  : AppColorScheme.onSurface.withValues(
+                                      alpha: 0.7,
+                                    ),
+                            ),
+                          ),
+                        if (widget.labelOf != null)
+                          Text(
+                            widget.labelOf!(value),
+                            style: TextStyle(
+                              fontSize: _kSettingsSubtitleTextStyle.fontSize,
+                              color: invert
+                                  ? AppColors.black.withValues(alpha: 0.54)
+                                  : AppColorScheme.onSurface.withValues(
+                                      alpha: 0.7,
+                                    ),
+                            ),
+                          ),
+                        if (!AppUiIdiomResolver.isApple)
+                          Slider(
                             focusNode: _sliderInternalNode,
                             value: value.toDouble().clamp(
                               widget.min,
@@ -862,8 +856,31 @@ class _SliderPreferenceTileState extends State<SliderPreferenceTile> {
                                 ? (_) => widget.onChangeEnd?.call()
                                 : null,
                           ),
-                  ],
-                ),
+                      ],
+                    ),
+                  ),
+                  // The Apple slider spans the whole row, under the icon too,
+                  // like the system's own settings.
+                  if (AppUiIdiomResolver.isApple)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: CupertinoSlider(
+                          value: value.toDouble().clamp(widget.min, widget.max),
+                          min: widget.min,
+                          max: widget.max,
+                          divisions: widget.divisions,
+                          onChanged: widget.enabled
+                              ? (v) => _binding.value = v.round()
+                              : null,
+                          onChangeEnd: widget.enabled
+                              ? (_) => widget.onChangeEnd?.call()
+                              : null,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

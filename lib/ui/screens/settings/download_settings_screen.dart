@@ -33,6 +33,7 @@ import '../../widgets/overlay_sheet.dart';
 import '../../widgets/focus/dpad_list_tile.dart';
 import '../../widgets/focus/request_initial_focus.dart';
 import '../../widgets/settings/clean_settings_typography.dart';
+import '../../widgets/settings/preference_tiles.dart';
 
 class DownloadSettingsScreen extends ConsumerWidget {
   const DownloadSettingsScreen({super.key});
@@ -787,13 +788,10 @@ class _NextEpisodesSettings extends StatelessWidget {
   final UserPreferences prefs;
   final AutoDownloadService service;
 
-  static const _keepReadyChoices = [1, 2, 3, 4, 5];
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final enabled = prefs.get(UserPreferences.smartDownloadsEnabled);
-    final keepReady = prefs.get(UserPreferences.smartDownloadsKeepReady);
 
     return adaptiveListSection(
       children: [
@@ -806,22 +804,36 @@ class _NextEpisodesSettings extends StatelessWidget {
           onChanged: service.setSmartDownloadsEnabled,
         ),
         if (enabled)
-          DpadListTile(
-            useSettingsIconShell: true,
-            leading: const Icon(Icons.playlist_play),
-            title: Text(l10n.nextEpisodesKeepReady),
-            subtitle: Text(l10n.nextEpisodesKeepReadySubtitle(keepReady)),
-            trailing: Text('$keepReady'),
-            onTap: () => _pickCount(
-              context,
-              current: keepReady,
-              choices: _keepReadyChoices,
-              onPicked: (n) =>
-                  prefs.set(UserPreferences.smartDownloadsKeepReady, n),
-            ),
+          SliderPreferenceTile(
+            preference: UserPreferences.smartDownloadsKeepReady,
+            title: l10n.nextEpisodesKeepReady,
+            icon: Icons.playlist_play,
+            min: 1,
+            max: 10,
+            divisions: 9,
+            labelOf: l10n.nextEpisodesKeepReadySubtitle,
+            onChangeEnd: () => _onKeepReadyChanged(context),
           ),
+        if (enabled) _CheckNowTile(service: service),
       ],
     );
+  }
+
+  /// Lowering the number never deletes anything, which a user expecting the
+  /// extra episodes to go would not guess, so it says so.
+  void _onKeepReadyChanged(BuildContext context) {
+    final applied = prefs.get(UserPreferences.smartDownloadsAppliedKeepReady);
+    if (prefs.get(UserPreferences.smartDownloadsKeepReady) <
+        (applied > 0 ? applied : 1)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).nextEpisodesKeepReadyLowered,
+          ),
+        ),
+      );
+    }
+    service.onKeepReadyChanged();
   }
 }
 
@@ -923,24 +935,10 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
                 );
               },
             ),
-            ListenableBuilder(
-              listenable: service,
-              builder: (context, _) => DpadListTile(
-                useSettingsIconShell: true,
-                leading: const Icon(Icons.refresh),
-                title: Text(l10n.autoDownloadCheckNow),
-                subtitle: Text(
-                  service.isRunning
-                      ? l10n.autoDownloadChecking
-                      : _lastRunLabel(l10n, service.lastRun),
-                ),
-                enabled:
-                    (enabled ||
-                        prefs.get(UserPreferences.smartDownloadsEnabled)) &&
-                    !service.isRunning,
-                onTap: () =>
-                    service.runCheck(trigger: AutoDownloadTrigger.manual),
-              ),
+            _CheckNowTile(
+              service: service,
+              enabled:
+                  enabled || prefs.get(UserPreferences.smartDownloadsEnabled),
             ),
           ],
         ),
@@ -1000,33 +998,6 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
     return '$quality • $check';
   }
 
-  String _lastRunLabel(AppLocalizations l10n, AutoDownloadRunSummary? run) {
-    if (run == null) return l10n.autoDownloadNeverChecked;
-    final label = _checkLabel(
-      l10n,
-      at: run.at,
-      queued: run.queued,
-      error: run.error,
-    );
-    if (run.waitingForWifi) {
-      return '$label • ${l10n.autoDownloadWaitingForWifi}';
-    }
-    if (run.storageFull) return '$label • ${l10n.autoDownloadStorageFull}';
-    return label;
-  }
-
-  String _checkLabel(
-    AppLocalizations l10n, {
-    required DateTime at,
-    required int queued,
-    required String? error,
-  }) {
-    final when = relativeTimeLabel(l10n, at);
-    return error != null
-        ? l10n.autoDownloadLastCheckFailed(when, error)
-        : l10n.autoDownloadLastCheck(when, queued);
-  }
-
   String _deleteAfterLabel(AppLocalizations l10n, int hours) => switch (hours) {
     < 0 => l10n.autoDownloadDeleteNever,
     0 => l10n.autoDownloadDeleteImmediately,
@@ -1074,6 +1045,62 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
           widget.prefs.set(UserPreferences.autoDownloadKeepUnwatched, n),
     );
   }
+}
+
+/// Runs a check right away, showing how the last one went. Shared by smart
+/// downloads and automatic downloads, which run in the same check.
+class _CheckNowTile extends StatelessWidget {
+  const _CheckNowTile({required this.service, this.enabled = true});
+
+  final AutoDownloadService service;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return ListenableBuilder(
+      listenable: service,
+      builder: (context, _) => DpadListTile(
+        useSettingsIconShell: true,
+        leading: const Icon(Icons.refresh),
+        title: Text(l10n.autoDownloadCheckNow),
+        subtitle: Text(
+          service.isRunning
+              ? l10n.autoDownloadChecking
+              : _lastRunLabel(l10n, service.lastRun),
+        ),
+        enabled: enabled && !service.isRunning,
+        onTap: () => service.runCheck(trigger: AutoDownloadTrigger.manual),
+      ),
+    );
+  }
+}
+
+String _lastRunLabel(AppLocalizations l10n, AutoDownloadRunSummary? run) {
+  if (run == null) return l10n.autoDownloadNeverChecked;
+  final label = _checkLabel(
+    l10n,
+    at: run.at,
+    queued: run.queued,
+    error: run.error,
+  );
+  if (run.waitingForWifi) {
+    return '$label • ${l10n.autoDownloadWaitingForWifi}';
+  }
+  if (run.storageFull) return '$label • ${l10n.autoDownloadStorageFull}';
+  return label;
+}
+
+String _checkLabel(
+  AppLocalizations l10n, {
+  required DateTime at,
+  required int queued,
+  required String? error,
+}) {
+  final when = relativeTimeLabel(l10n, at);
+  return error != null
+      ? l10n.autoDownloadLastCheckFailed(when, error)
+      : l10n.autoDownloadLastCheck(when, queued);
 }
 
 /// A bottom sheet of [choices] with [current] focused.

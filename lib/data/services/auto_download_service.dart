@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:jellyfin_preference/jellyfin_preference.dart';
@@ -297,6 +296,13 @@ class AutoDownloadService extends ChangeNotifier {
     _schedule(AutoDownloadTrigger.playbackStopped, stopDebounce);
   }
 
+  /// The episodes to keep ready changed. A raise tops up the series being
+  /// watched shortly after, without waiting for their next watch.
+  void onKeepReadyChanged() {
+    if (!_prefs.get(UserPreferences.smartDownloadsEnabled)) return;
+    _schedule(AutoDownloadTrigger.manual, stopDebounce);
+  }
+
   void _onSocketEvent(ServerWebSocketMessage message) {
     switch (message) {
       case LibraryChangedMessage(:final itemsAdded) when itemsAdded.isNotEmpty:
@@ -331,6 +337,10 @@ class AutoDownloadService extends ChangeNotifier {
         final now = enabled ? _now().toUtc().toIso8601String() : '';
         await _prefs.set(UserPreferences.smartDownloadsEnabledAt, now);
         await _prefs.set(UserPreferences.smartDownloadsPlayedSince, now);
+        await _prefs.set(
+          UserPreferences.smartDownloadsAppliedKeepReady,
+          enabled ? _prefs.get(UserPreferences.smartDownloadsKeepReady) : 0,
+        );
         await _prefs.set(UserPreferences.smartDownloadsEnabled, enabled);
       });
 
@@ -501,6 +511,13 @@ class AutoDownloadService extends ChangeNotifier {
           upTo.toUtc().toIso8601String(),
         );
       }
+      // A raise counts as applied once every series it reached was acted on.
+      if (smartPlan.raised.every(handled.contains) && !_disposed) {
+        await _prefs.set(
+          UserPreferences.smartDownloadsAppliedKeepReady,
+          smartPlan.keepReady,
+        );
+      }
     }
 
     await _runSeries(
@@ -600,11 +617,15 @@ class AutoDownloadService extends ChangeNotifier {
   /// those with a download watched since it was downloaded that is still
   /// on the phone. One request for the recently played episodes tells which
   /// they are. The episode playing right now counts once it stops, so it is
-  /// never topped up for twice.
+  /// never topped up for twice. After the episodes to keep ready is raised,
+  /// every recently watched series with a download on the phone is topped
+  /// up to the new number too.
   Future<
     ({
       List<_SeriesTarget> targets,
       List<({String seriesId, DateTime playedAt})> finished,
+      Set<String> raised,
+      int keepReady,
     })
   >
   _smartTargets(_SharedState state, String? playingItemId) async {
@@ -612,6 +633,11 @@ class AutoDownloadService extends ChangeNotifier {
     final playedSince = await _smartSince(
       UserPreferences.smartDownloadsPlayedSince,
     );
+    final keepReady = _prefs.get(UserPreferences.smartDownloadsKeepReady);
+    // Turned on before the number was tracked: count from the default.
+    final stored = _prefs.get(UserPreferences.smartDownloadsAppliedKeepReady);
+    final applied = stored > 0 ? stored : 1;
+    final isRaise = keepReady > applied;
     final downloadsBySeries = <String, List<DownloadedEpisodeRef>>{};
     final downloadById = <String, DownloadedEpisodeRef>{};
     for (final row in await _repository.getDownloadedEpisodes()) {
@@ -628,7 +654,8 @@ class AutoDownloadService extends ChangeNotifier {
     }
 
     final finished = <({String seriesId, DateTime playedAt})>[];
-    final qualityBySeries = <String, DownloadQuality>{};
+    final raised = <String>{};
+    final seriesIds = <String>{};
     for (final item in await downloader.fetchRecentlyPlayedEpisodes()) {
       final seriesId = item.seriesId;
       final playedAt = item.lastPlayedDate;
@@ -636,27 +663,32 @@ class AutoDownloadService extends ChangeNotifier {
         continue;
       }
       final download = downloadById[item.id];
-      if (playedAt.isAfter(playedSince)) {
+      final finishedNow = playedAt.isAfter(playedSince);
+      final topUp = isRaise && downloadsBySeries.containsKey(seriesId);
+      if (finishedNow) {
         finished.add((seriesId: seriesId, playedAt: playedAt));
-      } else if (download == null ||
-          !watchedSinceDownload(item, download.downloadedAt, since)) {
+      }
+      if (topUp) raised.add(seriesId);
+      if (!finishedNow &&
+          !topUp &&
+          (download == null ||
+              !watchedSinceDownload(item, download.downloadedAt, since))) {
         continue;
       }
-      qualityBySeries.putIfAbsent(
-        seriesId,
-        () => download != null
-            ? DownloadQuality.fromName(download.qualityPreset)
-            : _seriesQuality(downloadsBySeries[seriesId] ?? const []),
-      );
+      seriesIds.add(seriesId);
     }
 
     final finishedSeries = {for (final play in finished) play.seriesId};
-    final keepReady = _prefs.get(UserPreferences.smartDownloadsKeepReady);
+    // Always the setting, whatever an earlier download of the series used.
+    final quality = DownloadQuality.fromName(
+      _prefs.get(UserPreferences.defaultDownloadQuality),
+    );
     return (
       finished: finished,
+      raised: raised,
+      keepReady: keepReady,
       targets: [
-        for (final MapEntry(key: seriesId, value: quality)
-            in qualityBySeries.entries)
+        for (final seriesId in seriesIds)
           (
             seriesId: seriesId,
             quality: quality,
@@ -672,7 +704,9 @@ class AutoDownloadService extends ChangeNotifier {
               sizeOf: sizeOf,
               since: since,
               playedSince: playedSince,
-              finishedRecently: finishedSeries.contains(seriesId),
+              finishedRecently:
+                  finishedSeries.contains(seriesId) ||
+                  raised.contains(seriesId),
               playingItemId: playingItemId,
             ),
           ),
@@ -735,19 +769,6 @@ class AutoDownloadService extends ChangeNotifier {
     final now = _now().toUtc();
     await _prefs.set(pref, now.toIso8601String());
     return now;
-  }
-
-  /// The quality of the series' most recent download, or the default
-  /// download quality when nothing of it is downloaded.
-  DownloadQuality _seriesQuality(List<DownloadedEpisodeRef> downloads) {
-    final latest = downloads
-        .where((row) => row.downloadedAt != null)
-        .sortedBy((row) => row.downloadedAt!)
-        .lastOrNull;
-    return DownloadQuality.fromName(
-      (latest ?? downloads.firstOrNull)?.qualityPreset ??
-          _prefs.get(UserPreferences.defaultDownloadQuality),
-    );
   }
 
   @override

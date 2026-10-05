@@ -563,8 +563,10 @@ void main() {
     });
 
     test('swaps a watched download without any subscription', () async {
-      await addDownloaded('e1', quality: DownloadQuality.medium720p);
-      await addDownloaded('e2', quality: DownloadQuality.medium720p);
+      await prefs.set(UserPreferences.defaultDownloadQuality, 'medium720p');
+      // An earlier download's quality never overrides the setting.
+      await addDownloaded('e1', quality: DownloadQuality.high1080p);
+      await addDownloaded('e2', quality: DownloadQuality.high1080p);
       downloader.episodesBySeries['series-1'] = [
         watched('e1', number: 1),
         episode('e2', number: 2),
@@ -683,6 +685,64 @@ void main() {
         DateTime.parse(prefs.get(UserPreferences.smartDownloadsPlayedSince)),
         downloadedAt.add(const Duration(days: 1)),
       );
+    });
+
+    test('raising the episodes to keep ready tops up right away', () async {
+      await addDownloaded('e2');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+        episode('e4', number: 4),
+        episode('e5', number: 5),
+      ];
+      await service.runCheck(trigger: AutoDownloadTrigger.playbackStopped);
+      expect(downloader.queuedIds, isEmpty);
+      expect(prefs.get(UserPreferences.smartDownloadsAppliedKeepReady), 1);
+
+      // Nothing new was watched; only the number went up.
+      await prefs.set(UserPreferences.smartDownloadsKeepReady, 3);
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e3', 'e4']);
+      expect(prefs.get(UserPreferences.smartDownloadsAppliedKeepReady), 3);
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e3', 'e4']);
+    });
+
+    test('a number set before it was tracked counts as a raise', () async {
+      await prefs.set(UserPreferences.smartDownloadsKeepReady, 3);
+      await addDownloaded('e2');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+        episode('e4', number: 4),
+      ];
+      await prefs.set(
+        UserPreferences.smartDownloadsPlayedSince,
+        DateTime.utc(2027).toIso8601String(),
+      );
+
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e3', 'e4']);
+    });
+
+    test('lowering then raising the number tops up again', () async {
+      await prefs.set(UserPreferences.smartDownloadsAppliedKeepReady, 3);
+      await prefs.set(UserPreferences.smartDownloadsKeepReady, 1);
+      await addDownloaded('e2');
+      downloader.episodesBySeries['series-1'] = [
+        watched('e1', number: 1),
+        episode('e2', number: 2),
+        episode('e3', number: 3),
+      ];
+      await service.runCheck(trigger: AutoDownloadTrigger.playbackStopped);
+      expect(prefs.get(UserPreferences.smartDownloadsAppliedKeepReady), 1);
+
+      await prefs.set(UserPreferences.smartDownloadsKeepReady, 2);
+      await service.runCheck(trigger: AutoDownloadTrigger.manual);
+      expect(downloader.queuedIds, ['e3']);
     });
 
     test('a finished episode tops its series up only once', () async {

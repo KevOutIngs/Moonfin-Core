@@ -101,9 +101,9 @@ void main() {
     expect(result.toQueue, isEmpty);
   });
 
-  test('never deletes the final episode', () {
+  test('deletes the final episode once watched', () {
     final result = _plan(_season(count: 3, finished: {3}), downloaded: {'e3'});
-    expect(result.toDelete, isEmpty);
+    expect(result.toDelete.map((e) => e.id), ['e3']);
     expect(result.toQueue, isEmpty);
   });
 

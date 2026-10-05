@@ -50,6 +50,7 @@ AggregatedItem watched(
   String series = 'series-1',
   int season = 1,
   int? number,
+  DateTime? playedAt,
 }) => episode(
   id,
   series: series,
@@ -59,8 +60,7 @@ AggregatedItem watched(
   extra: {
     'UserData': {
       'Played': true,
-      'LastPlayedDate': downloadedAt
-          .add(const Duration(days: 1))
+      'LastPlayedDate': (playedAt ?? downloadedAt.add(const Duration(days: 1)))
           .toIso8601String(),
     },
   },
@@ -121,15 +121,26 @@ class FakeDownloader implements AutoDownloadDownloader {
     return episodesBySeries[seriesId] ?? const [];
   }
 
+  /// How many episodes the fake server's recently played list sends at once.
+  int historyPageSize = 100;
+
   @override
   Future<List<AggregatedItem>> fetchRecentlyPlayedEpisodes({
     DateTime? playedAfter,
-  }) async {
-    return [
+  }) {
+    final history = [
       for (final list in episodesBySeries.values)
         for (final item in list)
           if (item.isPlayed && item.lastPlayedDate != null) item,
     ]..sort((a, b) => b.lastPlayedDate!.compareTo(a.lastPlayedDate!));
+    return readRecentlyPlayedEpisodes(
+      (startIndex) async {
+        final page = history.skip(startIndex).take(historyPageSize).toList();
+        return (read: page.length, items: page);
+      },
+      playedAfter: playedAfter,
+      pageSize: historyPageSize,
+    );
   }
 
   @override

@@ -710,6 +710,39 @@ void main() {
       expect(downloader.queuedIds, ['e3', 'e4']);
     });
 
+    test(
+      'a raise tops up a series watched before the last handled one',
+      () async {
+        final playedA = downloadedAt.add(const Duration(days: 1));
+        final playedB = downloadedAt.add(const Duration(days: 2));
+        await addDownloaded('a2', series: 'series-a');
+        await addDownloaded('b2', series: 'series-b');
+        downloader.episodesBySeries['series-a'] = [
+          watched('a1', series: 'series-a', number: 1, playedAt: playedA),
+          episode('a2', series: 'series-a', number: 2),
+          episode('a3', series: 'series-a', number: 3),
+          episode('a4', series: 'series-a', number: 4),
+        ];
+        downloader.episodesBySeries['series-b'] = [
+          watched('b1', series: 'series-b', number: 1, playedAt: playedB),
+          episode('b2', series: 'series-b', number: 2),
+          episode('b3', series: 'series-b', number: 3),
+          episode('b4', series: 'series-b', number: 4),
+        ];
+        await service.runCheck(trigger: AutoDownloadTrigger.playbackStopped);
+        expect(downloader.queuedIds, isEmpty);
+        // The marker now sits on B, the newer of the two watches.
+        expect(
+          DateTime.parse(prefs.get(UserPreferences.smartDownloadsPlayedSince)),
+          playedB,
+        );
+
+        await prefs.set(UserPreferences.smartDownloadsKeepReady, 3);
+        await service.runCheck(trigger: AutoDownloadTrigger.manual);
+        expect(downloader.queuedIds, containsAll(['a3', 'a4', 'b3', 'b4']));
+      },
+    );
+
     test('a number set before it was tracked counts as a raise', () async {
       await prefs.set(UserPreferences.smartDownloadsKeepReady, 3);
       await addDownloaded('e2');

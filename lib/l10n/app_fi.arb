@@ -269,7 +269,7 @@
     "@noHomeRowsHint": {
         "description": "Hint text below the no-home-rows heading"
     },
-    "retryHomeRows": "Yritä ladata etusivu uudelleen",
+    "retryHomeRows": "Yritä Ladata Kotirivit Uudelleen",
     "@retryHomeRows": {
         "description": "Button to retry loading home rows after failure"
     },
@@ -281,7 +281,7 @@
     "@recordings": {
         "description": "Live TV recordings button label"
     },
-    "schedule": "Ajoittaa",
+    "schedule": "Ajastus",
     "@schedule": {
         "description": "Live TV schedule button label"
     },
@@ -4495,7 +4495,7 @@
     "@revenueLabel": {
         "description": "Stat label for revenue"
     },
-    "runtimeLabel": "Suoritusaika",
+    "runtimeLabel": "Kesto",
     "@runtimeLabel": {
         "description": "Stat label for runtime"
     },
@@ -7053,7 +7053,7 @@
     "bottomBar": "Alapalkki",
     "homeRowsStyleClassic": "Klassinen",
     "homeRowsStyleModern": "Moderni",
-    "homeRowsSection": "Etusivun Rivit",
+    "homeRowsSection": "Kotirivit",
     "rowsType": "Rivien tyyppi",
     "rowsTypeDescription": "Classic säilyttää rivikohtaisen kuvatyypin ja tietopeittokuvan. Moderni käyttää muotokuvasta taustaan -rivejä.",
     "displayFavoritesRows": "Näytä suosikkirivit",
@@ -8387,7 +8387,7 @@
     "adminTunerReadAtNativeFramerate": "Lue syöte natiivilla kuvataajuudella",
     "adminEditProvider": "Muokkaa tarjoajaa",
     "adminProviderXmltv": "XMLTV",
-    "adminProviderSchedulesDirect": "Schedules Direct",
+    "adminProviderSchedulesDirect": "Ohjelmatietopalvelu",
     "adminXmltvPath": "Tiedosto tai URL",
     "adminXmltvMoviePrefix": "Elokuvien etuliite",
     "adminXmltvMovieCategories": "Elokuvakategoriat",
@@ -8594,10 +8594,10 @@
             }
         }
     },
-    "homeRowDisplay": "Aloitusnäytön rivien näyttö",
-    "homeRowSections": "Aloitusnäytön riviosiot",
-    "homeRowToggles": "Aloitusnäytön rivivalinnat",
-    "homeRowTogglesSubtitle": "Ota käyttöön tai poista käytöstä kirjastopohjaiset aloitusnäytön riviluokat",
+    "homeRowDisplay": "Kotirivien Näyttö",
+    "homeRowSections": "Kotirivien Osiot",
+    "homeRowToggles": "Kotirivien Säätimet",
+    "homeRowTogglesSubtitle": "Ota käyttöön tai poista käytöstä kirjastopohjaiset kotirivi kategoriat",
     "homeRowTogglesDescription": "Ota alla olevat valinnat käyttöön, niin rivit näkyvät aloitusnäytön osioissa.",
     "displayPlaylistsRows": "Näytä soittolistarivit",
     "displayPlaylistsRowsSubtitle": "Näytä soittolistarivit aloitusnäytön osioissa.",
@@ -11616,11 +11616,11 @@
     "@animeMarkerMixed": {
         "description": "Badge on an anime episode that mixes source material with filler, so it still contains story"
     },
-    "animeMarkerAnimeCanon": "Anime Canon",
+    "animeMarkerAnimeCanon": "Animen kaanon",
     "@animeMarkerAnimeCanon": {
         "description": "Badge on an anime episode that is not in the source manga but is part of the anime's own continuity"
     },
-    "animeMarkerMangaCanon": "Manga Canon",
+    "animeMarkerMangaCanon": "Manga Kaanon",
     "@animeMarkerMangaCanon": {
         "description": "Badge on an anime episode adapted from the source manga"
     },
@@ -13283,5 +13283,37 @@
     "untrustedServerCertificate": "Tämän palvelimen varmennetta ei pidetä luotettavana. Jos kyseessä on oma palvelimesi ja se käyttää itse allekirjoitettua tai yksityistä varmennetta, voit sallia sen tässä.",
     "@untrustedServerCertificate": {
         "description": "Shown on the sign-in screens when a server's TLS certificate is rejected, above a button that turns on Allow self-signed certificates"
+    },
+    "seasonalChristmas": "Joulu",
+    "@seasonalChristmas": {
+        "description": "Seasonal effect: snow with falling baubles and stars"
+    },
+    "seasonalPetals": "Kevään Versot",
+    "@seasonalPetals": {
+        "description": "Seasonal effect: falling cherry blossoms and petals with bees flying by"
+    },
+    "seasonalFireflies": "Tulikärpäset",
+    "@seasonalFireflies": {
+        "description": "Seasonal effect: glowing fireflies for summer"
+    },
+    "seasonalHalloween": "Halloween",
+    "@seasonalHalloween": {
+        "description": "Seasonal effect: bats, ghosts, candy and orange and purple leaves"
+    },
+    "seasonalDensity": "Tiheys",
+    "@seasonalDensity": {
+        "description": "Setting for how many seasonal effect particles are on screen at once"
+    },
+    "seasonalDensityLight": "Kevyt",
+    "@seasonalDensityLight": {
+        "description": "Seasonal effect density: fewest particles"
+    },
+    "seasonalDensityNormal": "Normaali",
+    "@seasonalDensityNormal": {
+        "description": "Seasonal effect density: the default amount"
+    },
+    "seasonalDensityHeavy": "Painava",
+    "@seasonalDensityHeavy": {
+        "description": "Seasonal effect density: most particles"
     }
 }

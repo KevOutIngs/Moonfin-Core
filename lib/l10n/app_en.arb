@@ -12636,24 +12636,24 @@
       }
     }
   },
-  "nextEpisodesSection": "Smart downloads",
-  "@nextEpisodesSection": {
+  "smartDownloadsSection": "Smart downloads",
+  "@smartDownloadsSection": {
     "description": "Settings section header for downloading the next episodes of a series after one is watched"
   },
-  "nextEpisodesEnable": "Download next episodes",
-  "@nextEpisodesEnable": {
+  "smartDownloadsEnable": "Download next episodes",
+  "@smartDownloadsEnable": {
     "description": "Switch that swaps a watched downloaded episode for the next episodes of the series"
   },
-  "nextEpisodesEnableSubtitle": "When you finish an episode on any device, Moonfin downloads the next ones. Downloaded episodes are deleted once watched.",
-  "@nextEpisodesEnableSubtitle": {
-    "description": "Explains the download next episodes switch, including that watched episodes are deleted"
+  "smartDownloadsEnableSubtitle": "When you finish an episode on any device, Moonfin downloads the next ones. Downloaded episodes are deleted once watched.",
+  "@smartDownloadsEnableSubtitle": {
+    "description": "Explains the smart downloads switch, including that watched episodes are deleted"
   },
-  "nextEpisodesKeepReady": "Episodes to keep downloaded",
-  "@nextEpisodesKeepReady": {
+  "smartDownloadsKeepReady": "Episodes to keep downloaded",
+  "@smartDownloadsKeepReady": {
     "description": "Setting for how many unwatched episodes of a series stay downloaded after one is watched"
   },
-  "nextEpisodesKeepReadySubtitle": "{count, plural, =1{Keeps the next episode downloaded} other{Keeps the next {count} episodes downloaded}}",
-  "@nextEpisodesKeepReadySubtitle": {
+  "smartDownloadsKeepReadySubtitle": "{count, plural, =1{Keeps the next episode downloaded} other{Keeps the next {count} episodes downloaded}}",
+  "@smartDownloadsKeepReadySubtitle": {
     "description": "Subtitle under the episodes to keep ready setting",
     "placeholders": {
       "count": {
@@ -12661,8 +12661,8 @@
       }
     }
   },
-  "nextEpisodesKeepReadyLowered": "Episodes already downloaded stay on your device. The new number applies to future downloads.",
-  "@nextEpisodesKeepReadyLowered": {
+  "smartDownloadsKeepReadyLowered": "Episodes already downloaded stay on your device. The new number applies to future downloads.",
+  "@smartDownloadsKeepReadyLowered": {
     "description": "Shown after lowering the episodes to keep downloaded, explaining nothing is deleted"
   },
   "autoDownloadSection": "Automatic downloads",

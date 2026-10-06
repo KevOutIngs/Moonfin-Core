@@ -1697,16 +1697,16 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       if (AutoDownloadService.isSupportedPlatform) ...[
         downloads.leaf(
           'smart_downloads_enabled',
-          l10n.nextEpisodesEnable,
-          subtitle: l10n.nextEpisodesEnableSubtitle,
+          l10n.smartDownloadsEnable,
+          subtitle: l10n.smartDownloadsEnableSubtitle,
           keywords: ['smart', 'next episode', 'series', 'automatic', 'delete'],
-          header: l10n.nextEpisodesSection,
+          header: l10n.smartDownloadsSection,
         ),
         downloads.leaf(
           'smart_downloads_keep_ready',
-          l10n.nextEpisodesKeepReady,
+          l10n.smartDownloadsKeepReady,
           keywords: ['smart', 'episodes', 'ahead'],
-          header: l10n.nextEpisodesSection,
+          header: l10n.smartDownloadsSection,
         ),
         downloads.leaf(
           'auto_download_enabled',

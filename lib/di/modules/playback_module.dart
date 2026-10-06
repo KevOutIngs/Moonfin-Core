@@ -797,7 +797,7 @@ void setActiveStreamResolver(MediaServerClient client) {
   _currentActiveResolverClient = client;
 }
 
-/// Download next episodes reacts as soon as an episode stops, rather than
+/// Smart downloads reacts as soon as an episode stops, rather than
 /// waiting for the server's debounced user data event.
 void _onItemStopped(dynamic item) {
   if (item is AggregatedItem &&

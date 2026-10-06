@@ -23603,37 +23603,37 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Smart downloads'**
-  String get nextEpisodesSection;
+  String get smartDownloadsSection;
 
   /// Switch that swaps a watched downloaded episode for the next episodes of the series
   ///
   /// In en, this message translates to:
   /// **'Download next episodes'**
-  String get nextEpisodesEnable;
+  String get smartDownloadsEnable;
 
-  /// Explains the download next episodes switch, including that watched episodes are deleted
+  /// Explains the smart downloads switch, including that watched episodes are deleted
   ///
   /// In en, this message translates to:
   /// **'When you finish an episode on any device, Moonfin downloads the next ones. Downloaded episodes are deleted once watched.'**
-  String get nextEpisodesEnableSubtitle;
+  String get smartDownloadsEnableSubtitle;
 
   /// Setting for how many unwatched episodes of a series stay downloaded after one is watched
   ///
   /// In en, this message translates to:
   /// **'Episodes to keep downloaded'**
-  String get nextEpisodesKeepReady;
+  String get smartDownloadsKeepReady;
 
   /// Subtitle under the episodes to keep ready setting
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =1{Keeps the next episode downloaded} other{Keeps the next {count} episodes downloaded}}'**
-  String nextEpisodesKeepReadySubtitle(int count);
+  String smartDownloadsKeepReadySubtitle(int count);
 
   /// Shown after lowering the episodes to keep downloaded, explaining nothing is deleted
   ///
   /// In en, this message translates to:
   /// **'Episodes already downloaded stay on your device. The new number applies to future downloads.'**
-  String get nextEpisodesKeepReadyLowered;
+  String get smartDownloadsKeepReadyLowered;
 
   /// Settings section header for auto-download subscriptions
   ///

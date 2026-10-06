@@ -129,8 +129,8 @@ class DownloadSettingsScreen extends ConsumerWidget {
               ],
             ),
             if (GetIt.instance.isRegistered<AutoDownloadService>()) ...[
-              _Section(title: l10n.nextEpisodesSection),
-              _NextEpisodesSettings(
+              _Section(title: l10n.smartDownloadsSection),
+              _SmartDownloadsSettings(
                 prefs: prefs,
                 service: GetIt.instance<AutoDownloadService>(),
               ),
@@ -780,10 +780,10 @@ class _Section extends StatelessWidget {
   }
 }
 
-/// Download next episodes: the switch, and how many episodes it keeps
-/// ready once it is on.
-class _NextEpisodesSettings extends StatelessWidget {
-  const _NextEpisodesSettings({required this.prefs, required this.service});
+/// The smart downloads switch and how many episodes it keeps ready. It has
+/// no Check now of its own, since the one in automatic downloads runs both.
+class _SmartDownloadsSettings extends StatelessWidget {
+  const _SmartDownloadsSettings({required this.prefs, required this.service});
 
   final UserPreferences prefs;
   final AutoDownloadService service;
@@ -798,23 +798,22 @@ class _NextEpisodesSettings extends StatelessWidget {
         DpadSwitchListTile(
           useSettingsIconShell: true,
           secondary: const Icon(Icons.skip_next),
-          title: Text(l10n.nextEpisodesEnable),
-          subtitle: Text(l10n.nextEpisodesEnableSubtitle),
+          title: Text(l10n.smartDownloadsEnable),
+          subtitle: Text(l10n.smartDownloadsEnableSubtitle),
           value: enabled,
           onChanged: service.setSmartDownloadsEnabled,
         ),
         if (enabled)
           SliderPreferenceTile(
             preference: UserPreferences.smartDownloadsKeepReady,
-            title: l10n.nextEpisodesKeepReady,
+            title: l10n.smartDownloadsKeepReady,
             icon: Icons.playlist_play,
             min: 1,
             max: 10,
             divisions: 9,
-            labelOf: l10n.nextEpisodesKeepReadySubtitle,
+            labelOf: l10n.smartDownloadsKeepReadySubtitle,
             onChangeEnd: () => _onKeepReadyChanged(context),
           ),
-        if (enabled) _CheckNowTile(service: service),
       ],
     );
   }
@@ -828,7 +827,7 @@ class _NextEpisodesSettings extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            AppLocalizations.of(context).nextEpisodesKeepReadyLowered,
+            AppLocalizations.of(context).smartDownloadsKeepReadyLowered,
           ),
         ),
       );
@@ -935,10 +934,24 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
                 );
               },
             ),
-            _CheckNowTile(
-              service: service,
-              enabled:
-                  enabled || prefs.get(UserPreferences.smartDownloadsEnabled),
+            ListenableBuilder(
+              listenable: service,
+              builder: (context, _) => DpadListTile(
+                useSettingsIconShell: true,
+                leading: const Icon(Icons.refresh),
+                title: Text(l10n.autoDownloadCheckNow),
+                subtitle: Text(
+                  service.isRunning
+                      ? l10n.autoDownloadChecking
+                      : _lastRunLabel(l10n, service.lastRun),
+                ),
+                enabled:
+                    (enabled ||
+                        prefs.get(UserPreferences.smartDownloadsEnabled)) &&
+                    !service.isRunning,
+                onTap: () =>
+                    service.runCheck(trigger: AutoDownloadTrigger.manual),
+              ),
             ),
           ],
         ),
@@ -998,6 +1011,33 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
     return '$quality • $check';
   }
 
+  String _lastRunLabel(AppLocalizations l10n, AutoDownloadRunSummary? run) {
+    if (run == null) return l10n.autoDownloadNeverChecked;
+    final label = _checkLabel(
+      l10n,
+      at: run.at,
+      queued: run.queued,
+      error: run.error,
+    );
+    if (run.waitingForWifi) {
+      return '$label • ${l10n.autoDownloadWaitingForWifi}';
+    }
+    if (run.storageFull) return '$label • ${l10n.autoDownloadStorageFull}';
+    return label;
+  }
+
+  String _checkLabel(
+    AppLocalizations l10n, {
+    required DateTime at,
+    required int queued,
+    required String? error,
+  }) {
+    final when = relativeTimeLabel(l10n, at);
+    return error != null
+        ? l10n.autoDownloadLastCheckFailed(when, error)
+        : l10n.autoDownloadLastCheck(when, queued);
+  }
+
   String _deleteAfterLabel(AppLocalizations l10n, int hours) => switch (hours) {
     < 0 => l10n.autoDownloadDeleteNever,
     0 => l10n.autoDownloadDeleteImmediately,
@@ -1036,102 +1076,30 @@ class _AutoDownloadSettingsState extends State<_AutoDownloadSettings> {
 
   void _pickKeepUnwatched(BuildContext context, int current) {
     final l10n = AppLocalizations.of(context);
-    _pickCount(
-      context,
-      current: current,
-      choices: _keepChoices,
-      label: (n) => n == 0 ? l10n.autoDownloadKeepAll : '$n',
-      onPicked: (n) =>
-          widget.prefs.set(UserPreferences.autoDownloadKeepUnwatched, n),
-    );
-  }
-}
-
-/// Runs a check right away, showing how the last one went. Shared by smart
-/// downloads and automatic downloads, which run in the same check.
-class _CheckNowTile extends StatelessWidget {
-  const _CheckNowTile({required this.service, this.enabled = true});
-
-  final AutoDownloadService service;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return ListenableBuilder(
-      listenable: service,
-      builder: (context, _) => DpadListTile(
-        useSettingsIconShell: true,
-        leading: const Icon(Icons.refresh),
-        title: Text(l10n.autoDownloadCheckNow),
-        subtitle: Text(
-          service.isRunning
-              ? l10n.autoDownloadChecking
-              : _lastRunLabel(l10n, service.lastRun),
+    showFocusRestoringModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: DpadRadioGroup<int>(
+          groupValue: current,
+          onChanged: (v) {
+            if (v != null) {
+              widget.prefs.set(UserPreferences.autoDownloadKeepUnwatched, v);
+            }
+            Navigator.pop(ctx);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final n in _keepChoices)
+                DpadRadioListTile<int>(
+                  autofocus: n == current,
+                  title: Text(n == 0 ? l10n.autoDownloadKeepAll : '$n'),
+                  value: n,
+                ),
+            ],
+          ),
         ),
-        enabled: enabled && !service.isRunning,
-        onTap: () => service.runCheck(trigger: AutoDownloadTrigger.manual),
       ),
     );
   }
-}
-
-String _lastRunLabel(AppLocalizations l10n, AutoDownloadRunSummary? run) {
-  if (run == null) return l10n.autoDownloadNeverChecked;
-  final label = _checkLabel(
-    l10n,
-    at: run.at,
-    queued: run.queued,
-    error: run.error,
-  );
-  if (run.waitingForWifi) {
-    return '$label • ${l10n.autoDownloadWaitingForWifi}';
-  }
-  if (run.storageFull) return '$label • ${l10n.autoDownloadStorageFull}';
-  return label;
-}
-
-String _checkLabel(
-  AppLocalizations l10n, {
-  required DateTime at,
-  required int queued,
-  required String? error,
-}) {
-  final when = relativeTimeLabel(l10n, at);
-  return error != null
-      ? l10n.autoDownloadLastCheckFailed(when, error)
-      : l10n.autoDownloadLastCheck(when, queued);
-}
-
-/// A bottom sheet of [choices] with [current] focused.
-void _pickCount(
-  BuildContext context, {
-  required int current,
-  required List<int> choices,
-  required ValueChanged<int> onPicked,
-  String Function(int n)? label,
-}) {
-  showFocusRestoringModalBottomSheet(
-    context: context,
-    builder: (ctx) => SafeArea(
-      child: DpadRadioGroup<int>(
-        groupValue: current,
-        onChanged: (v) {
-          if (v != null) onPicked(v);
-          Navigator.pop(ctx);
-        },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final n in choices)
-              DpadRadioListTile<int>(
-                autofocus: n == current,
-                title: Text(label?.call(n) ?? '$n'),
-                value: n,
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

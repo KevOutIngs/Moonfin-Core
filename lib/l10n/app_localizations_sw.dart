@@ -13513,20 +13513,20 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get nextEpisodesSection => 'Smart downloads';
+  String get smartDownloadsSection => 'Smart downloads';
 
   @override
-  String get nextEpisodesEnable => 'Download next episodes';
+  String get smartDownloadsEnable => 'Download next episodes';
 
   @override
-  String get nextEpisodesEnableSubtitle =>
+  String get smartDownloadsEnableSubtitle =>
       'When you finish an episode on any device, Moonfin downloads the next ones. Downloaded episodes are deleted once watched.';
 
   @override
-  String get nextEpisodesKeepReady => 'Episodes to keep downloaded';
+  String get smartDownloadsKeepReady => 'Episodes to keep downloaded';
 
   @override
-  String nextEpisodesKeepReadySubtitle(int count) {
+  String smartDownloadsKeepReadySubtitle(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
@@ -13537,7 +13537,7 @@ class AppLocalizationsSw extends AppLocalizations {
   }
 
   @override
-  String get nextEpisodesKeepReadyLowered =>
+  String get smartDownloadsKeepReadyLowered =>
       'Episodes already downloaded stay on your device. The new number applies to future downloads.';
 
   @override

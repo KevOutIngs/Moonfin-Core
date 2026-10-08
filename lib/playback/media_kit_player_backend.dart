@@ -832,6 +832,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     if (_decodedVideoParams == null) return;
     if (_voVerificationPending && hdrOutput.isEngaged) {
       _voVerificationPending = false;
+      final handle = hdrOutput.window.handle;
       // Video params can be published a moment before the renderer is built,
       // and reading `current-vo` in that gap would mistake it for a refusal.
       // `vo-configured` says the renderer is up; bounded, so a renderer that
@@ -842,6 +843,10 @@ class MediaKitPlayerBackend extends PlayerBackend {
         }
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
+      // Released, or released and engaged afresh, during the wait: this
+      // check belonged to a window that is gone, and reading the new one
+      // mid-handover would tear it down.
+      if (!hdrOutput.isEngaged || hdrOutput.window.handle != handle) return;
       if (await _tryNativeGetProperty(native, 'current-vo') != 'gpu-next') {
         // mpv would not build gpu-next on the window before the file opened.
         // Fall back to engaging now that it has, as before.
@@ -887,7 +892,12 @@ class MediaKitPlayerBackend extends PlayerBackend {
         payload['isLive'] != true &&
         payload['audioLike'] != true &&
         payload['preview'] != true;
-    if (!isMainVideo) return;
+    if (!isMainVideo) {
+      // Live TV and audio render the texture, so they must not open onto a
+      // window a main video engaged for a screen that never came.
+      await _standDownOrphanedNativeWindow();
+      return;
+    }
     await _nativeRelease;
     // A handover from a superseded play() still in flight would read as not
     // engaged, and land on the window after this title has opened.
@@ -913,9 +923,25 @@ class MediaKitPlayerBackend extends PlayerBackend {
       engageMpv: (handle) =>
           _handOverToNativeWindow(native, handle, fileLoaded: false),
     );
+    // Even when this play() has been superseded meanwhile: a main video that
+    // follows inherits the engagement and needs the check and the watchdog,
+    // and a stop() or a Live TV or audio play() that follows stands it down
+    // through [_standDownOrphanedNativeWindow], having waited this one out.
     if (!hdrOutput.isEngaged) return;
     _voVerificationPending = true;
     _armPresenterWatchdog();
+  }
+
+  /// Stands down a window engaged ahead of a player screen that never
+  /// mounted - the viewer backed out, or something other than a main video
+  /// is about to play. Waits out a handover still in flight first, since it
+  /// reads as not engaged until it lands. Leaves a presented session alone.
+  Future<void> _standDownOrphanedNativeWindow() async {
+    if (!PlatformDetection.supportsNativeHdrWindow) return;
+    await hdrOutput.settled;
+    if (hdrOutput.isEngaged && !hdrOutput.presenterActive) {
+      await _queueNativeRelease(_standDownNativeWindow);
+    }
   }
 
   /// Vouched for a screen that has not mounted yet. If it never does, nothing
@@ -973,11 +999,13 @@ class MediaKitPlayerBackend extends PlayerBackend {
         isHdrVideoParams(gamma: params.gamma, primaries: params.primaries);
   }
 
-  /// Re-runs the engagement decision for the presenting screen.
+  /// Claims the native window for the presenting screen, and runs the
+  /// post-load checks in [_maybeEngageNativeHdr] if the file has loaded.
   ///
-  /// `play()` usually runs before the video player screen has mounted, and
-  /// engagement is refused without a presenter - so the screen calls this
-  /// once it exists. No-ops when already engaged or failed.
+  /// A main video usually engaged ahead of the screen in `play()`; the claim
+  /// is what keeps the presenter watchdog from standing it down. Anything
+  /// that did not engage ahead - an HDR title the server called SDR in
+  /// compatibility mode - gets its decision here or on load.
   ///
   /// Claims by identity - see [HdrOutputController.presenter].
   Future<void> ensureNativeHdrForPresenter(Object presenter) {
@@ -2191,6 +2219,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // An earlier open() may still emit playing=true before stop() finishes.
     _liveStartupGate = false;
     await _player.stop();
+    await _standDownOrphanedNativeWindow();
   }
 
   Future<void> setVideoEnabled(bool enabled) async {
@@ -2930,6 +2959,8 @@ class MediaKitPlayerBackend extends PlayerBackend {
     _isDisposed = true;
     ++_playbackGeneration;
     _liveStartupGate = null;
+    _presenterWatchdog?.cancel();
+    _renegotiateSettleTimer?.cancel();
     _letterboxGeometrySub?.cancel();
     _letterboxCropper.cancel();
     _prefs.removeListener(_onPreferencesChanged);

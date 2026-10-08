@@ -53,6 +53,28 @@ void main() {
   // The channel groups below mock the binary messenger, which needs a binding.
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  group('isHdrRangeType', () {
+    test('HDR range types, Dolby Vision included', () {
+      for (final range in [
+        'HDR10',
+        'HDR10Plus',
+        'HLG',
+        'DOVI',
+        'DOVIWithHDR10',
+        'DOVIWithSDR',
+      ]) {
+        expect(isHdrRangeType(range), isTrue, reason: range);
+      }
+    });
+
+    test('SDR, Unknown and missing are SDR', () {
+      expect(isHdrRangeType('SDR'), isFalse);
+      expect(isHdrRangeType('Unknown'), isFalse);
+      expect(isHdrRangeType(''), isFalse);
+      expect(isHdrRangeType(null), isFalse);
+    });
+  });
+
   group('isHdrVideoParams', () {
     test('PQ and HLG transfers are HDR', () {
       expect(isHdrVideoParams(gamma: 'pq', primaries: 'bt.2020'), isTrue);
@@ -271,6 +293,40 @@ void main() {
       expect(settled, isTrue);
       expect(controller.isEngaged, isTrue);
       expect(window.createCalls, 1);
+    });
+
+    test('a main video engages before its screen has mounted', () async {
+      // play() runs before the player screen mounts. Waiting for it put the
+      // first frames on the texture and flashed when mpv moved over.
+      final controller = HdrOutputController(window: window);
+      final result = await controller.maybeEngage(
+        sdrUsesTexturePath: false,
+        isHdrContent: false,
+        beforePresenter: true,
+        engageMpv: (handle) async {
+          asked.add('engage $handle');
+          return true;
+        },
+      );
+
+      expect(result, 4242);
+      expect(controller.isEngaged, isTrue);
+      expect(asked, ['engage 4242']);
+    });
+
+    test('engaging ahead still keeps SDR on the texture in compatibility '
+        'mode', () async {
+      final controller = HdrOutputController(window: window);
+      final result = await controller.maybeEngage(
+        sdrUsesTexturePath: true,
+        isHdrContent: false,
+        beforePresenter: true,
+        engageMpv: (_) async => true,
+      );
+
+      expect(result, isNull);
+      expect(controller.status.value, HdrOutputStatus.contentIsSdr);
+      expect(window.createCalls, 0);
     });
 
     test('settled is immediate with nothing in flight', () async {

@@ -781,6 +781,9 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // Whatever mpv reported for the previous title must not answer for this
     // one; the listener repopulates it once this file is loaded.
     _decodedVideoParams = null;
+    _handBackChecked = false;
+    await _prepareNativeWindowForOpen(payload);
+    if (!_ownsPlayback(generation)) return;
     await _player.open(media, play: !openPaused);
     if (!_ownsPlayback(generation)) return;
 
@@ -812,13 +815,51 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// mpv paces frames against the display. [UserPreferences.sdrUsesTexturePath]
   /// keeps SDR on the texture.
   ///
-  /// Waits for a loaded file, because mpv refuses the window with no video to
-  /// draw and that refusal is sticky. [_onVideoParams] asks again on load.
+  /// The main path is [_prepareNativeWindowForOpen], before the file opens.
+  /// This is the correction once mpv has decoded it: confirm the renderer
+  /// took, hand an SDR title back under compatibility mode when the server
+  /// called it HDR, and engage an HDR title the server called SDR.
   Future<void> _maybeEngageNativeHdr() async {
     if (!PlatformDetection.supportsNativeHdrWindow) return;
+    // Nothing to engage or hand back: Live TV and audio return here without
+    // waiting on a release they have nothing to do with.
+    if (!hdrOutput.presenterActive && !hdrOutput.isEngaged) return;
+    // A screen that claims while its predecessor is still releasing must not
+    // engage a window that release is about to destroy.
+    await _nativeRelease;
     final native = _player.platform;
     if (native is! NativePlayer) return;
     if (_decodedVideoParams == null) return;
+    if (_voVerificationPending && hdrOutput.isEngaged) {
+      _voVerificationPending = false;
+      // Video params can be published a moment before the renderer is built,
+      // and reading `current-vo` in that gap would mistake it for a refusal.
+      // `vo-configured` says the renderer is up; bounded, so a renderer that
+      // never comes up is still caught below.
+      for (var i = 0; i < 40; i++) {
+        if (await _tryNativeGetProperty(native, 'vo-configured') == 'yes') {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      if (await _tryNativeGetProperty(native, 'current-vo') != 'gpu-next') {
+        // mpv would not build gpu-next on the window before the file opened.
+        // Fall back to engaging now that it has, as before.
+        debugPrint('[HDR] gpu-next refused before open; retrying after load');
+        await _queueNativeRelease(_standDownNativeWindow);
+      }
+    }
+    // Once per title: a passing params event that reads SDR mid-playback must
+    // not tear the window down and build it again.
+    if (hdrOutput.isEngaged &&
+        !_handBackChecked &&
+        _prefs.get(UserPreferences.sdrUsesTexturePath)) {
+      _handBackChecked = true;
+      if (!isPlayingHdrContent) {
+        await _queueNativeRelease(_standDownNativeWindow);
+        return;
+      }
+    }
     // Music and audiobooks share this singleton but never mount a presenter,
     // so the controller refuses them before anything is created.
     await hdrOutput.maybeEngage(
@@ -828,16 +869,99 @@ class MediaKitPlayerBackend extends PlayerBackend {
     );
   }
 
+  /// Puts mpv on the native window before the file opens, so the first frame
+  /// is already gpu-next and nothing flashes over from the texture.
+  ///
+  /// Only for a main video: Live TV and audio share this singleton and render
+  /// the texture. Compatibility mode keeps SDR on the texture, going by the
+  /// server's range type until mpv has decoded the file; the correction in
+  /// [_maybeEngageNativeHdr] covers a server that was wrong.
+  Future<void> _prepareNativeWindowForOpen(
+    Map<dynamic, dynamic> payload,
+  ) async {
+    if (!PlatformDetection.supportsNativeHdrWindow) return;
+    final native = _player.platform;
+    if (native is! NativePlayer) return;
+    final isMainVideo =
+        payload['mediaType']?.toString().trim().toLowerCase() == 'video' &&
+        payload['isLive'] != true &&
+        payload['audioLike'] != true &&
+        payload['preview'] != true;
+    if (!isMainVideo) return;
+    await _nativeRelease;
+    // A handover from a superseded play() still in flight would read as not
+    // engaged, and land on the window after this title has opened.
+    await hdrOutput.settled;
+
+    final compatibility = _prefs.get(UserPreferences.sdrUsesTexturePath);
+    final serverHdr = isHdrRangeType(payload['videoRangeType']?.toString());
+    if (compatibility && !serverHdr) {
+      // An SDR title after an HDR one in the same screen starts on the
+      // texture instead of moving there after its first frames.
+      if (hdrOutput.isEngaged) {
+        _handBackChecked = true;
+        await _queueNativeRelease(_standDownNativeWindow);
+      }
+      return;
+    }
+    if (hdrOutput.isEngaged) return;
+
+    await hdrOutput.maybeEngage(
+      sdrUsesTexturePath: compatibility,
+      isHdrContent: serverHdr,
+      beforePresenter: true,
+      engageMpv: (handle) =>
+          _handOverToNativeWindow(native, handle, fileLoaded: false),
+    );
+    if (!hdrOutput.isEngaged) return;
+    _voVerificationPending = true;
+    _armPresenterWatchdog();
+  }
+
+  /// Vouched for a screen that has not mounted yet. If it never does, nothing
+  /// would ever release the window. Counted from load, not from open: the
+  /// screen can be pushed only once the media is ready, and a slow remux
+  /// would otherwise lose the window and flash back over to it.
+  void _armPresenterWatchdog([int loadingChecks = 0]) {
+    _presenterWatchdog?.cancel();
+    _presenterWatchdog = Timer(const Duration(seconds: 10), () {
+      _presenterWatchdog = null;
+      if (!hdrOutput.isEngaged || hdrOutput.presenterActive) return;
+      // Still loading: wait on, but not forever for a file that never loads.
+      if (_decodedVideoParams == null && loadingChecks < 6) {
+        _armPresenterWatchdog(loadingChecks + 1);
+        return;
+      }
+      unawaited(_queueNativeRelease(_standDownNativeWindow));
+    });
+  }
+
+  /// Engaged before the file opened, when `current-vo` cannot be read yet;
+  /// [_maybeEngageNativeHdr] checks it once the file is loaded.
+  bool _voVerificationPending = false;
+
+  /// Whether this title has had its compatibility-mode hand-back check.
+  bool _handBackChecked = false;
+
+  Timer? _presenterWatchdog;
+
   /// Tracks what mpv decoded, and decides engagement once a file has loaded:
   /// the tail of `play()` and the screen's mount can both come before the
   /// first frame, which a 4K remux over the network takes a while to demux.
   /// Cheap when nothing changed: the controller refuses without a presenter,
-  /// and an engaged or failed session is not revisited.
+  /// and a failed session is not revisited. An engaged one is only until its
+  /// renderer is confirmed and its compatibility-mode check has run.
   void _onVideoParams(VideoParams params) {
     final loaded = params.gamma != null || params.primaries != null;
     _decodedVideoParams = loaded ? params : null;
     if (!loaded || !PlatformDetection.supportsNativeHdrWindow) return;
-    if (!hdrOutput.status.value.isRevisitable) return;
+    final status = hdrOutput.status.value;
+    final engagedCheckDue =
+        status.isActive &&
+        (_voVerificationPending ||
+            (!_handBackChecked &&
+                _prefs.get(UserPreferences.sdrUsesTexturePath)));
+    if (!status.isRevisitable && !engagedCheckDue) return;
     unawaited(_maybeEngageNativeHdr());
   }
 
@@ -869,20 +993,61 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// and the mini player share this singleton and can only render the
   /// texture, so leaving mpv on a window nothing presents would black them
   /// out for the rest of the process.
-  Future<void> releaseNativeHdrPresenter(Object presenter) async {
+  Future<void> releaseNativeHdrPresenter(Object presenter) {
     // A release from a screen that already handed over is not a release.
-    if (!identical(hdrOutput.presenter, presenter)) return;
+    if (!identical(hdrOutput.presenter, presenter)) return Future.value();
+    // Before any await, so a successor claiming meanwhile is not wiped.
+    hdrOutput.presenter = null;
+    return _queueNativeRelease(_releaseNativeHdr);
+  }
+
+  /// The last release or hand-back queued, or null. Engagement waits on it,
+  /// so nothing hands mpv a window that is about to be destroyed. Never
+  /// completes with an error, so waiting on it cannot fail `play()`.
+  Future<void>? _nativeRelease;
+
+  /// Runs [run] after any release already queued. Chained, not replaced: a
+  /// release that started during a hand-back would otherwise see nothing
+  /// engaged and destroy the window while the hand-back is still restoring,
+  /// and engagement would wait on the release alone.
+  ///
+  /// With nothing queued, [run] starts synchronously, so its own synchronous
+  /// head (the reset that flips `isEngaged`) lands before the caller resumes.
+  Future<void> _queueNativeRelease(Future<void> Function() run) {
+    final previous = _nativeRelease;
+    late final Future<void> release;
+    release =
+        (previous == null ? Future.sync(run) : previous.then((_) => run()))
+            .catchError((Object error) {
+              debugPrint('[HDR] native window release failed: $error');
+            })
+            .whenComplete(() {
+              if (identical(_nativeRelease, release)) _nativeRelease = null;
+            });
+    _nativeRelease = release;
+    return release;
+  }
+
+  Future<void> _releaseNativeHdr() async {
     // Same lifetime as the native path: the overlay must not follow mpv into
     // Live TV or the mini player.
     await _hideMpvStats();
-    hdrOutput.presenter = null;
     // A handover still in flight reports active only once it lands. Let it
     // land first, so the cleanup below undoes it instead of running ahead of
     // it and leaving mpv on a destroyed window. No new decision can start in
-    // the meantime: the presenter is already gone.
+    // the meantime: the presenter is gone, and a successor waits on this.
     await hdrOutput.settled;
     // A successor screen that claimed during the wait inherits the session.
     if (hdrOutput.presenterActive) return;
+    await _standDownNativeWindow();
+  }
+
+  /// Puts mpv back on media_kit's texture and destroys the native window,
+  /// leaving the controller undecided.
+  Future<void> _standDownNativeWindow() async {
+    _voVerificationPending = false;
+    _presenterWatchdog?.cancel();
+    _presenterWatchdog = null;
     _renegotiateSettleTimer?.cancel();
     _renegotiateSettleTimer = null;
     // A leftover deadline would make the next real trigger look covered.
@@ -999,7 +1164,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// Points mpv at the native window and switches it to the libplacebo
   /// renderer over D3D11. All of these are settable after `mpv_initialize`,
   /// so this happens mid-session without a second Player.
-  Future<bool> _handOverToNativeWindow(NativePlayer native, int handle) async {
+  Future<bool> _handOverToNativeWindow(
+    NativePlayer native,
+    int handle, {
+    bool fileLoaded = true,
+  }) async {
     // Swapping the video output tears down mpv's subtitle renderer and drops
     // the active track, so the selection is carried across by hand on every
     // path - re-selecting in the menu would not bring it back.
@@ -1026,15 +1195,20 @@ class MediaKitPlayerBackend extends PlayerBackend {
       // values win, which is what the allowlist promised them.
       await _reapplyCustomMpvConfOverNativeWindow(native);
 
-      // If the renderer refused, `current-vo` still reads as the old one and
-      // the window would sit black over the player.
-      final vo = await _tryNativeGetProperty(native, 'current-vo');
-      if (vo != 'gpu-next') {
-        await _restoreTexturePath(native, sid: sid);
-        return false;
+      // Before a file opens mpv has no renderer at all, so `current-vo` is
+      // empty whatever it will build - checking it here is what used to fail
+      // an engagement at screen mount. [_maybeEngageNativeHdr] checks it once
+      // the file has loaded, and nothing is selected yet to carry across.
+      if (fileLoaded) {
+        // If the renderer refused, `current-vo` still reads as the old one
+        // and the window would sit black over the player.
+        final vo = await _tryNativeGetProperty(native, 'current-vo');
+        if (vo != 'gpu-next') {
+          await _restoreTexturePath(native, sid: sid);
+          return false;
+        }
+        await _restoreSubtitleState(native, sid);
       }
-
-      await _restoreSubtitleState(native, sid);
       // From here on, a crossing between an HDR and an SDR monitor recreates
       // the renderer: `wid`-mode mpv negotiates the swapchain colorspace only
       // at creation, and a resize does not re-ask.
@@ -1146,6 +1320,17 @@ class MediaKitPlayerBackend extends PlayerBackend {
     }
     final native = _player.platform;
     if (native is! NativePlayer) return;
+    // Engaged ahead of a file still loading: there is no renderer to cycle,
+    // and `current-vo` reads empty, which the check below would take for a
+    // refusal and fail the session. mpv builds the renderer at load with
+    // whatever hint is set, so setting the hint is the whole renegotiation.
+    if (_voVerificationPending && _decodedVideoParams == null) {
+      await _applyPassthroughHint(
+        native,
+        displayHdr: await AutoHdrSwitcher.displayHdrState(),
+      );
+      return;
+    }
     _renegotiating = true;
     String? sid;
     try {

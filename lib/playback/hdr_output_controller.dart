@@ -26,12 +26,11 @@ enum HdrOutputStatus {
 
 /// Decides whether mpv gets its own window, and owns that window's lifetime.
 ///
-/// The decision is made once per presenting screen and then sticks. `Player`
-/// and `VideoController` are built once in the `MediaKitPlayerBackend` factory
-/// and registered as a startup singleton, so there is no clean way to swap
-/// paths per item — and there is no need to. Once engaged, SDR content in the
-/// native window is not a regression: mpv renders it, and with `gpu-next`
-/// renders it better than the texture path does.
+/// Once engaged the decision sticks across items: SDR content in the native
+/// window is not a regression - mpv renders it, and with `gpu-next` renders
+/// it better than the texture path does. The one exception is the
+/// `sdrUsesTexturePath` preference, under which the backend hands an SDR
+/// title back to the texture through [reset].
 class HdrOutputController {
   /// [window] is injectable so the decision can be tested without a platform
   /// channel - most paths through [maybeEngage] touch it, and those are the
@@ -74,7 +73,9 @@ class HdrOutputController {
   /// player, which render media_kit's texture and know nothing about the
   /// native window - engaging under them would swap mpv onto a window nothing
   /// ever shows and leave a black picture. Only the video player screen sets
-  /// this, and engagement is refused without it.
+  /// this, and engagement is refused without it - except for a main video
+  /// about to open, which [maybeEngage]'s `beforePresenter` lets engage ahead
+  /// of its screen.
   ///
   /// Held by identity, for the same reason [HdrVideoWindow] holds its own: the
   /// player screen is rebuilt on route changes and the incoming state mounts

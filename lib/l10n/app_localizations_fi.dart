@@ -2194,26 +2194,18 @@ class AppLocalizationsFi extends AppLocalizations {
       'Aktiivinen — sävykartoitus SDR:ään tälle näytölle';
 
   @override
-  String get hdrOutputDisplayNotHdr =>
-      'Ei käytössä — näyttö ei ole HDR-tilassa';
-
-  @override
   String get hdrOutputContentSdr => 'Ei käytössä — sisältö on SDR-muodossa';
-
-  @override
-  String get hdrOutputDisabled =>
-      'Ei käytössä — poistettu käytöstä asetuksissa';
 
   @override
   String get hdrOutputFailed =>
       'Ei aktiivinen — käynnistystä ei voitu suorittaa, käytetään oletuspolkua';
 
   @override
-  String get nativeHdrOutput => 'Natiivi HDR-lähtö';
+  String get sdrUsesTexturePath => 'Compatibility mode for SDR';
 
   @override
-  String get nativeHdrOutputDescription =>
-      'Lähettää HDR-videon näytölle muokkaamattomana sen sijaan, että se muunnettaisiin SDR-muotoon. Käytetään vain silloin, kun näyttö on jo HDR-tilassa ja sisältö on HDR-muotoista.';
+  String get sdrUsesTexturePathDescription =>
+      'Plays SDR video through the older in-app renderer instead of its own window. Try this if SDR video misbehaves; motion may be less smooth. HDR video is not affected.';
 
   @override
   String get codec => 'Koodekki';

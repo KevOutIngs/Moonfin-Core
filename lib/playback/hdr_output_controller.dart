@@ -126,15 +126,24 @@ class HdrOutputController {
   ///
   /// [engageMpv] must return false if mpv refused the handle, so the failure
   /// is recorded rather than leaving a black window on screen.
+  ///
+  /// [beforePresenter] waives the presenter gate, for a main video about to
+  /// open: `play()` usually runs before the player screen mounts, and waiting
+  /// for it means the first frames go through the texture and the picture
+  /// flashes when mpv moves over. The caller vouches that a player screen is
+  /// coming and stands down if none does.
   Future<int?> maybeEngage({
     required bool sdrUsesTexturePath,
     required bool isHdrContent,
     required Future<bool> Function(int handle) engageMpv,
+    bool beforePresenter = false,
   }) async {
     if (isEngaged) {
       return window.handle;
     }
-    if (hasFailed || _decision != null || !presenterActive) {
+    if (hasFailed ||
+        _decision != null ||
+        (!beforePresenter && !presenterActive)) {
       return null;
     }
     final decision = _decide(
@@ -175,6 +184,15 @@ class HdrOutputController {
     status.value = HdrOutputStatus.active;
     return handle;
   }
+}
+
+/// Whether the server's `VideoRangeType` calls the title HDR - the only answer
+/// there is before mpv has decoded anything. Dolby Vision with an SDR base
+/// layer counts: gpu-next applies the RPU and the result is HDR. Missing or
+/// `Unknown` is SDR, which mpv corrects once the file has loaded.
+bool isHdrRangeType(String? rangeType) {
+  final range = (rangeType ?? '').trim().toUpperCase();
+  return range.isNotEmpty && range != 'SDR' && range != 'UNKNOWN';
 }
 
 /// Whether what mpv decoded is HDR.

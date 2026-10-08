@@ -876,6 +876,13 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // Live TV or the mini player.
     await _hideMpvStats();
     hdrOutput.presenter = null;
+    // A handover still in flight reports active only once it lands. Let it
+    // land first, so the cleanup below undoes it instead of running ahead of
+    // it and leaving mpv on a destroyed window. No new decision can start in
+    // the meantime: the presenter is already gone.
+    await hdrOutput.settled;
+    // A successor screen that claimed during the wait inherits the session.
+    if (hdrOutput.presenterActive) return;
     _renegotiateSettleTimer?.cancel();
     _renegotiateSettleTimer = null;
     // A leftover deadline would make the next real trigger look covered.

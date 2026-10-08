@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moonfin/playback/hdr_output_controller.dart';
@@ -231,6 +233,48 @@ void main() {
       expect(await decide(controller), isNull);
       expect(asked, isEmpty);
       expect(window.createCalls, 1);
+    });
+
+    test('settled waits out a handover still in flight', () async {
+      // A release that ran mid-handover would see nothing engaged and skip
+      // the texture restore, then the handover would land on a destroyed
+      // window. Waiting on settled lets the release see the real outcome.
+      final controller = HdrOutputController(window: window)
+        ..presenter = Object();
+      final mpv = Completer<bool>();
+      final engaging = controller.maybeEngage(
+        sdrUsesTexturePath: false,
+        isHdrContent: false,
+        engageMpv: (_) => mpv.future,
+      );
+
+      var settled = false;
+      unawaited(controller.settled.then((_) => settled = true));
+      await pumpEventQueue();
+      expect(settled, isFalse);
+      expect(controller.isEngaged, isFalse);
+
+      // The presenter leaves mid-handover: no second decision may start.
+      controller.presenter = null;
+      expect(
+        await controller.maybeEngage(
+          sdrUsesTexturePath: false,
+          isHdrContent: false,
+          engageMpv: (_) async => true,
+        ),
+        isNull,
+      );
+
+      mpv.complete(true);
+      await engaging;
+      await pumpEventQueue();
+      expect(settled, isTrue);
+      expect(controller.isEngaged, isTrue);
+      expect(window.createCalls, 1);
+    });
+
+    test('settled is immediate with nothing in flight', () async {
+      await HdrOutputController(window: window).settled;
     });
 
     test('a status change notifies, so the player can swap surfaces', () async {

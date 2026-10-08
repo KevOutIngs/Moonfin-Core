@@ -84,10 +84,28 @@ class HdrOutputController {
 
   bool get presenterActive => presenter != null;
 
-  /// One decision at a time. The sticky flags are only written after several
-  /// awaits, so without this two overlapping `play()` calls could both pass
-  /// the gates and run the mpv handover concurrently against the same window.
-  bool _deciding = false;
+  /// The decision in flight, or null. One at a time: the sticky flags are
+  /// only written after several awaits, so without this two overlapping
+  /// `play()` calls could both pass the gates and run the mpv handover
+  /// concurrently against the same window.
+  Future<int?>? _decision;
+
+  /// Completes once no decision is in flight.
+  ///
+  /// A release must wait on this before cleaning up. A handover still waiting
+  /// on mpv only reports active at its end, so a release in the middle would
+  /// see nothing engaged, skip the texture restore and destroy the window -
+  /// and the handover would then land on a window that no longer exists,
+  /// leaving mpv on `wid` under Live TV and the mini player.
+  Future<void> get settled async {
+    final decision = _decision;
+    if (decision == null) return;
+    try {
+      await decision;
+    } catch (_) {
+      // Only the decision being over matters here, not its result.
+    }
+  }
 
   /// Back to the undecided state, for when the presenting screen goes away:
   /// the next playback decides afresh instead of inheriting a sticky
@@ -116,18 +134,19 @@ class HdrOutputController {
     if (isEngaged) {
       return window.handle;
     }
-    if (hasFailed || _deciding || !presenterActive) {
+    if (hasFailed || _decision != null || !presenterActive) {
       return null;
     }
-    _deciding = true;
+    final decision = _decide(
+      sdrUsesTexturePath: sdrUsesTexturePath,
+      isHdrContent: isHdrContent,
+      engageMpv: engageMpv,
+    );
+    _decision = decision;
     try {
-      return await _decide(
-        sdrUsesTexturePath: sdrUsesTexturePath,
-        isHdrContent: isHdrContent,
-        engageMpv: engageMpv,
-      );
+      return await decision;
     } finally {
-      _deciding = false;
+      _decision = null;
     }
   }
 

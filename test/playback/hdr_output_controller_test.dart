@@ -101,24 +101,16 @@ void main() {
 
     Future<int?> decide(
       HdrOutputController controller, {
-      bool preferenceEnabled = true,
-      bool isHdrContent = true,
-      bool displayInHdrMode = true,
+      bool sdrUsesTexturePath = false,
+      bool isHdrContent = false,
       bool mpvAccepts = true,
     }) {
       // The tests below exercise the gates past the presenter one; without a
       // presenting screen nothing is ever decided, covered by its own test.
       controller.presenter = Object();
       return controller.maybeEngage(
-        preferenceEnabled: preferenceEnabled,
-        isHdrContent: () async {
-          asked.add('content');
-          return isHdrContent;
-        },
-        displayInHdrMode: () async {
-          asked.add('display');
-          return displayInHdrMode;
-        },
+        sdrUsesTexturePath: sdrUsesTexturePath,
+        isHdrContent: isHdrContent,
         engageMpv: (handle) async {
           asked.add('engage $handle');
           return mpvAccepts;
@@ -126,25 +118,17 @@ void main() {
       );
     }
 
-    test('starts out reporting SDR content', () {
-      expect(
-        HdrOutputController(window: window).status.value,
-        HdrOutputStatus.contentIsSdr,
-      );
+    test('starts out undecided, which the next decision may reopen', () {
+      final status = HdrOutputController(window: window).status.value;
+      expect(status, HdrOutputStatus.contentIsSdr);
+      expect(status.isRevisitable, isTrue);
     });
 
     test('no presenter, no decision - Live TV must never engage', () async {
       final controller = HdrOutputController(window: window);
       final result = await controller.maybeEngage(
-        preferenceEnabled: true,
-        isHdrContent: () async {
-          asked.add('content');
-          return true;
-        },
-        displayInHdrMode: () async {
-          asked.add('display');
-          return true;
-        },
+        sdrUsesTexturePath: false,
+        isHdrContent: true,
         engageMpv: (_) async {
           asked.add('engage');
           return true;
@@ -161,74 +145,47 @@ void main() {
     });
 
     test(
-      'the preference is the first gate, and nothing else is asked',
+      'compatibility mode keeps SDR on the texture, and may reopen',
       () async {
         final controller = HdrOutputController(window: window);
-        expect(await decide(controller, preferenceEnabled: false), isNull);
+        expect(await decide(controller, sdrUsesTexturePath: true), isNull);
 
-        expect(controller.status.value, HdrOutputStatus.disabledByPreference);
-        // Both remaining checks are expensive - waiting on mpv's video-params,
-        // and enumerating every display path - so neither may run once the
-        // answer is already no.
+        expect(controller.status.value, HdrOutputStatus.contentIsSdr);
+        expect(controller.status.value.isRevisitable, isTrue);
         expect(asked, isEmpty);
         expect(window.createCalls, 0);
-      },
-    );
 
-    test('SDR content stops before the display is queried', () async {
-      final controller = HdrOutputController(window: window);
-      expect(await decide(controller, isHdrContent: false), isNull);
-
-      expect(controller.status.value, HdrOutputStatus.contentIsSdr);
-      expect(asked, ['content']);
-      expect(window.createCalls, 0);
-    });
-
-    test(
-      'an SDR verdict is not sticky: the next decision starts over',
-      () async {
-        final controller = HdrOutputController(window: window);
-        // mpv had not reported video-params yet when this was asked - a 4K
-        // remux over the network can take longer than the bounded wait - so
-        // the content read as SDR.
-        await decide(controller, isHdrContent: false);
-        expect(controller.status.value.isRevisitable, isTrue);
-        asked.clear();
-
-        // Once the params arrive the backend asks again, and this time every
-        // gate must be re-run rather than the old answer returned.
-        expect(await decide(controller), 4242);
+        // A later HDR title in the same session still takes the native window.
+        expect(
+          await decide(
+            controller,
+            sdrUsesTexturePath: true,
+            isHdrContent: true,
+          ),
+          4242,
+        );
         expect(controller.status.value, HdrOutputStatus.active);
-        expect(asked, ['content', 'display', 'engage 4242']);
+        expect(asked, ['engage 4242']);
       },
     );
 
-    test('only the expensive gates are revisitable', () {
+    test('only the undecided state is revisitable', () {
       expect(HdrOutputStatus.contentIsSdr.isRevisitable, isTrue);
-      expect(HdrOutputStatus.displayNotInHdrMode.isRevisitable, isTrue);
-      // The preference is the user's choice, and a failure is deliberately
-      // sticky so a broken setup is not retried on every video-params event.
-      expect(HdrOutputStatus.disabledByPreference.isRevisitable, isFalse);
+      // A failure is deliberately sticky so a broken setup is not retried on
+      // every video-params event.
       expect(HdrOutputStatus.failed.isRevisitable, isFalse);
       expect(HdrOutputStatus.active.isRevisitable, isFalse);
     });
 
-    test('an SDR display stops before the window is created', () async {
-      final controller = HdrOutputController(window: window);
-      expect(await decide(controller, displayInHdrMode: false), isNull);
-
-      expect(controller.status.value, HdrOutputStatus.displayNotInHdrMode);
-      expect(asked, ['content', 'display']);
-      expect(window.createCalls, 0);
-    });
-
-    test('every gate open engages and hands mpv the handle', () async {
+    test('engages and hands mpv the handle, whatever the content', () async {
       final controller = HdrOutputController(window: window);
       expect(await decide(controller), 4242);
 
+      // SDR takes the native window too: mpv paces it against the display,
+      // which the texture path cannot.
       expect(controller.status.value, HdrOutputStatus.active);
       expect(controller.isEngaged, isTrue);
-      expect(asked, ['content', 'display', 'engage 4242']);
+      expect(asked, ['engage 4242']);
       expect(window.createCalls, 1);
       expect(window.destroyCalls, 0);
     });
@@ -240,8 +197,8 @@ void main() {
 
       expect(await decide(controller), 4242);
       // Player and VideoController are built once as a startup singleton, so
-      // the path cannot be swapped per item - and re-deciding would pay for
-      // both expensive checks again on every title.
+      // the path cannot be swapped per item - and re-deciding would recreate
+      // the window on every title.
       expect(asked, isEmpty);
       expect(window.createCalls, 1);
     });
@@ -263,7 +220,7 @@ void main() {
       expect(await decide(controller), isNull);
 
       expect(controller.status.value, HdrOutputStatus.failed);
-      expect(asked, ['content', 'display']);
+      expect(asked, isEmpty);
     });
 
     test('failure is sticky, so a broken setup is not retried', () async {

@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 
 import 'hdr_video_window.dart';
 
-/// Whether native HDR output is running and, if not, why - for the playback
+/// Whether mpv's native window is running and, if not, why - for the playback
 /// info sheet.
 enum HdrOutputStatus {
-  /// Running: HDR is reaching the display untouched.
+  /// Running: mpv presents into its own window, HDR or SDR. Whether HDR is
+  /// actually reaching the display is a separate question.
   active,
-  disabledByPreference,
-  displayNotInHdrMode,
+
+  /// Undecided (the reset state, also shown while a title loads), or an SDR
+  /// title kept on the texture by the `sdrUsesTexturePath` preference.
   contentIsSdr,
 
   /// The window could not be created, or mpv would not take it. Sticky for
@@ -17,15 +19,9 @@ enum HdrOutputStatus {
 
   bool get isActive => this == active;
 
-  /// Whether the answer came from one of the two expensive checks and may
-  /// have been given too early, so a later fact is allowed to reopen it.
-  ///
-  /// Both are questions whose true answer can arrive after they were asked:
-  /// mpv reports what it decoded only once the file is loaded, and a big
-  /// remux over the network can take longer than any bounded wait; the
-  /// display is switched by the auto-HDR preference asynchronously. The
-  /// preference and a failure, by contrast, are settled for the session.
-  bool get isRevisitable => this == contentIsSdr || this == displayNotInHdrMode;
+  /// Whether a later fact may reopen the decision. Only the undecided state:
+  /// a failure is settled for the session.
+  bool get isRevisitable => this == contentIsSdr;
 }
 
 /// Decides whether mpv gets its own window, and owns that window's lifetime.
@@ -38,8 +34,8 @@ enum HdrOutputStatus {
 /// renders it better than the texture path does.
 class HdrOutputController {
   /// [window] is injectable so the decision can be tested without a platform
-  /// channel - every path through [maybeEngage] past the display gate touches
-  /// it, and those are the paths worth pinning down.
+  /// channel - most paths through [maybeEngage] touch it, and those are the
+  /// paths worth pinning down.
   HdrOutputController({HdrVideoWindow? window})
     : window = window ?? HdrVideoWindow();
 
@@ -103,27 +99,18 @@ class HdrOutputController {
   /// Decides and, if the answer is yes, creates the window.
   ///
   /// Returns the HWND to hand mpv as `wid`, or null to stay on the texture
-  /// path. Every cheap gate - engaged, failed, no presenter, preference off -
-  /// is answered before either callback runs.
+  /// path. Every title engages, SDR included: mpv then paces frames against
+  /// the display itself, which the texture path cannot - there Flutter samples
+  /// the texture on its own schedule and motion judders.
   ///
-  /// A "no" from either expensive check is not sticky (see
-  /// [HdrOutputStatus.isRevisitable]): calling again decides afresh, which is
-  /// how the backend reopens the question once mpv reports HDR params that
-  /// were not there yet when the first decision was made.
-  ///
-  /// [isHdrContent] and [displayInHdrMode] are callbacks rather than values
-  /// because both are expensive and neither is needed unless everything ahead
-  /// of it passed. Waiting for mpv's video-params costs up to two seconds on
-  /// an audio track, where they never arrive at all - and this backend is the
-  /// singleton for music and audiobooks too. The display query enumerates
-  /// every display path.
+  /// With [sdrUsesTexturePath] only [isHdrContent] engages. That "no" stays
+  /// revisitable, so a later HDR title in the session still engages.
   ///
   /// [engageMpv] must return false if mpv refused the handle, so the failure
   /// is recorded rather than leaving a black window on screen.
   Future<int?> maybeEngage({
-    required bool preferenceEnabled,
-    required Future<bool> Function() isHdrContent,
-    required Future<bool> Function() displayInHdrMode,
+    required bool sdrUsesTexturePath,
+    required bool isHdrContent,
     required Future<bool> Function(int handle) engageMpv,
   }) async {
     if (isEngaged) {
@@ -135,9 +122,8 @@ class HdrOutputController {
     _deciding = true;
     try {
       return await _decide(
-        preferenceEnabled: preferenceEnabled,
+        sdrUsesTexturePath: sdrUsesTexturePath,
         isHdrContent: isHdrContent,
-        displayInHdrMode: displayInHdrMode,
         engageMpv: engageMpv,
       );
     } finally {
@@ -146,24 +132,12 @@ class HdrOutputController {
   }
 
   Future<int?> _decide({
-    required bool preferenceEnabled,
-    required Future<bool> Function() isHdrContent,
-    required Future<bool> Function() displayInHdrMode,
+    required bool sdrUsesTexturePath,
+    required bool isHdrContent,
     required Future<bool> Function(int handle) engageMpv,
   }) async {
-    if (!preferenceEnabled) {
-      status.value = HdrOutputStatus.disabledByPreference;
-      return null;
-    }
-    if (!await isHdrContent()) {
+    if (sdrUsesTexturePath && !isHdrContent) {
       status.value = HdrOutputStatus.contentIsSdr;
-      return null;
-    }
-    if (!await displayInHdrMode()) {
-      // Switching the display is the auto-HDR preference's job, and it runs
-      // before this. If it is off, or the display refused, there is nothing
-      // useful to send.
-      status.value = HdrOutputStatus.displayNotInHdrMode;
       return null;
     }
 
@@ -196,9 +170,7 @@ class HdrOutputController {
 ///
 /// BT.2020 primaries break that tie: IPT is carried on them, so they are
 /// present even when the transfer characteristic is not. Wide-gamut SDR also
-/// matches, and the cost of being wrong there is only that mpv tone-maps in
-/// its own window rather than the texture, on a display already in HDR mode
-/// since that is a precondition for reaching this at all.
+/// matches; being wrong there only labels it HDR in the info sheet.
 bool isHdrVideoParams({required String? gamma, required String? primaries}) {
   final transfer = gamma?.toLowerCase() ?? '';
   if (transfer == 'pq' || transfer == 'st2084' || transfer == 'hlg') {

@@ -807,56 +807,53 @@ class MediaKitPlayerBackend extends PlayerBackend {
     }());
   }
 
-  /// Gives mpv its own D3D11 window when the content is HDR and the display is
-  /// already in HDR mode, so the stream reaches the screen untouched instead
-  /// of being flattened into media_kit's 8-bit texture.
+  /// Gives mpv its own D3D11 window for every video: HDR reaches the screen
+  /// untouched instead of being flattened into media_kit's 8-bit texture, and
+  /// mpv paces frames against the display. [UserPreferences.sdrUsesTexturePath]
+  /// keeps SDR on the texture.
   ///
-  /// Runs after `open`, because the decision needs `video-params`, which only
-  /// exist once a file is loaded.
+  /// Waits for a loaded file, because mpv refuses the window with no video to
+  /// draw and that refusal is sticky. [_onVideoParams] asks again on load.
   Future<void> _maybeEngageNativeHdr() async {
     if (!PlatformDetection.supportsNativeHdrWindow) return;
     final native = _player.platform;
     if (native is! NativePlayer) return;
-    // The controller answers every cheap gate - engaged, failed, no
-    // presenter, preference off - before it invokes either callback, so the
-    // video-params wait below is never paid on an audio track: music and
-    // audiobooks share this singleton but never mount a presenter.
+    if (_decodedVideoParams == null) return;
+    // Music and audiobooks share this singleton but never mount a presenter,
+    // so the controller refuses them before anything is created.
     await hdrOutput.maybeEngage(
-      preferenceEnabled: _prefs.get(UserPreferences.nativeHdrOutput),
-      isHdrContent: _isHdrContent,
-      displayInHdrMode: AutoHdrSwitcher.isDisplayHdrEnabled,
+      sdrUsesTexturePath: _prefs.get(UserPreferences.sdrUsesTexturePath),
+      isHdrContent: isPlayingHdrContent,
       engageMpv: (handle) => _handOverToNativeWindow(native, handle),
     );
   }
 
-  /// Tracks what mpv decoded, and reopens the HDR decision when the facts it
-  /// depends on arrive after it was made.
-  ///
-  /// The decision runs at two fixed moments - the tail of `play()` and the
-  /// presenting screen's mount - and waits a bounded time for mpv's
-  /// `video-params`. A 4K remux over the network regularly takes longer than
-  /// that to demux and decode its first frame, and when it does the wait
-  /// times out, the title is filed as SDR, and nothing would ever ask again.
-  /// mpv reporting PQ or HLG for the current file is the moment the question
-  /// can actually be answered, so that is when it is asked again. Cheap when
-  /// nothing changed: the controller refuses without a presenter, and an
-  /// engaged, failed or disabled session is not revisited.
+  /// Tracks what mpv decoded, and decides engagement once a file has loaded:
+  /// the tail of `play()` and the screen's mount can both come before the
+  /// first frame, which a 4K remux over the network takes a while to demux.
+  /// Cheap when nothing changed: the controller refuses without a presenter,
+  /// and an engaged or failed session is not revisited.
   void _onVideoParams(VideoParams params) {
     final loaded = params.gamma != null || params.primaries != null;
     _decodedVideoParams = loaded ? params : null;
     if (!loaded || !PlatformDetection.supportsNativeHdrWindow) return;
     if (!hdrOutput.status.value.isRevisitable) return;
-    if (!isHdrVideoParams(gamma: params.gamma, primaries: params.primaries)) {
-      return;
-    }
     unawaited(_maybeEngageNativeHdr());
+  }
+
+  /// Whether mpv decoded the current title as HDR. The native window carries
+  /// SDR titles too, so engagement alone does not mean HDR is playing.
+  bool get isPlayingHdrContent {
+    final params = _decodedVideoParams;
+    return params != null &&
+        isHdrVideoParams(gamma: params.gamma, primaries: params.primaries);
   }
 
   /// Re-runs the engagement decision for the presenting screen.
   ///
   /// `play()` usually runs before the video player screen has mounted, and
   /// engagement is refused without a presenter - so the screen calls this
-  /// once it exists. No-ops when already engaged, failed, or disabled.
+  /// once it exists. No-ops when already engaged or failed.
   ///
   /// Claims by identity - see [HdrOutputController.presenter].
   Future<void> ensureNativeHdrForPresenter(Object presenter) {
@@ -914,8 +911,8 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// The two can differ: drag the window onto an SDR monitor mid-playback and
   /// the screen shows SDR while the session stays engaged. The monitor's own
   /// HDR state is the authority - whichever side does the conversion, an SDR
-  /// display is not showing HDR - and mpv's `target-params`, its account of
-  /// the output target after every conversion, refines it where available.
+  /// display is not showing HDR - and mpv's `video-target-params`, its account
+  /// of the output target after every conversion, refines it where available.
   ///
   /// Null when there is nothing to say (not engaged, no native player), so
   /// callers can fall back to the session-level status.
@@ -977,7 +974,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
   Future<(bool?, bool?)> _readHdrOutputState(NativePlayer native) async {
     final (displayHdr, gamma) = await (
       AutoHdrSwitcher.displayHdrState(),
-      _tryNativeGetProperty(native, 'target-params/gamma'),
+      _readTargetGamma(native),
     ).wait;
     final bool? outputtingHdr = gamma == null
         ? null
@@ -986,28 +983,11 @@ class MediaKitPlayerBackend extends PlayerBackend {
     return (displayHdr, outputtingHdr);
   }
 
-  /// What mpv actually decoded, rather than what the server claimed.
-  ///
-  /// media_kit already observes `video-params` and pushes it into
-  /// [Player.stream.videoParams], so this waits on that stream rather than
-  /// polling properties over FFI. It reacts the moment mpv reports instead of
-  /// on a 100 ms granularity, and costs nothing while it waits.
-  ///
-  /// Only params reported for the current file count - see
-  /// [_decodedVideoParams]. The wait is bounded because this is also reached
-  /// for audio, where params never come; when a video simply takes longer,
-  /// [_onVideoParams] reopens the decision on arrival, so a timeout here is
-  /// a deferral rather than a verdict.
-  Future<bool> _isHdrContent() async {
-    var params = _decodedVideoParams;
-    params ??= await _player.stream.videoParams
-        .firstWhere((p) => p.gamma != null || p.primaries != null)
-        .timeout(
-          const Duration(seconds: 2),
-          onTimeout: () => const VideoParams(),
-        );
-    return isHdrVideoParams(gamma: params.gamma, primaries: params.primaries);
-  }
+  /// mpv's output transfer function, after every conversion. libmpv 0.41 only
+  /// has `video-target-params`; the older `target-params` is a fallback.
+  Future<String?> _readTargetGamma(NativePlayer native) async =>
+      await _tryNativeGetProperty(native, 'video-target-params/gamma') ??
+      await _tryNativeGetProperty(native, 'target-params/gamma');
 
   /// Points mpv at the native window and switches it to the libplacebo
   /// renderer over D3D11. All of these are settable after `mpv_initialize`,
@@ -1017,6 +997,9 @@ class MediaKitPlayerBackend extends PlayerBackend {
     // the active track, so the selection is carried across by hand on every
     // path - re-selecting in the menu would not bring it back.
     String? sid;
+    // SDR displays engage too, where passthrough would wash the picture out.
+    // Started now to overlap the reads below.
+    final displayHdr = AutoHdrSwitcher.displayHdrState();
     try {
       sid = await _tryNativeGetProperty(native, 'sid');
 
@@ -1027,15 +1010,14 @@ class MediaKitPlayerBackend extends PlayerBackend {
       await _nativeSetProperty(native, 'wid', handle.toString());
       await _nativeSetProperty(native, 'gpu-api', 'd3d11');
       // Before `vo`, not after: the swapchain colorspace is negotiated at
-      // creation. Named rather than a literal because engagement is gated on
-      // the display being in HDR mode (HdrOutputController._decide).
-      await _applyPassthroughHint(native, displayHdr: true);
+      // creation.
+      await _applyPassthroughHint(native, displayHdr: await displayHdr);
       await _nativeSetProperty(native, 'vo', 'gpu-next');
       await _applyDesktopRenderQuality(native);
       // The quality overrides above replace keys a custom mpv.conf may also
       // set, and the conf was applied before this. Re-apply it so the user's
       // values win, which is what the allowlist promised them.
-      await _applyCustomMpvConfIfEnabled(force: true);
+      await _reapplyCustomMpvConfOverNativeWindow(native);
 
       // If the renderer refused, `current-vo` still reads as the old one and
       // the window would sit black over the player.
@@ -1162,14 +1144,14 @@ class MediaKitPlayerBackend extends PlayerBackend {
     try {
       // Only when the answer would change. A crossing between two SDR screens
       // or two HDR screens renegotiates to the same result, and the cycle is
-      // a visible blink - skipping it makes those crossings seamless. Skip
-      // only when BOTH sides are known: a failed display query mid-topology
-      // change must not read as "SDR", and an unreadable mpv output must not
-      // read as anything. When in doubt, cycle.
+      // a visible blink - skipping it makes those crossings seamless.
       final (displayHdr, outputtingHdr) = await _readHdrOutputState(native);
-      if (displayHdr != null &&
-          outputtingHdr != null &&
-          outputtingHdr == displayHdr) {
+      if (renegotiationUnchanged(
+        displayHdr: displayHdr,
+        outputtingHdr: outputtingHdr,
+        hintOn: _passthroughHintOn,
+        hdrContent: isPlayingHdrContent,
+      )) {
         return;
       }
 
@@ -1185,7 +1167,7 @@ class MediaKitPlayerBackend extends PlayerBackend {
       await _nativeSetProperty(native, 'vo', 'gpu-next');
       // The hint is in the mpv.conf allowlist and was just overwritten. The
       // handover re-applies the conf for the same reason.
-      await _applyCustomMpvConfIfEnabled(force: true);
+      await _reapplyCustomMpvConfOverNativeWindow(native);
       // The renderer can refuse to come back on the new adapter. Without this
       // check vo stays null and the session keeps claiming HDR over a black
       // picture - the same verification the original handover does.
@@ -1280,6 +1262,26 @@ class MediaKitPlayerBackend extends PlayerBackend {
   /// can hold the last answer instead of guessing.
   bool _passthroughHintOn = false;
 
+  /// Whether recreating the renderer would change nothing, so the blink can be
+  /// skipped.
+  ///
+  /// The hint is what a cycle changes, so it must match a known display. An
+  /// SDR title needs nothing more - on an HDR display mpv targets PQ for it
+  /// too, so its output proves nothing. An HDR title must also be reaching the
+  /// display as HDR. When in doubt, cycle.
+  @visibleForTesting
+  static bool renegotiationUnchanged({
+    required bool? displayHdr,
+    required bool? outputtingHdr,
+    required bool hintOn,
+    required bool hdrContent,
+  }) {
+    if (displayHdr == null) return false;
+    if (hintOn != displayHdr) return false;
+    if (!hdrContent) return true;
+    return outputtingHdr != null && outputtingHdr == displayHdr;
+  }
+
   /// The single owner of `target-colorspace-hint`, which suppresses
   /// tone-mapping - right only where the display is in HDR mode. DXGI accepts
   /// G2084 on an SDR swapchain on plenty of drivers, so leaving it on hands PQ
@@ -1302,6 +1304,18 @@ class MediaKitPlayerBackend extends PlayerBackend {
       'target-colorspace-hint',
       on ? 'yes' : 'no',
     );
+  }
+
+  /// Re-applies a custom mpv.conf so its values win over the renderer's,
+  /// except `target-colorspace-hint=yes` on a display not in HDR mode, where
+  /// it would wash the picture out.
+  Future<void> _reapplyCustomMpvConfOverNativeWindow(
+    NativePlayer native,
+  ) async {
+    await _applyCustomMpvConfIfEnabled(force: true);
+    if (!_passthroughHintOn) {
+      await _nativeSetProperty(native, 'target-colorspace-hint', 'no');
+    }
   }
 
   /// Undoes the defaults media_kit applies to every native platform.

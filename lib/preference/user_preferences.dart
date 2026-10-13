@@ -2038,12 +2038,12 @@ class UserPreferences extends ChangeNotifier {
     values: AutoHdrSwitchingBehavior.values,
   );
 
-  /// Keeps SDR titles on the shared texture, for setups where the native
-  /// window misbehaves. Windows only. HDR always takes the native window, and
-  /// a failed handover falls back by itself.
-  static final sdrUsesTexturePath = Preference(
-    key: 'sdr_uses_texture_path',
-    defaultValue: false,
+  /// Windows only. A native window that fails to start falls back to the
+  /// texture by itself.
+  static final videoRenderer = EnumPreference(
+    key: 'video_renderer',
+    defaultValue: VideoRenderer.nativeWindow,
+    values: VideoRenderer.values,
   );
 
   static final preferExoPlayerFfmpeg = Preference(

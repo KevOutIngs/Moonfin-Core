@@ -1451,10 +1451,18 @@ List<_SettingsSearchEntry> _buildSettingsSearchIndex({
       quality.leaf('auto_hdr_switching_behavior', l10n.autoHdrSwitching),
     if (PlatformDetection.supportsNativeHdrWindow)
       quality.leaf(
-        'sdr_uses_texture_path',
-        l10n.sdrUsesTexturePath,
-        subtitle: l10n.sdrUsesTexturePathDescription,
-        keywords: ['sdr', 'texture', 'judder', 'stutter', 'compatibility'],
+        'video_renderer',
+        l10n.videoRenderer,
+        subtitle: l10n.videoRendererDescription,
+        keywords: [
+          'native window',
+          'hdr10',
+          'passthrough',
+          'sdr',
+          'judder',
+          'stutter',
+          'compatibility',
+        ],
       ),
 
     audio.screen(keywords: ['sound', 'passthrough']),

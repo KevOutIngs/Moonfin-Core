@@ -2184,15 +2184,27 @@ class AppLocalizationsHi extends AppLocalizations {
   String get hdrOutputContentSdr => 'Inactive — content is SDR';
 
   @override
+  String get hdrOutputDisabled => 'Inactive — turned off in settings';
+
+  @override
   String get hdrOutputFailed =>
       'Inactive — could not start, using the standard path';
 
   @override
-  String get sdrUsesTexturePath => 'Compatibility mode for SDR';
+  String get videoRenderer => 'Video Renderer';
 
   @override
-  String get sdrUsesTexturePathDescription =>
-      'Plays SDR video through the older in-app renderer instead of its own window. Try this if SDR video misbehaves; motion may be less smooth. HDR video is not affected.';
+  String get videoRendererDescription =>
+      'Native window gives the smoothest motion and sends HDR to the display untouched. Try another option if video misbehaves.';
+
+  @override
+  String get videoRendererNativeWindow => 'Native window (recommended)';
+
+  @override
+  String get videoRendererNativeHdrOnly => 'Native window for HDR only';
+
+  @override
+  String get videoRendererInApp => 'In-app (legacy)';
 
   @override
   String get codec => 'कोडेक';

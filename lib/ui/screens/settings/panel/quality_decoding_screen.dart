@@ -131,11 +131,18 @@ class _QualityDecodingScreen extends StatelessWidget {
                   },
                 ),
               if (PlatformDetection.supportsNativeHdrWindow)
-                SwitchPreferenceTile(
-                  preference: UserPreferences.sdrUsesTexturePath,
-                  title: l10n.sdrUsesTexturePath,
-                  subtitle: l10n.sdrUsesTexturePathDescription,
+                EnumPreferenceTile<VideoRenderer>(
+                  preference: UserPreferences.videoRenderer,
+                  title: l10n.videoRenderer,
+                  description: l10n.videoRendererDescription,
                   icon: Icons.layers_outlined,
+                  labelOf: (v) => switch (v) {
+                    VideoRenderer.nativeWindow =>
+                      l10n.videoRendererNativeWindow,
+                    VideoRenderer.nativeHdrOnly =>
+                      l10n.videoRendererNativeHdrOnly,
+                    VideoRenderer.inApp => l10n.videoRendererInApp,
+                  },
                 ),
             ],
           ),

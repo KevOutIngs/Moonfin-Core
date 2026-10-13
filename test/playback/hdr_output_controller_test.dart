@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moonfin/playback/hdr_output_controller.dart';
 import 'package:moonfin/playback/hdr_overlay_channel.dart';
 import 'package:moonfin/playback/hdr_video_window.dart';
+import 'package:moonfin/preference/preference_constants.dart';
 
 /// Stands in for the runner's window so the decision can be exercised without
 /// a platform channel.
@@ -129,7 +130,7 @@ void main() {
 
     Future<int?> decide(
       HdrOutputController controller, {
-      bool sdrUsesTexturePath = false,
+      VideoRenderer renderer = VideoRenderer.nativeWindow,
       bool isHdrContent = false,
       bool mpvAccepts = true,
     }) {
@@ -137,7 +138,7 @@ void main() {
       // presenting screen nothing is ever decided, covered by its own test.
       controller.presenter = Object();
       return controller.maybeEngage(
-        sdrUsesTexturePath: sdrUsesTexturePath,
+        renderer: renderer,
         isHdrContent: isHdrContent,
         engageMpv: (handle) async {
           asked.add('engage $handle');
@@ -155,7 +156,7 @@ void main() {
     test('no presenter, no decision - Live TV must never engage', () async {
       final controller = HdrOutputController(window: window);
       final result = await controller.maybeEngage(
-        sdrUsesTexturePath: false,
+        renderer: VideoRenderer.nativeWindow,
         isHdrContent: true,
         engageMpv: (_) async {
           asked.add('engage');
@@ -173,10 +174,13 @@ void main() {
     });
 
     test(
-      'compatibility mode keeps SDR on the texture, and may reopen',
+      'the HDR-only renderer keeps SDR on the texture, and may reopen',
       () async {
         final controller = HdrOutputController(window: window);
-        expect(await decide(controller, sdrUsesTexturePath: true), isNull);
+        expect(
+          await decide(controller, renderer: VideoRenderer.nativeHdrOnly),
+          isNull,
+        );
 
         expect(controller.status.value, HdrOutputStatus.contentIsSdr);
         expect(controller.status.value.isRevisitable, isTrue);
@@ -187,7 +191,7 @@ void main() {
         expect(
           await decide(
             controller,
-            sdrUsesTexturePath: true,
+            renderer: VideoRenderer.nativeHdrOnly,
             isHdrContent: true,
           ),
           4242,
@@ -197,12 +201,29 @@ void main() {
       },
     );
 
+    test('the in-app renderer keeps every title on the texture', () async {
+      final controller = HdrOutputController(window: window);
+      expect(
+        await decide(
+          controller,
+          renderer: VideoRenderer.inApp,
+          isHdrContent: true,
+        ),
+        isNull,
+      );
+
+      expect(controller.status.value, HdrOutputStatus.disabledByPreference);
+      expect(asked, isEmpty);
+      expect(window.createCalls, 0);
+    });
+
     test('only the undecided state is revisitable', () {
       expect(HdrOutputStatus.contentIsSdr.isRevisitable, isTrue);
       // A failure is deliberately sticky so a broken setup is not retried on
       // every video-params event.
       expect(HdrOutputStatus.failed.isRevisitable, isFalse);
       expect(HdrOutputStatus.active.isRevisitable, isFalse);
+      expect(HdrOutputStatus.disabledByPreference.isRevisitable, isFalse);
     });
 
     test('engages and hands mpv the handle, whatever the content', () async {
@@ -269,7 +290,7 @@ void main() {
         ..presenter = Object();
       final mpv = Completer<bool>();
       final engaging = controller.maybeEngage(
-        sdrUsesTexturePath: false,
+        renderer: VideoRenderer.nativeWindow,
         isHdrContent: false,
         engageMpv: (_) => mpv.future,
       );
@@ -284,7 +305,7 @@ void main() {
       controller.presenter = null;
       expect(
         await controller.maybeEngage(
-          sdrUsesTexturePath: false,
+          renderer: VideoRenderer.nativeWindow,
           isHdrContent: false,
           engageMpv: (_) async => true,
         ),
@@ -304,7 +325,7 @@ void main() {
       // first frames on the texture and flashed when mpv moved over.
       final controller = HdrOutputController(window: window);
       final result = await controller.maybeEngage(
-        sdrUsesTexturePath: false,
+        renderer: VideoRenderer.nativeWindow,
         isHdrContent: false,
         beforePresenter: true,
         engageMpv: (handle) async {
@@ -318,11 +339,11 @@ void main() {
       expect(asked, ['engage 4242']);
     });
 
-    test('engaging ahead still keeps SDR on the texture in compatibility '
-        'mode', () async {
+    test('engaging ahead still keeps SDR on the texture under the HDR-only '
+        'renderer', () async {
       final controller = HdrOutputController(window: window);
       final result = await controller.maybeEngage(
-        sdrUsesTexturePath: true,
+        renderer: VideoRenderer.nativeHdrOnly,
         isHdrContent: false,
         beforePresenter: true,
         engageMpv: (_) async => true,

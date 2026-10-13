@@ -853,13 +853,13 @@ class MediaKitPlayerBackend extends PlayerBackend
 
   /// Gives mpv its own D3D11 window for every video: HDR reaches the screen
   /// untouched instead of being flattened into media_kit's 8-bit texture, and
-  /// mpv paces frames against the display. [UserPreferences.sdrUsesTexturePath]
-  /// keeps SDR on the texture.
+  /// mpv paces frames against the display. [UserPreferences.videoRenderer]
+  /// can keep SDR, or everything, on the texture.
   ///
   /// The main path is [_prepareNativeWindowForOpen], before the file opens.
   /// This is the correction once mpv has decoded it: confirm the renderer
-  /// took, hand an SDR title back under compatibility mode when the server
-  /// called it HDR, and engage an HDR title the server called SDR.
+  /// took, hand back a title the setting keeps on the texture, and engage an
+  /// HDR title the server called SDR.
   Future<void> _maybeEngageNativeHdr() async {
     if (!PlatformDetection.supportsNativeHdrWindow) return;
     // Nothing to engage or hand back: Live TV and audio return here without
@@ -895,13 +895,14 @@ class MediaKitPlayerBackend extends PlayerBackend
         await _queueNativeRelease(_standDownNativeWindow);
       }
     }
+    final renderer = _prefs.get(UserPreferences.videoRenderer);
     // Once per title: a passing params event that reads SDR mid-playback must
     // not tear the window down and build it again.
     if (hdrOutput.isEngaged &&
         !_handBackChecked &&
-        _prefs.get(UserPreferences.sdrUsesTexturePath)) {
+        renderer != VideoRenderer.nativeWindow) {
       _handBackChecked = true;
-      if (!isPlayingHdrContent) {
+      if (!renderer.usesNativeWindow(isHdr: isPlayingHdrContent)) {
         await _queueNativeRelease(_standDownNativeWindow);
         return;
       }
@@ -909,7 +910,7 @@ class MediaKitPlayerBackend extends PlayerBackend
     // Music and audiobooks share this singleton but never mount a presenter,
     // so the controller refuses them before anything is created.
     await hdrOutput.maybeEngage(
-      sdrUsesTexturePath: _prefs.get(UserPreferences.sdrUsesTexturePath),
+      renderer: renderer,
       isHdrContent: isPlayingHdrContent,
       engageMpv: (handle) => _handOverToNativeWindow(native, handle),
     );
@@ -919,9 +920,10 @@ class MediaKitPlayerBackend extends PlayerBackend
   /// is already gpu-next and nothing flashes over from the texture.
   ///
   /// Only for a main video: Live TV and audio share this singleton and render
-  /// the texture. Compatibility mode keeps SDR on the texture, going by the
-  /// server's range type until mpv has decoded the file; the correction in
-  /// [_maybeEngageNativeHdr] covers a server that was wrong.
+  /// the texture. [UserPreferences.videoRenderer] can keep the title on the
+  /// texture, going by the server's range type until mpv has decoded the
+  /// file. The correction in [_maybeEngageNativeHdr] covers a server that was
+  /// wrong.
   Future<void> _prepareNativeWindowForOpen(
     Map<dynamic, dynamic> payload,
   ) async {
@@ -931,7 +933,6 @@ class MediaKitPlayerBackend extends PlayerBackend
     final isMainVideo =
         payload['mediaType']?.toString().trim().toLowerCase() == 'video' &&
         payload['isLive'] != true &&
-        payload['audioLike'] != true &&
         payload['preview'] != true;
     if (!isMainVideo) {
       // Live TV and audio render the texture, so they must not open onto a
@@ -944,10 +945,10 @@ class MediaKitPlayerBackend extends PlayerBackend
     // engaged, and land on the window after this title has opened.
     await hdrOutput.settled;
 
-    final compatibility = _prefs.get(UserPreferences.sdrUsesTexturePath);
+    final renderer = _prefs.get(UserPreferences.videoRenderer);
     final serverHdr = isHdrRangeType(payload['videoRangeType']?.toString());
-    if (compatibility && !serverHdr) {
-      // An SDR title after an HDR one in the same screen starts on the
+    if (!renderer.usesNativeWindow(isHdr: serverHdr)) {
+      // A title after one that engaged in the same screen starts on the
       // texture instead of moving there after its first frames.
       if (hdrOutput.isEngaged) {
         _handBackChecked = true;
@@ -958,7 +959,7 @@ class MediaKitPlayerBackend extends PlayerBackend
     if (hdrOutput.isEngaged) return;
 
     await hdrOutput.maybeEngage(
-      sdrUsesTexturePath: compatibility,
+      renderer: renderer,
       isHdrContent: serverHdr,
       beforePresenter: true,
       engageMpv: (handle) =>
@@ -1007,7 +1008,7 @@ class MediaKitPlayerBackend extends PlayerBackend
   /// [_maybeEngageNativeHdr] checks it once the file is loaded.
   bool _voVerificationPending = false;
 
-  /// Whether this title has had its compatibility-mode hand-back check.
+  /// Whether this title has had its [VideoRenderer] hand-back check.
   bool _handBackChecked = false;
 
   Timer? _presenterWatchdog;
@@ -1017,7 +1018,7 @@ class MediaKitPlayerBackend extends PlayerBackend
   /// first frame, which a 4K remux over the network takes a while to demux.
   /// Cheap when nothing changed: the controller refuses without a presenter,
   /// and a failed session is not revisited. An engaged one is only until its
-  /// renderer is confirmed and its compatibility-mode check has run.
+  /// renderer is confirmed and its hand-back check has run.
   void _onVideoParams(VideoParams params) {
     final loaded = params.gamma != null || params.primaries != null;
     _decodedVideoParams = loaded ? params : null;
@@ -1027,7 +1028,8 @@ class MediaKitPlayerBackend extends PlayerBackend
         status.isActive &&
         (_voVerificationPending ||
             (!_handBackChecked &&
-                _prefs.get(UserPreferences.sdrUsesTexturePath)));
+                _prefs.get(UserPreferences.videoRenderer) !=
+                    VideoRenderer.nativeWindow));
     if (!status.isRevisitable && !engagedCheckDue) return;
     unawaited(_maybeEngageNativeHdr());
   }
@@ -1045,8 +1047,8 @@ class MediaKitPlayerBackend extends PlayerBackend
   ///
   /// A main video usually engaged ahead of the screen in `play()`; the claim
   /// is what keeps the presenter watchdog from standing it down. Anything
-  /// that did not engage ahead - an HDR title the server called SDR in
-  /// compatibility mode - gets its decision here or on load.
+  /// that did not engage ahead - an HDR title the server called SDR under
+  /// [VideoRenderer.nativeHdrOnly] - gets its decision here or on load.
   ///
   /// Claims by identity - see [HdrOutputController.presenter].
   Future<void> ensureNativeHdrForPresenter(Object presenter) {

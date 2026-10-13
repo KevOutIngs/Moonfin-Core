@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../preference/preference_constants.dart';
 import 'hdr_video_window.dart';
 
 /// Whether mpv's native window is running and, if not, why - for the playback
@@ -10,8 +11,11 @@ enum HdrOutputStatus {
   active,
 
   /// Undecided (the reset state, also shown while a title loads), or an SDR
-  /// title kept on the texture by the `sdrUsesTexturePath` preference.
+  /// title kept on the texture by [VideoRenderer.nativeHdrOnly].
   contentIsSdr,
+
+  /// [VideoRenderer.inApp] keeps every title on the texture.
+  disabledByPreference,
 
   /// The window could not be created, or mpv would not take it. Sticky for
   /// the session, and the texture path carries on.
@@ -28,9 +32,9 @@ enum HdrOutputStatus {
 ///
 /// Once engaged the decision sticks across items: SDR content in the native
 /// window is not a regression - mpv renders it, and with `gpu-next` renders
-/// it better than the texture path does. The one exception is the
-/// `sdrUsesTexturePath` preference, under which the backend hands an SDR
-/// title back to the texture through [reset].
+/// it better than the texture path does. The exception is a [VideoRenderer]
+/// choice that keeps the title on the texture. The backend then hands it back
+/// through [reset].
 class HdrOutputController {
   /// [window] is injectable so the decision can be tested without a platform
   /// channel - most paths through [maybeEngage] touch it, and those are the
@@ -122,8 +126,9 @@ class HdrOutputController {
   /// the display itself, which the texture path cannot - there Flutter samples
   /// the texture on its own schedule and motion judders.
   ///
-  /// With [sdrUsesTexturePath] only [isHdrContent] engages. That "no" stays
-  /// revisitable, so a later HDR title in the session still engages.
+  /// [renderer] can keep a title on the texture. Under
+  /// [VideoRenderer.nativeHdrOnly] that "no" stays revisitable, so a later HDR
+  /// title in the session still engages.
   ///
   /// [engageMpv] must return false if mpv refused the handle, so the failure
   /// is recorded rather than leaving a black window on screen.
@@ -134,7 +139,7 @@ class HdrOutputController {
   /// flashes when mpv moves over. The caller vouches that a player screen is
   /// coming and stands down if none does.
   Future<int?> maybeEngage({
-    required bool sdrUsesTexturePath,
+    required VideoRenderer renderer,
     required bool isHdrContent,
     required Future<bool> Function(int handle) engageMpv,
     bool beforePresenter = false,
@@ -148,7 +153,7 @@ class HdrOutputController {
       return null;
     }
     final decision = _decide(
-      sdrUsesTexturePath: sdrUsesTexturePath,
+      renderer: renderer,
       isHdrContent: isHdrContent,
       engageMpv: engageMpv,
     );
@@ -161,12 +166,14 @@ class HdrOutputController {
   }
 
   Future<int?> _decide({
-    required bool sdrUsesTexturePath,
+    required VideoRenderer renderer,
     required bool isHdrContent,
     required Future<bool> Function(int handle) engageMpv,
   }) async {
-    if (sdrUsesTexturePath && !isHdrContent) {
-      status.value = HdrOutputStatus.contentIsSdr;
+    if (!renderer.usesNativeWindow(isHdr: isHdrContent)) {
+      status.value = renderer == VideoRenderer.inApp
+          ? HdrOutputStatus.disabledByPreference
+          : HdrOutputStatus.contentIsSdr;
       return null;
     }
 

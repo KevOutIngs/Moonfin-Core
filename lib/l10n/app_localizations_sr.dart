@@ -2216,15 +2216,27 @@ class AppLocalizationsSr extends AppLocalizations {
   String get hdrOutputContentSdr => 'Неактивно — садржај је у СДР формату';
 
   @override
+  String get hdrOutputDisabled => 'Неактивно — искључено у подешавањима';
+
+  @override
   String get hdrOutputFailed =>
       'Неактивно — покретање није успело, користи се стандардни начин';
 
   @override
-  String get sdrUsesTexturePath => 'Compatibility mode for SDR';
+  String get videoRenderer => 'Video Renderer';
 
   @override
-  String get sdrUsesTexturePathDescription =>
-      'Plays SDR video through the older in-app renderer instead of its own window. Try this if SDR video misbehaves; motion may be less smooth. HDR video is not affected.';
+  String get videoRendererDescription =>
+      'Native window gives the smoothest motion and sends HDR to the display untouched. Try another option if video misbehaves.';
+
+  @override
+  String get videoRendererNativeWindow => 'Native window (recommended)';
+
+  @override
+  String get videoRendererNativeHdrOnly => 'Native window for HDR only';
+
+  @override
+  String get videoRendererInApp => 'In-app (legacy)';
 
   @override
   String get codec => 'Кодек';

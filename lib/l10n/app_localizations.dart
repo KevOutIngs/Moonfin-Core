@@ -3808,23 +3808,47 @@ abstract class AppLocalizations {
   /// **'Inactive — content is SDR'**
   String get hdrOutputContentSdr;
 
+  /// Stream info value when the video renderer setting keeps video inside the app
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive — turned off in settings'**
+  String get hdrOutputDisabled;
+
   /// Stream info value when the native HDR window could not be created
   ///
   /// In en, this message translates to:
   /// **'Inactive — could not start, using the standard path'**
   String get hdrOutputFailed;
 
-  /// Settings label for keeping SDR video on the older in-app renderer instead of the native window
+  /// Settings label for choosing where Windows draws video, in its own window or inside the app
   ///
   /// In en, this message translates to:
-  /// **'Compatibility mode for SDR'**
-  String get sdrUsesTexturePath;
+  /// **'Video Renderer'**
+  String get videoRenderer;
 
-  /// Settings description for the SDR compatibility mode
+  /// Settings description for the video renderer choice
   ///
   /// In en, this message translates to:
-  /// **'Plays SDR video through the older in-app renderer instead of its own window. Try this if SDR video misbehaves; motion may be less smooth. HDR video is not affected.'**
-  String get sdrUsesTexturePathDescription;
+  /// **'Native window gives the smoothest motion and sends HDR to the display untouched. Try another option if video misbehaves.'**
+  String get videoRendererDescription;
+
+  /// Video renderer option that plays every title in its own window
+  ///
+  /// In en, this message translates to:
+  /// **'Native window (recommended)'**
+  String get videoRendererNativeWindow;
+
+  /// Video renderer option that uses its own window for HDR titles and the in-app renderer for SDR
+  ///
+  /// In en, this message translates to:
+  /// **'Native window for HDR only'**
+  String get videoRendererNativeHdrOnly;
+
+  /// Video renderer option that draws every title inside the app and converts HDR to SDR
+  ///
+  /// In en, this message translates to:
+  /// **'In-app (legacy)'**
+  String get videoRendererInApp;
 
   /// Stream info label for codec
   ///

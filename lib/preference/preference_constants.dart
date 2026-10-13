@@ -193,6 +193,20 @@ enum AutoHdrSwitchingBehavior {
   always,
 }
 
+/// Where mpv draws video on Windows: its own D3D11 window, or media_kit's
+/// texture inside the app.
+enum VideoRenderer {
+  nativeWindow,
+  nativeHdrOnly,
+  inApp;
+
+  bool usesNativeWindow({required bool isHdr}) => switch (this) {
+    nativeWindow => true,
+    nativeHdrOnly => isHdr,
+    inApp => false,
+  };
+}
+
 enum StillWatchingBehavior {
   short_(episodes: 2, hours: 1.0),
   medium(episodes: 3, hours: 1.5),

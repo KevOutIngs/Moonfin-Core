@@ -254,6 +254,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         HdrOutputController.activeOutputFormat,
       ),
       HdrOutputStatus.contentIsSdr => l10n.hdrOutputContentSdr,
+      HdrOutputStatus.disabledByPreference => l10n.hdrOutputDisabled,
       HdrOutputStatus.failed => l10n.hdrOutputFailed,
     };
   }

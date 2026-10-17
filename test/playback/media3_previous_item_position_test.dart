@@ -101,6 +101,15 @@ void main() {
     },
   );
 
+  test('a second play before the first tick keeps the old position', () async {
+    await tick(_endMs);
+    await backend.play('https://server.test/next.mp4');
+    // Re-resolved before the new source reported anything.
+    await backend.play('https://server.test/next.mp4');
+    await tick(_endMs);
+    expect(backend.position, Duration.zero);
+  });
+
   test('a resume near the old position is not held back', () async {
     await tick(600_000);
     await backend.play(

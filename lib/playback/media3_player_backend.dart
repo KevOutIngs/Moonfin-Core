@@ -1069,8 +1069,11 @@ class Media3PlayerBackend extends PlayerBackend
     // The native ticker keeps reporting the previous item's frozen position
     // until the new source is set. Left in place, a stop in the first second
     // reports where the last episode ended, which marks this one watched.
-    _previousItemPosition = (_position - startPosition).abs() > _newItemJump
-        ? _position
+    // A play before the new source's first tick keeps the previous item's
+    // position: [_position] is only the start position set below.
+    final previous = _previousItemPosition ?? _position;
+    _previousItemPosition = (previous - startPosition).abs() > _newItemJump
+        ? previous
         : null;
     _position = startPosition;
     _positionStream.add(_position);

@@ -362,6 +362,13 @@ class OfflineRepository {
     return rows.isNotEmpty ? rows.first : null;
   }
 
+  /// Every server's row for [itemId]. Emby ids are plain numbers, so two
+  /// servers can each have one.
+  Future<List<DownloadedItem>> getItemsWithId(String itemId) =>
+      (_db.select(_db.downloadedItems)
+            ..where((t) => t.itemId.equals(itemId)))
+          .get();
+
   Future<bool> isAvailableOffline(String itemId) async {
     final item = await getItem(itemId);
     return item != null && item.downloadStatus == 2;

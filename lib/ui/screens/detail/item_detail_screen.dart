@@ -11324,6 +11324,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
                       );
                     },
                   ),
+                  ?_keepDownloadedRow(item),
                   if (autoDownloads != null)
                     _autoDownloadRow(
                       sheetContext,
@@ -11383,7 +11384,65 @@ class _DownloadButtonState extends State<_DownloadButton> {
     );
   }
 
-  /// Third row of a series' scope sheet: subscribe to new episodes, or stop.
+  /// Keeps a downloaded movie or episode, or every episode of a series, out
+  /// of the remove-watched rules. Null when no rule could remove it: movies
+  /// only go by the remove-watched setting, episodes also by smart downloads
+  /// and a followed series' delete setting.
+  static Widget? _keepDownloadedRow(AggregatedItem item) {
+    final prefs = GetIt.instance<UserPreferences>();
+    final removeWatched =
+        prefs.get(UserPreferences.downloadRemoveWatchedAfterHours) >= 0;
+    final autoDownloads = GetIt.instance.isRegistered<AutoDownloadService>();
+    final episodeRules =
+        autoDownloads &&
+        (prefs.get(UserPreferences.smartDownloadsEnabled) ||
+            (prefs.get(UserPreferences.autoDownloadEnabled) &&
+                prefs.get(UserPreferences.autoDownloadDeleteAfterHours) >= 0));
+    final applies = switch (item.type) {
+      'Movie' => removeWatched,
+      'Episode' || 'Series' => removeWatched || episodeRules,
+      _ => false,
+    };
+    if (!applies) return null;
+    // Keys use the id the rules read them by, which needs the client.
+    final factory = GetIt.instance<MediaServerClientFactory>();
+    final client = factory.getClientIfExists(item.serverId);
+    if (client == null) return null;
+    final serverId = factory.serverIdOf(client);
+    final isTV = PlatformDetection.isTV;
+    return ListenableBuilder(
+      listenable: prefs,
+      builder: (context, _) {
+        final l10n = AppLocalizations.of(context);
+        final seriesId = item.type == 'Episode' ? item.seriesId : null;
+        // A kept series keeps this episode whatever its own switch says.
+        final seriesKept =
+            seriesId != null && prefs.isDownloadKept(serverId, seriesId);
+        return DpadSwitchListTile(
+          secondary: AdaptiveIcon(
+            Icons.push_pin_outlined,
+            color: isTV ? null : Colors.white70,
+          ),
+          title: Text(
+            l10n.keepDownloaded,
+            style: isTV ? null : const TextStyle(color: Colors.white),
+          ),
+          subtitle: Text(
+            l10n.keepDownloadedSubtitle,
+            style: isTV
+                ? null
+                : TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          value: seriesKept || prefs.isDownloadKept(serverId, item.id),
+          onChanged: seriesKept
+              ? null
+              : (keep) => prefs.setDownloadKept(serverId, item.id, keep: keep),
+        );
+      },
+    );
+  }
+
+  /// Last row of a series' scope sheet: subscribe to new episodes, or stop.
   /// Reports the current subscription through [onSubscription] so the
   /// caller knows which of the two [onTap] meant.
   static Widget _autoDownloadRow(
@@ -11492,6 +11551,10 @@ class _DownloadButtonState extends State<_DownloadButton> {
       _startDownload(context, item, service, DownloadQuality.original);
       return;
     }
+    final keepRow = isMulti || !await service.hasDownloadedFiles(item)
+        ? null
+        : _keepDownloadedRow(item);
+    if (!context.mounted) return;
     final quality = await _pickQuality(
       context,
       item,
@@ -11499,6 +11562,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
           ? AppLocalizations.of(context).downloadAllQuality
           : AppLocalizations.of(context).downloadQuality,
       items: items ?? const [],
+      header: keepRow,
     );
     if (quality == null || !context.mounted) return;
     _startDownload(context, item, service, quality, items: items);
@@ -11520,6 +11584,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
     required String title,
     List<AggregatedItem> items = const [],
     String? note,
+    Widget? header,
   }) {
     final isMulti = _isBatchType(item.type);
     final supportsTranscoding = isMulti || _supportsTranscoding(item.type);
@@ -11575,6 +11640,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
               children: [
                 _sheetTitle(sheetContext, title),
                 if (note != null) _sheetNote(sheetContext, note),
+                ?header,
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
@@ -11616,6 +11682,7 @@ class _DownloadButtonState extends State<_DownloadButton> {
           children: [
             _sheetTitle(context, title),
             if (note != null) _sheetNote(context, note),
+            ?header,
             ...availableQualities.map(
               (quality) => ListTile(
                 leading: AdaptiveIcon(

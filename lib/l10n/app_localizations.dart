@@ -24496,7 +24496,7 @@ abstract class AppLocalizations {
   /// Explains the remove-watched-downloads setting
   ///
   /// In en, this message translates to:
-  /// **'When to remove episodes and movies you downloaded yourself, after you watch them'**
+  /// **'When to remove episodes and movies you downloaded yourself. Only those you watch after turning this on are removed'**
   String get removeWatchedDownloadsSubtitle;
 
   /// Toggle on the download sheet that stops watched downloads of this title from being removed automatically

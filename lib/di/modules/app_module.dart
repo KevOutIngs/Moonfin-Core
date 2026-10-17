@@ -176,9 +176,12 @@ void registerAppModule() {
       prefs: _getIt<UserPreferences>(),
       // Resolved per delete: the download service is replaced on every
       // server or account switch.
-      deleteDownload: (item) async =>
+      deleteDownload: (item, {required serverId}) async =>
           _getIt.isRegistered<DownloadService>() &&
-          await _getIt<DownloadService>().deleteDownloadedFiles(item),
+          await _getIt<DownloadService>().deleteServerDownload(
+            item,
+            serverId: serverId,
+          ),
       signedInServer: () {
         if (!_getIt.isRegistered<MediaServerClient>()) return null;
         if (_getIt.isRegistered<ConnectivityService>() &&

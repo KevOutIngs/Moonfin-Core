@@ -102,13 +102,18 @@ class OfflineRepository {
   /// used when resolving an online/offline progress conflict. When
   /// [metadataJson] is given it is written too, so the displayed UserData
   /// (which the UI reads from metadata) stays consistent with the new ticks.
+  /// [serverId] limits the write to that server's row, as another server's
+  /// download can share an Emby id.
   Future<void> setSyncedPlaybackPosition(
     String itemId,
     int positionTicks, {
     String? metadataJson,
+    String? serverId,
   }) async {
     await (_db.update(_db.downloadedItems)
-          ..where((t) => t.itemId.equals(itemId)))
+          ..where((t) => serverId == null
+              ? t.itemId.equals(itemId)
+              : t.itemId.equals(itemId) & t.serverId.equals(serverId)))
         .write(DownloadedItemsCompanion(
       playbackPositionTicks: Value(positionTicks),
       progressSynced: const Value(true),

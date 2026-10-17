@@ -9,11 +9,19 @@ import '../database/offline_database.dart';
 import '../models/aggregated_item.dart';
 import '../models/download_source.dart';
 import '../repositories/offline_repository.dart';
+import 'auto_download_planner.dart';
 import 'remove_watched_planner.dart';
 import 'sync_service.dart';
 
 /// The signed-in server: its client and the app's id for it.
 typedef SignedInServer = ({MediaServerClient client, String serverId});
+
+/// Deletes the download of [item] from [serverId], refusing it when the
+/// downloads now belong to another server. Returns whether it went.
+typedef DeleteServerDownload = Future<bool> Function(
+  AggregatedItem item, {
+  required String serverId,
+});
 
 /// Removes episodes and movies the user downloaded by hand once they are
 /// watched, on every platform. What smart downloads and followed series
@@ -30,7 +38,7 @@ class RemoveWatchedService {
   RemoveWatchedService({
     required OfflineRepository repository,
     required UserPreferences prefs,
-    required Future<bool> Function(AggregatedItem item) deleteDownload,
+    required DeleteServerDownload deleteDownload,
     SignedInServer? Function()? signedInServer,
     bool Function()? syncInFlight,
     String? Function()? playingItemId,
@@ -47,7 +55,7 @@ class RemoveWatchedService {
 
   final OfflineRepository _repository;
   final UserPreferences _prefs;
-  final Future<bool> Function(AggregatedItem item) _deleteDownload;
+  final DeleteServerDownload _deleteDownload;
   final SignedInServer? Function()? _signedInServer;
 
   /// Whether the reconnect sync is running. It ends with a pass of its own
@@ -164,6 +172,13 @@ class RemoveWatchedService {
 
     var deleted = 0;
     for (final item in toDelete) {
+      // Deletes take a while: the rule, a Keep or playback may have changed
+      // since the plan.
+      if (!isEnabled ||
+          isKeptDownload(item, _prefs.downloadKeptIdsFor(serverId)) ||
+          item.id == _playingItemId?.call()) {
+        continue;
+      }
       // Re-queued at another quality since the snapshot: that row is not
       // the one judged watched.
       final current = await _rowOn(item.id, client, serverId);
@@ -172,7 +187,7 @@ class RemoveWatchedService {
           current.downloadedAt != downloadedAt[item.id]) {
         continue;
       }
-      if (await _deleteDownload(item)) deleted++;
+      if (await _deleteDownload(item, serverId: serverId)) deleted++;
     }
     if (toDelete.isNotEmpty) {
       debugPrint(
@@ -236,6 +251,7 @@ class RemoveWatchedService {
           row.metadataJson,
           userData,
         ),
+        serverId: row.serverId,
       );
       return true;
     } catch (e) {

@@ -13223,7 +13223,7 @@
   "@removeWatchedDownloads": {
     "description": "Storage setting that picks how soon an episode or movie the user downloaded themselves is removed after it was watched"
   },
-  "removeWatchedDownloadsSubtitle": "When to remove episodes and movies you downloaded yourself, after you watch them",
+  "removeWatchedDownloadsSubtitle": "When to remove episodes and movies you downloaded yourself. Only those you watch after turning this on are removed",
   "@removeWatchedDownloadsSubtitle": {
     "description": "Explains the remove-watched-downloads setting"
   },

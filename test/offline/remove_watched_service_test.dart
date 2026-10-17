@@ -18,9 +18,6 @@ class _MockClient extends Mock implements MediaServerClient {}
 
 class _MockItemsApi extends Mock implements ItemsApi {}
 
-final _downloadedAt = DateTime.utc(2026, 9, 5);
-final _playedAt = _downloadedAt.add(const Duration(days: 1));
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -33,6 +30,10 @@ void main() {
   late bool deleteSucceeds;
   late _ServiceBuilder build;
   late RemoveWatchedService service;
+  // Turning the rule on stamps the real time, so the fixture's watches
+  // come after it and the pass runs an hour after them.
+  late DateTime downloadedAt;
+  late DateTime playedAt;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -47,22 +48,25 @@ void main() {
     when(() => client.itemsApi).thenReturn(items);
     deleted = [];
     deleteSucceeds = true;
+    downloadedAt = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    playedAt = DateTime.now().toUtc().add(const Duration(minutes: 1));
     build =
         ({
-          Future<bool> Function(AggregatedItem item)? deleteDownload,
+          DeleteServerDownload? deleteDownload,
           bool syncing = false,
+          String serverId = 'server-a',
         }) => RemoveWatchedService(
           repository: repo,
           prefs: prefs,
           deleteDownload:
               deleteDownload ??
-              (AggregatedItem item) async {
+              (AggregatedItem item, {required String serverId}) async {
                 deleted.add(item.id);
                 return deleteSucceeds;
               },
-          signedInServer: () => (client: client, serverId: 'server-a'),
+          signedInServer: () => (client: client, serverId: serverId),
           syncInFlight: () => syncing,
-          now: () => _playedAt.add(const Duration(hours: 1)),
+          now: () => playedAt.add(const Duration(hours: 1)),
           stopDebounce: Duration.zero,
         );
     service = build();
@@ -78,6 +82,7 @@ void main() {
     String serverId = 'server-a',
     String type = 'Movie',
     bool played = true,
+    DateTime? lastPlayed,
     String source = 'manual',
     String? metadataJson,
   }) => repo.upsertItem(
@@ -93,18 +98,18 @@ void main() {
               'Type': type,
               'UserData': {
                 'Played': played,
-                if (played) 'LastPlayedDate': _playedAt.toIso8601String(),
+                if (played)
+                  'LastPlayedDate': (lastPlayed ?? playedAt).toIso8601String(),
               },
             }),
       ),
       downloadStatus: const Value(2),
-      downloadedAt: Value(_downloadedAt),
+      downloadedAt: Value(downloadedAt),
       downloadSource: Value(source),
     ),
   );
 
-  Future<void> enable() =>
-      prefs.set(UserPreferences.downloadRemoveWatchedAfterHours, 0);
+  Future<void> enable() => prefs.setRemoveWatchedAfterHours(0);
 
   void serverSays(String id, {required bool played}) {
     when(() => items.getItem(id)).thenAnswer(
@@ -112,7 +117,7 @@ void main() {
         'Id': id,
         'UserData': {
           'Played': played,
-          'LastPlayedDate': _playedAt.toIso8601String(),
+          'LastPlayedDate': playedAt.toIso8601String(),
         },
       },
     );
@@ -160,13 +165,43 @@ void main() {
     });
 
     test('only removes what was watched after it was turned on', () async {
-      await download('m1');
-      await prefs.set(
-        UserPreferences.downloadRemoveWatchedSince,
-        _playedAt.add(const Duration(minutes: 1)).toIso8601String(),
+      await download(
+        'before',
+        lastPlayed: downloadedAt.add(const Duration(hours: 1)),
       );
+      await download('after');
       await enable();
-      expect(await service.run(client, serverId: 'server-a'), 0);
+      expect(await service.run(client, serverId: 'server-a'), 1);
+      expect(deleted, ['after']);
+    });
+
+    test('rechecks a Keep set while the pass deletes', () async {
+      await enable();
+      await download('m1');
+      await download('m2');
+      service = build(
+        deleteDownload: (item, {required serverId}) async {
+          deleted.add(item.id);
+          await prefs.setDownloadKept('server-a', 'm2', keep: true);
+          return true;
+        },
+      );
+      expect(await service.run(client, serverId: 'server-a'), 1);
+      expect(deleted, ['m1']);
+    });
+
+    test('hands the deletes the server it planned for', () async {
+      await enable();
+      await download('m1');
+      final servers = <String>[];
+      service = build(
+        deleteDownload: (item, {required serverId}) async {
+          servers.add(serverId);
+          return true;
+        },
+      );
+      await service.run(client, serverId: 'server-a');
+      expect(servers, ['server-a']);
     });
 
     test(
@@ -209,7 +244,7 @@ void main() {
       await download('m1');
       await download('m2');
       service = build(
-        deleteDownload: (item) async {
+        deleteDownload: (item, {required serverId}) async {
           deleted.add(item.id);
           // Deleting m1 races a re-download of m2 at another quality.
           if (item.id == 'm1') await repo.updateDownloadStatus('m2', 1);
@@ -239,7 +274,7 @@ void main() {
                 metadataJson: '{"Id":"42","UserData":{"Played":false}}',
                 downloadStatus: 2,
                 // Newer, so an unscoped lookup of 42 lands on this row.
-                downloadedAt: Value(DateTime.utc(2026, 10, 1)),
+                downloadedAt: Value(downloadedAt.add(const Duration(hours: 1))),
               ),
             );
         expect(await service.run(client, serverId: 'server-a'), 1);
@@ -254,7 +289,7 @@ void main() {
       var running = 0;
       var overlapped = false;
       service = build(
-        deleteDownload: (item) async {
+        deleteDownload: (item, {required serverId}) async {
           running++;
           if (running > 1) overlapped = true;
           await gate.future;
@@ -317,6 +352,37 @@ void main() {
       expect(deleted, ['e1']);
     });
 
+    test("writes only its own server's row of a shared id", () async {
+      await enable();
+      await download('42', played: false);
+      await repo.updatePlaybackPosition('42', 0);
+      await db
+          .into(db.downloadedItems)
+          .insert(
+            DownloadedItemsCompanion.insert(
+              itemId: '42',
+              serverId: 'server-b',
+              type: 'Movie',
+              name: '42',
+              metadataJson: '{"Id":"42","UserData":{"Played":false}}',
+              downloadStatus: 2,
+              playbackPositionTicks: const Value(42),
+              progressSynced: const Value(false),
+            ),
+          );
+      serverSays('42', played: true);
+
+      service.onItemStopped('42');
+      await pumpEventQueue();
+
+      final other = await (db.select(
+        db.downloadedItems,
+      )..where((t) => t.serverId.equals('server-b'))).getSingle();
+      expect(other.progressSynced, isFalse);
+      expect(other.playbackPositionTicks, 42);
+      expect(other.metadataJson, contains('"Played":false'));
+    });
+
     test('leaves it when the server says it is not finished', () async {
       await enable();
       await download('m1', played: false);
@@ -338,6 +404,7 @@ void main() {
 }
 
 typedef _ServiceBuilder = RemoveWatchedService Function({
-  Future<bool> Function(AggregatedItem item)? deleteDownload,
+  DeleteServerDownload? deleteDownload,
   bool syncing,
+  String serverId,
 });

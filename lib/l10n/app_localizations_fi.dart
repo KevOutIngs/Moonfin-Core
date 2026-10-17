@@ -14706,7 +14706,7 @@ class AppLocalizationsFi extends AppLocalizations {
 
   @override
   String get removeWatchedDownloadsSubtitle =>
-      'When to remove episodes and movies you downloaded yourself, after you watch them';
+      'When to remove episodes and movies you downloaded yourself. Only those you watch after turning this on are removed';
 
   @override
   String get keepDownloaded => 'Keep Downloaded';

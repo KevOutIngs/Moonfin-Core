@@ -3133,6 +3133,20 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     return deleted;
   }
 
+  /// [deleteDownloadedFiles] for a download of [serverId], refused when this
+  /// service talks to another server: a pass planned before a server switch
+  /// must not act on the new server's rows.
+  Future<bool> deleteServerDownload(
+    AggregatedItem item, {
+    required String serverId,
+  }) async {
+    final ownServerId = GetIt.instance<MediaServerClientFactory>().serverIdOf(
+      _client,
+    );
+    if (ownServerId != serverId) return false;
+    return deleteDownloadedFiles(item);
+  }
+
   Future<bool> _deleteDownloadedFiles(AggregatedItem item) async {
     // Drop any finished (complete or errored) active entry so a fresh
     // downloadItem call isn't blocked by stale in-memory state.
@@ -3245,13 +3259,12 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
   /// Deletes the file the row says it downloaded, with its subtitles and the
   /// folders it leaves empty. The other paths are built from the item's
   /// current metadata, which a refresh may have renamed since (a "TBA"
-  /// episode title, a corrected year).
+  /// episode title, a corrected year). A failure fails the delete, so the
+  /// row stays and a later delete can retry the file.
   Future<void> _deleteStoredFile(DownloadedItem? row) async {
     final path = row?.localFilePath;
     if (path == null || path.isEmpty) return;
-    try {
-      await _deleteFileArtifacts(path);
-    } catch (_) {}
+    await _deleteFileArtifacts(path);
   }
 
   /// Whether another download's file sits under [dir], which a movie's

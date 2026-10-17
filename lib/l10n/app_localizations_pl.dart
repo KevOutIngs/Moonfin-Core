@@ -14968,8 +14968,8 @@ class AppLocalizationsPl extends AppLocalizations {
   String get smartDownloadsEnable => 'Pobieraj kolejne odcinki';
 
   @override
-  String get smartDownloadsEnableSubtitle =>
-      'Po obejrzeniu odcinka na dowolnym urządzeniu Moonfin pobierze kolejne. Obejrzane pobrane odcinki zostaną usunięte.';
+  String get smartDownloadsEnableDescription =>
+      'When you finish an episode on any device, Moonfin downloads the next ones. Episodes it downloads are deleted once watched.';
 
   @override
   String get smartDownloadsKeepReady => 'Liczba pobranych odcinków';
@@ -15011,8 +15011,22 @@ class AppLocalizationsPl extends AppLocalizations {
   String get autoDownloadDelete => 'Usuwaj pobrane odcinki';
 
   @override
-  String get autoDownloadDeleteSubtitle =>
-      'Określ, kiedy usuwać automatycznie pobrane odcinki po ich obejrzeniu';
+  String get autoDownloadDeleteFollowedSubtitle =>
+      'When to remove episodes downloaded for series you follow, after you watch them';
+
+  @override
+  String get removeWatchedDownloads => 'Remove Watched Downloads';
+
+  @override
+  String get removeWatchedDownloadsSubtitle =>
+      'When to remove episodes and movies you downloaded yourself, after you watch them';
+
+  @override
+  String get keepDownloaded => 'Keep Downloaded';
+
+  @override
+  String get keepDownloadedSubtitle =>
+      'Never remove this automatically after watching';
 
   @override
   String get autoDownloadDeleteNever => 'Nigdy';

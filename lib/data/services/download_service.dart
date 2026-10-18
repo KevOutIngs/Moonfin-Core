@@ -951,17 +951,15 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
   }
 
   Future<Set<String>> _relatedImageIds(AggregatedItem item) async {
-    final allItems = await _offlineRepo.getItems();
-
     switch (item.type) {
       case 'Season':
-        return allItems
+        return (await _offlineRepo.getItems())
             .where((row) => row.itemId == item.id || row.seasonId == item.id)
             .map((row) => row.itemId)
             .toSet();
 
       case 'Series':
-        return allItems
+        return (await _offlineRepo.getItems())
             .where((row) => row.itemId == item.id || row.seriesId == item.id)
             .map((row) => row.itemId)
             .toSet();
@@ -3121,17 +3119,19 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     final removedIds = await _relatedImageIds(item);
     final deleted = await _deleteDownloadedFiles(item);
     if (deleted) {
-      final serverId = GetIt.instance<MediaServerClientFactory>().serverIdOf(
-        _client,
-      );
       for (final id in removedIds) {
-        await _prefs.forgetDownloadKept(serverId, id);
+        await _prefs.forgetDownloadKept(_serverId, id);
       }
-      // Open detail screens drop their Downloaded state.
-      notifyListeners();
     }
     return deleted;
   }
+
+  /// Falls back to the base url without a factory, like serverIdOf does for
+  /// a client it doesn't know.
+  String get _serverId =>
+      GetIt.instance.isRegistered<MediaServerClientFactory>()
+      ? GetIt.instance<MediaServerClientFactory>().serverIdOf(_client)
+      : _client.baseUrl;
 
   /// [deleteDownloadedFiles] for a download of [serverId], refused when this
   /// service talks to another server: a pass planned before a server switch
@@ -3140,10 +3140,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     AggregatedItem item, {
     required String serverId,
   }) async {
-    final ownServerId = GetIt.instance<MediaServerClientFactory>().serverIdOf(
-      _client,
-    );
-    if (ownServerId != serverId) return false;
+    if (_serverId != serverId) return false;
     return deleteDownloadedFiles(item);
   }
 
@@ -3175,7 +3172,8 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
             final doubledYearDir = Directory(
               '${targetDir.path} (${item.productionYear})',
             );
-            if (await doubledYearDir.exists()) {
+            if (await doubledYearDir.exists() &&
+                !await _holdsOtherDownloads(doubledYearDir, item.id)) {
               await doubledYearDir.delete(recursive: true);
             }
           }
@@ -3245,9 +3243,7 @@ class DownloadService extends ChangeNotifier implements AutoDownloadDownloader {
     for (final row in await _offlineRepo.getItemsWithId(itemId)) {
       if (isStoredServer(
         row.serverId,
-        serverId: GetIt.instance<MediaServerClientFactory>().serverIdOf(
-          _client,
-        ),
+        serverId: _serverId,
         baseUrl: _client.baseUrl,
       )) {
         return row;

@@ -406,6 +406,44 @@ void main() {
         reason: 'a movie named without its year owns no doubled folder',
       );
     });
+
+    test('delete keeps a doubled year folder another download is in', () async {
+      final doubled = Directory(
+        '${tempDir.path}/Movies/Test Movie (2024) (2024)',
+      );
+      await doubled.create(recursive: true);
+      final otherFile = File('${doubled.path}/Test Movie (2024).mkv');
+      await otherFile.writeAsString('x');
+      // The fake repository lists no rows, and the folder check needs them.
+      GetIt.instance.unregister<OfflineRepository>();
+      GetIt.instance.registerSingleton<OfflineRepository>(
+        OfflineRepository(db),
+      );
+      // The same title from a second server, saved there by an older build.
+      await db
+          .into(db.downloadedItems)
+          .insert(
+            DownloadedItemsCompanion.insert(
+              itemId: 'other-server-copy',
+              serverId: 'http://127.0.0.2:1',
+              type: 'Movie',
+              name: 'Test Movie (2024)',
+              metadataJson: '{}',
+              downloadStatus: 2,
+              localFilePath: Value(otherFile.path),
+            ),
+          );
+
+      await service.deleteDownloadedFiles(
+        AggregatedItem(
+          id: 'unmatched',
+          serverId: 'http://127.0.0.1:1',
+          rawData: movieData('unmatched', 'Test Movie (2024)', 2024),
+        ),
+      );
+
+      expect(otherFile.existsSync(), isTrue);
+    });
   });
 
   test('limits queued downloads to the configured concurrency', () async {

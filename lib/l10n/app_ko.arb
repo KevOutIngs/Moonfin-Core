@@ -13975,10 +13975,6 @@
     "@smartDownloadsEnable": {
         "description": "Switch that swaps a watched downloaded episode for the next episodes of the series"
     },
-    "smartDownloadsEnableSubtitle": "어느 기기에서든 에피소드를 다 보면 Moonfin이 다음 에피소드를 다운로드합니다. 다운로드한 에피소드는 시청 후 삭제됩니다.",
-    "@smartDownloadsEnableSubtitle": {
-        "description": "Explains the smart downloads switch, including that watched episodes are deleted"
-    },
     "smartDownloadsKeepReady": "다운로드해 둘 에피소드 수",
     "@smartDownloadsKeepReady": {
         "description": "Setting for how many unwatched episodes of a series stay downloaded after one is watched"
@@ -14019,10 +14015,6 @@
     "autoDownloadDelete": "다운로드한 에피소드 삭제",
     "@autoDownloadDelete": {
         "description": "Setting that picks how soon an auto-downloaded episode is removed after it was watched"
-    },
-    "autoDownloadDeleteSubtitle": "자동으로 다운로드한 에피소드를 시청 후 언제 삭제할지 정합니다",
-    "@autoDownloadDeleteSubtitle": {
-        "description": "Explains the delete-after-watching setting"
     },
     "autoDownloadDeleteNever": "안 함",
     "@autoDownloadDeleteNever": {
